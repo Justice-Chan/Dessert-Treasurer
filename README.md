@@ -41,6 +41,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run test:ui
 npm run build:mac
+npm run build:dmg
 ```
 
 macOS App 輸出於：
@@ -48,6 +49,8 @@ macOS App 輸出於：
 ```text
 src-tauri/target/release/bundle/macos/Dessert Treasurer.app
 ```
+
+DMG 輸出於 `src-tauri/target/release/bundle/dmg/`。未公證的 DMG 僅限內部測試。
 
 UI 測試需要可監聽本機連接埠；若企業安全軟體封鎖 localhost，請允許 Node.js 監聽 `127.0.0.1:4173`。
 

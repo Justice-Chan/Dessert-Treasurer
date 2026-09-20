@@ -9,6 +9,7 @@
     "dev": "npm run tauri dev",
     "build": "npm run tauri build",
     "build:mac": "npm run tauri build -- --bundles app && node scripts/sign-macos.mjs",
+    "build:dmg": "npm run tauri build -- --bundles dmg",
     "test:ui": "playwright test"
   },
   "devDependencies": {
