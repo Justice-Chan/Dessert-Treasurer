@@ -2198,10 +2198,6 @@
     }
 
     const today = () => dateKey();
-    const localDateTimeKey = (date = new Date()) => {
-      const pad = (value) => String(value).padStart(2, "0");
-      return `${dateKey(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-    };
     const uid = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
     const accountDigits = (value) => String(value || "").replace(/\D/g, "").slice(0, 14);
@@ -2308,7 +2304,7 @@
             personId: item.personId,
             status: item.status,
             paid: item.status === "attending" && Boolean(item.paid),
-            paidAt: item.status === "attending" && Boolean(item.paid) && isValidDateTimeValue(item.paidAt) ? item.paidAt : ""
+            paidAt: item.status === "attending" && Boolean(item.paid) ? normalizePaymentTime(item.paidAt) : ""
           })) : [];
         return {
           id: String(activity.id || uid()),
@@ -2399,10 +2395,14 @@
       return year >= 1 && date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
     }
 
-    function isValidDateTimeValue(value) {
-      if (!/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d$/.test(value || "")) return false;
-      const [date, time] = value.split("T");
-      return isValidDateValue(date) && new Date(`${date}T${time}:00`).getMinutes() === Number(time.slice(3));
+    function normalizePaymentTime(value) {
+      const legacyMatch = String(value || "").match(/^\d{4}-(\d{2})-(\d{2})T(\d{2}:\d{2})$/);
+      const paymentTime = legacyMatch ? `${legacyMatch[1]}-${legacyMatch[2]} ${legacyMatch[3]}` : String(value || "");
+      if (!/^(0[1-9]|1[0-2])-([0-2]\d|3[01]) ([01]\d|2[0-3]):[0-5]\d$/.test(paymentTime)) return "";
+      const [monthDay, time] = paymentTime.split(" ");
+      const [month, day] = monthDay.split("-").map(Number);
+      const check = new Date(2024, month - 1, day);
+      return check.getMonth() === month - 1 && check.getDate() === day && time ? paymentTime : "";
     }
 
     function setDateValue(id, value) {
@@ -3445,7 +3445,7 @@
           <td>${escapeHtml(person.department)}</td>
           <td>${escapeHtml(person.grade)}</td>
           <td><div class="status-control" role="group" aria-label="${escapeHtml(person.name)}參加狀態"><button type="button" data-set-attendance="attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status === "attending"}">參加</button><button type="button" data-set-attendance="not_attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status !== "attending"}">未參加</button></div></td>
-          <td>${record?.status === "attending" && record.paid ? `<input type="datetime-local" step="60" value="${escapeHtml(record.paidAt || "")}" data-payment-time data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}繳款時間">` : `<span class="subtle">-</span>`}</td>
+          <td>${record?.status === "attending" && record.paid ? `<input type="text" inputmode="numeric" maxlength="11" placeholder="MM-DD HH:mm" value="${escapeHtml(record.paidAt || "")}" data-payment-time data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}繳款時間">` : `<span class="subtle">-</span>`}</td>
           <td>${record?.status === "attending" ? `<div class="status-control payment" role="group" aria-label="${escapeHtml(person.name)}繳費狀態"><button type="button" data-set-payment="unpaid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${!record.paid}">未繳</button><button type="button" data-set-payment="paid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record.paid}">已繳</button></div>` : `<span class="subtle">-</span>`}</td>
         </tr>
       `).join("") : `<tr><td colspan="7"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`;
@@ -3615,7 +3615,7 @@
       if (record) {
         record.status = status;
         record.paid = status === "attending" ? Boolean(record.paid) : false;
-        record.paidAt = status === "attending" && record.paid && isValidDateTimeValue(record.paidAt) ? record.paidAt : "";
+        record.paidAt = status === "attending" && record.paid ? normalizePaymentTime(record.paidAt) : "";
       } else {
         activity.attendance.push({ personId, status, paid: false, paidAt: "" });
       }
@@ -3628,7 +3628,7 @@
       const record = activityRecord(activity, personId);
       if (!record || record.status !== "attending") return;
       record.paid = paid;
-      record.paidAt = paid ? (isValidDateTimeValue(record.paidAt) ? record.paidAt : localDateTimeKey()) : "";
+      record.paidAt = paid ? normalizePaymentTime(record.paidAt) : "";
       if (!saveState()) return;
       toast(paid ? "已標記為已繳。" : "已標記為未繳。");
     }
@@ -3636,8 +3636,10 @@
     function setActivityPaymentTime(activityId, personId, paidAt) {
       const activity = state.activities.find((item) => item.id === activityId);
       const record = activityRecord(activity, personId);
-      if (!record || record.status !== "attending" || !record.paid || !isValidDateTimeValue(paidAt)) return;
-      record.paidAt = paidAt;
+      const normalized = normalizePaymentTime(paidAt);
+      if (!record || record.status !== "attending" || !record.paid) return;
+      if (paidAt && !normalized) return toast("繳款時間請輸入 MM-DD HH:mm，例如 09-20 14:35。");
+      record.paidAt = normalized;
       if (!saveState()) return;
       renderPeople();
       toast("繳款時間已更新。");
@@ -4537,7 +4539,7 @@
         if (activity.rosterOrder !== undefined && (!Array.isArray(activity.rosterOrder) || activity.rosterOrder.length > 10000)) throw new Error("invalid activity roster order");
         const attendanceIds = new Set();
         (activity.attendance || []).forEach((item) => {
-          if (!item || !safeId(item.personId) || !importedPersonIds.has(item.personId) || attendanceIds.has(item.personId) || !["attending", "not_attending"].includes(item.status) || typeof item.paid !== "boolean" || !safeText(item.paidAt || "", 32) || (item.paidAt && !isValidDateTimeValue(item.paidAt))) throw new Error("invalid activity attendance");
+          if (!item || !safeId(item.personId) || !importedPersonIds.has(item.personId) || attendanceIds.has(item.personId) || !["attending", "not_attending"].includes(item.status) || typeof item.paid !== "boolean" || !safeText(item.paidAt || "", 32) || (item.paidAt && !normalizePaymentTime(item.paidAt))) throw new Error("invalid activity attendance");
           attendanceIds.add(item.personId);
         });
         const rosterIds = new Set();
