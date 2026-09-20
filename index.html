@@ -1222,19 +1222,22 @@
     .activity-table col:nth-child(6) { width: 14%; }
     .activity-table col:nth-child(7) { width: 12%; }
 
-    .activity-people-table { min-width: 580px; }
-    .activity-people-table col:nth-child(1) { width: 14%; }
-    .activity-people-table col:nth-child(2) { width: 15%; }
-    .activity-people-table col:nth-child(3) { width: 17%; }
-    .activity-people-table col:nth-child(4) { width: 9%; }
-    .activity-people-table col:nth-child(5) { width: 25%; }
-    .activity-people-table col:nth-child(6) { width: 20%; }
+    .activity-people-table { min-width: 720px; }
+    .activity-people-table col:nth-child(1) { width: 13%; }
+    .activity-people-table col:nth-child(2) { width: 13%; }
+    .activity-people-table col:nth-child(3) { width: 14%; }
+    .activity-people-table col:nth-child(4) { width: 8%; }
+    .activity-people-table col:nth-child(5) { width: 20%; }
+    .activity-people-table col:nth-child(6) { width: 17%; }
+    .activity-people-table col:nth-child(7) { width: 15%; }
     .activity-people-table th:nth-child(5),
     .activity-people-table th:nth-child(6),
     .activity-people-table td:nth-child(5),
-    .activity-people-table td:nth-child(6) { text-align: right; }
+    .activity-people-table td:nth-child(6),
+    .activity-people-table th:nth-child(7),
+    .activity-people-table td:nth-child(7) { text-align: right; }
     .activity-people-table .status-control { justify-content: flex-end; }
-    .activity-people-table .activity-roster-row { cursor: grab; }
+    .activity-people-table .activity-roster-row { cursor: grab; touch-action: none; user-select: none; }
     .activity-people-table .activity-roster-row:active { cursor: grabbing; }
     .activity-people-table .activity-roster-row.is-dragging { opacity: 0.45; }
     .activity-people-table .activity-roster-row.is-drop-target td { box-shadow: inset 0 3px 0 var(--accent); }
@@ -1980,8 +1983,8 @@
               </div>
               <div class="table-wrap">
                 <table class="activity-people-table">
-                  <colgroup><col><col><col><col><col><col></colgroup>
-                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>學級</th><th>參加狀態</th><th>繳費狀態</th></tr></thead>
+                  <colgroup><col><col><col><col><col><col><col></colgroup>
+                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>學級</th><th>參加狀態</th><th>繳款時間</th><th>繳費狀態</th></tr></thead>
                   <tbody id="activityPersonRows"></tbody>
                 </table>
               </div>
@@ -2195,6 +2198,10 @@
     }
 
     const today = () => dateKey();
+    const localDateTimeKey = (date = new Date()) => {
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${dateKey(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    };
     const uid = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
     const accountDigits = (value) => String(value || "").replace(/\D/g, "").slice(0, 14);
@@ -2297,7 +2304,12 @@
         const seen = new Set();
         const attendance = Array.isArray(activity.attendance) ? activity.attendance
           .filter((item) => item && personIds.has(item.personId) && !seen.has(item.personId) && ["attending", "not_attending"].includes(item.status) && seen.add(item.personId))
-          .map((item) => ({ personId: item.personId, status: item.status, paid: item.status === "attending" && Boolean(item.paid) })) : [];
+          .map((item) => ({
+            personId: item.personId,
+            status: item.status,
+            paid: item.status === "attending" && Boolean(item.paid),
+            paidAt: item.status === "attending" && Boolean(item.paid) && isValidDateTimeValue(item.paidAt) ? item.paidAt : ""
+          })) : [];
         return {
           id: String(activity.id || uid()),
           name: String(activity.name || "").trim().slice(0, 160),
@@ -2385,6 +2397,12 @@
       const day = Number(match[3]);
       const date = new Date(year, month - 1, day);
       return year >= 1 && date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+    }
+
+    function isValidDateTimeValue(value) {
+      if (!/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d$/.test(value || "")) return false;
+      const [date, time] = value.split("T");
+      return isValidDateValue(date) && new Date(`${date}T${time}:00`).getMinutes() === Number(time.slice(3));
     }
 
     function setDateValue(id, value) {
@@ -3412,17 +3430,25 @@
           if (rosterFilter === "attending") return record?.status === "attending";
           return record?.status !== "attending";
         })
-        .sort((a, b) => rosterOrder.get(a.person.id) - rosterOrder.get(b.person.id));
+        .sort((a, b) => {
+          const aPaidAt = a.record?.status === "attending" && a.record.paid ? a.record.paidAt : "";
+          const bPaidAt = b.record?.status === "attending" && b.record.paid ? b.record.paidAt : "";
+          if (aPaidAt && bPaidAt) return aPaidAt.localeCompare(bPaidAt) || rosterOrder.get(a.person.id) - rosterOrder.get(b.person.id);
+          if (aPaidAt) return -1;
+          if (bPaidAt) return 1;
+          return rosterOrder.get(a.person.id) - rosterOrder.get(b.person.id);
+        });
       $("#activityPersonRows").innerHTML = roster.length ? roster.map(({ person, record }) => `
-        <tr class="activity-roster-row" draggable="true" data-roster-activity-id="${activity.id}" data-roster-person-id="${person.id}" tabindex="0" aria-label="拖曳排序 ${escapeHtml(person.name)}">
+        <tr class="activity-roster-row" data-roster-activity-id="${activity.id}" data-roster-person-id="${person.id}" tabindex="0" aria-label="拖曳排序 ${escapeHtml(person.name)}">
           <td><span class="drag-handle" title="拖曳排序" aria-hidden="true">::</span>${escapeHtml(person.name)}</td>
           <td>${escapeHtml(person.studentId)}</td>
           <td>${escapeHtml(person.department)}</td>
           <td>${escapeHtml(person.grade)}</td>
           <td><div class="status-control" role="group" aria-label="${escapeHtml(person.name)}參加狀態"><button type="button" data-set-attendance="attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status === "attending"}">參加</button><button type="button" data-set-attendance="not_attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status !== "attending"}">未參加</button></div></td>
+          <td>${record?.status === "attending" && record.paid ? `<input type="datetime-local" step="60" value="${escapeHtml(record.paidAt || "")}" data-payment-time data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}繳款時間">` : `<span class="subtle">-</span>`}</td>
           <td>${record?.status === "attending" ? `<div class="status-control payment" role="group" aria-label="${escapeHtml(person.name)}繳費狀態"><button type="button" data-set-payment="unpaid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${!record.paid}">未繳</button><button type="button" data-set-payment="paid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record.paid}">已繳</button></div>` : `<span class="subtle">-</span>`}</td>
         </tr>
-      `).join("") : `<tr><td colspan="6"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`;
+      `).join("") : `<tr><td colspan="7"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`;
     }
 
     function renderCategories() {
@@ -3589,8 +3615,9 @@
       if (record) {
         record.status = status;
         record.paid = status === "attending" ? Boolean(record.paid) : false;
+        record.paidAt = status === "attending" && record.paid && isValidDateTimeValue(record.paidAt) ? record.paidAt : "";
       } else {
-        activity.attendance.push({ personId, status, paid: false });
+        activity.attendance.push({ personId, status, paid: false, paidAt: "" });
       }
       if (!saveState()) return;
       toast(status === "attending" ? "已登記參加，預設為未繳。" : "已登記未參加。");
@@ -3601,8 +3628,19 @@
       const record = activityRecord(activity, personId);
       if (!record || record.status !== "attending") return;
       record.paid = paid;
+      record.paidAt = paid ? (isValidDateTimeValue(record.paidAt) ? record.paidAt : localDateTimeKey()) : "";
       if (!saveState()) return;
       toast(paid ? "已標記為已繳。" : "已標記為未繳。");
+    }
+
+    function setActivityPaymentTime(activityId, personId, paidAt) {
+      const activity = state.activities.find((item) => item.id === activityId);
+      const record = activityRecord(activity, personId);
+      if (!record || record.status !== "attending" || !record.paid || !isValidDateTimeValue(paidAt)) return;
+      record.paidAt = paidAt;
+      if (!saveState()) return;
+      renderPeople();
+      toast("繳款時間已更新。");
     }
 
     function exportActivityUnpaid() {
@@ -4499,7 +4537,7 @@
         if (activity.rosterOrder !== undefined && (!Array.isArray(activity.rosterOrder) || activity.rosterOrder.length > 10000)) throw new Error("invalid activity roster order");
         const attendanceIds = new Set();
         (activity.attendance || []).forEach((item) => {
-          if (!item || !safeId(item.personId) || !importedPersonIds.has(item.personId) || attendanceIds.has(item.personId) || !["attending", "not_attending"].includes(item.status) || typeof item.paid !== "boolean") throw new Error("invalid activity attendance");
+          if (!item || !safeId(item.personId) || !importedPersonIds.has(item.personId) || attendanceIds.has(item.personId) || !["attending", "not_attending"].includes(item.status) || typeof item.paid !== "boolean" || !safeText(item.paidAt || "", 32) || (item.paidAt && !isValidDateTimeValue(item.paidAt))) throw new Error("invalid activity attendance");
           attendanceIds.add(item.personId);
         });
         const rosterIds = new Set();
@@ -4962,31 +5000,34 @@
       ["ledgerSearch", "ledgerParent", "ledgerDateFrom", "ledgerDateTo", "claimSearch", "claimStatusFilter", "claimParentFilter", "claimDateFrom", "claimDateTo"].forEach((id) => $("#" + id).addEventListener("input", render));
       ["personSearch", "activitySearch", "activityPersonSearch"].forEach((id) => $("#" + id).addEventListener("input", renderPeople));
       $("#activityPersonFilter").addEventListener("change", renderPeople);
+      $("#activityPersonRows").addEventListener("change", (event) => {
+        const paymentTime = event.target.closest("[data-payment-time]");
+        if (paymentTime) setActivityPaymentTime(paymentTime.dataset.activityId, paymentTime.dataset.personId, paymentTime.value);
+      });
       const clearRosterPointerDrag = () => {
         rosterPointerDrag = null;
         $$("#activityPersonRows .is-dragging, #activityPersonRows .is-drop-target, #activityPersonRows .is-drop-after").forEach((item) => item.classList.remove("is-dragging", "is-drop-target", "is-drop-after"));
       };
       $("#activityPersonRows").addEventListener("pointerdown", (event) => {
-        if (event.button !== 0 || event.target.closest("button")) return;
+        if (event.button !== 0 || event.target.closest("button, input")) return;
         const row = event.target.closest("[data-roster-person-id]");
         if (!row) return;
+        event.preventDefault();
+        row.setPointerCapture?.(event.pointerId);
         rosterPointerDrag = {
           activityId: row.dataset.rosterActivityId,
           personId: row.dataset.rosterPersonId,
           row,
           startX: event.clientX,
           startY: event.clientY,
-          active: false,
+          active: true,
           targetRow: null,
           placeAfter: false
         };
+        row.classList.add("is-dragging");
       });
       document.addEventListener("pointermove", (event) => {
         if (!rosterPointerDrag) return;
-        const distance = Math.hypot(event.clientX - rosterPointerDrag.startX, event.clientY - rosterPointerDrag.startY);
-        if (!rosterPointerDrag.active && distance < 6) return;
-        rosterPointerDrag.active = true;
-        rosterPointerDrag.row.classList.add("is-dragging");
         const targetRow = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-roster-person-id]");
         if (!targetRow || targetRow === rosterPointerDrag.row || targetRow.dataset.rosterActivityId !== rosterPointerDrag.activityId) return;
         const bounds = targetRow.getBoundingClientRect();
@@ -5003,6 +5044,7 @@
         clearRosterPointerDrag();
         if (active && targetRow) reorderActivityRoster(activityId, personId, targetRow.dataset.rosterPersonId, placeAfter);
       });
+      document.addEventListener("pointercancel", clearRosterPointerDrag);
       $("#trashRows").addEventListener("click", (event) => {
         const row = event.target.closest("[data-select-trash-row]");
         if (!row) return;
