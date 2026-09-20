@@ -109,7 +109,12 @@ test("activity roster drag order persists after reload", async ({ page }) => {
   const first = rows.nth(0);
   const second = rows.nth(1);
   const originalFirst = await first.getAttribute("data-roster-person-id");
-  await second.dragTo(first);
+  const firstBox = await first.boundingBox();
+  const secondBox = await second.boundingBox();
+  await page.mouse.move(firstBox.x + 24, firstBox.y + firstBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(secondBox.x + 24, secondBox.y + secondBox.height - 3, { steps: 6 });
+  await page.mouse.up();
   await expect(rows.nth(0)).not.toHaveAttribute("data-roster-person-id", originalFirst);
 
   await page.reload();

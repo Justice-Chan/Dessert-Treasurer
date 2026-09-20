@@ -1238,8 +1238,8 @@
     .activity-people-table .activity-roster-row:active { cursor: grabbing; }
     .activity-people-table .activity-roster-row.is-dragging { opacity: 0.45; }
     .activity-people-table .activity-roster-row.is-drop-target td { box-shadow: inset 0 3px 0 var(--accent); }
+    .activity-people-table .activity-roster-row.is-drop-after td { box-shadow: inset 0 -3px 0 var(--accent); }
     .drag-handle { display: inline-block; margin-right: 7px; color: var(--muted); font-weight: 700; letter-spacing: 1px; user-select: none; }
-    .drag-handle { display: inline-block; margin-right: 7px; color: var(--muted); letter-spacing: 1px; user-select: none; }
 
     .status-summary {
       display: flex;
@@ -2365,7 +2365,7 @@
     let nativeSaveQueue = Promise.resolve();
     let selectedTrashIds = new Set();
     let trashPurgeTimer = null;
-    let draggedRosterPerson = null;
+    let rosterPointerDrag = null;
 
     function formatDateValue(value) {
       const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
@@ -3300,15 +3300,16 @@
       return [...savedOrder, ...fallback.filter((personId) => !savedOrder.includes(personId))];
     }
 
-    function reorderActivityRoster(activityId, personId, targetPersonId) {
+    function reorderActivityRoster(activityId, personId, targetPersonId, placeAfter = false) {
       const activity = state.activities.find((item) => item.id === activityId);
       if (!activity || personId === targetPersonId) return;
       const order = activityRosterOrder(activity);
       const sourceIndex = order.indexOf(personId);
-      const targetIndex = order.indexOf(targetPersonId);
-      if (sourceIndex < 0 || targetIndex < 0) return;
+      if (sourceIndex < 0) return;
       order.splice(sourceIndex, 1);
-      order.splice(targetIndex, 0, personId);
+      const targetIndex = order.indexOf(targetPersonId);
+      if (targetIndex < 0) return;
+      order.splice(targetIndex + Number(placeAfter), 0, personId);
       activity.rosterOrder = order;
       if (!saveState()) return;
       renderPeople();
@@ -4961,37 +4962,46 @@
       ["ledgerSearch", "ledgerParent", "ledgerDateFrom", "ledgerDateTo", "claimSearch", "claimStatusFilter", "claimParentFilter", "claimDateFrom", "claimDateTo"].forEach((id) => $("#" + id).addEventListener("input", render));
       ["personSearch", "activitySearch", "activityPersonSearch"].forEach((id) => $("#" + id).addEventListener("input", renderPeople));
       $("#activityPersonFilter").addEventListener("change", renderPeople);
-      $("#activityPersonRows").addEventListener("dragstart", (event) => {
-        if (event.target.closest("button")) { event.preventDefault(); return; }
+      const clearRosterPointerDrag = () => {
+        rosterPointerDrag = null;
+        $$("#activityPersonRows .is-dragging, #activityPersonRows .is-drop-target, #activityPersonRows .is-drop-after").forEach((item) => item.classList.remove("is-dragging", "is-drop-target", "is-drop-after"));
+      };
+      $("#activityPersonRows").addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest("button")) return;
         const row = event.target.closest("[data-roster-person-id]");
         if (!row) return;
-        draggedRosterPerson = { activityId: row.dataset.rosterActivityId, personId: row.dataset.rosterPersonId };
-        row.classList.add("is-dragging");
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", row.dataset.rosterPersonId);
+        rosterPointerDrag = {
+          activityId: row.dataset.rosterActivityId,
+          personId: row.dataset.rosterPersonId,
+          row,
+          startX: event.clientX,
+          startY: event.clientY,
+          active: false,
+          targetRow: null,
+          placeAfter: false
+        };
       });
-      $("#activityPersonRows").addEventListener("dragover", (event) => {
-        const row = event.target.closest("[data-roster-person-id]");
-        if (!row || !draggedRosterPerson || row.dataset.rosterActivityId !== draggedRosterPerson.activityId || row.dataset.rosterPersonId === draggedRosterPerson.personId) return;
+      document.addEventListener("pointermove", (event) => {
+        if (!rosterPointerDrag) return;
+        const distance = Math.hypot(event.clientX - rosterPointerDrag.startX, event.clientY - rosterPointerDrag.startY);
+        if (!rosterPointerDrag.active && distance < 6) return;
+        rosterPointerDrag.active = true;
+        rosterPointerDrag.row.classList.add("is-dragging");
+        const targetRow = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-roster-person-id]");
+        if (!targetRow || targetRow === rosterPointerDrag.row || targetRow.dataset.rosterActivityId !== rosterPointerDrag.activityId) return;
+        const bounds = targetRow.getBoundingClientRect();
+        const placeAfter = event.clientY > bounds.top + bounds.height / 2;
+        $$("#activityPersonRows .is-drop-target, #activityPersonRows .is-drop-after").forEach((item) => item.classList.remove("is-drop-target", "is-drop-after"));
+        targetRow.classList.add(placeAfter ? "is-drop-after" : "is-drop-target");
+        rosterPointerDrag.targetRow = targetRow;
+        rosterPointerDrag.placeAfter = placeAfter;
         event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        $$("#activityPersonRows .is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
-        row.classList.add("is-drop-target");
       });
-      $("#activityPersonRows").addEventListener("dragleave", (event) => {
-        event.target.closest("[data-roster-person-id]")?.classList.remove("is-drop-target");
-      });
-      $("#activityPersonRows").addEventListener("dragend", () => {
-        draggedRosterPerson = null;
-        $$("#activityPersonRows .is-dragging, #activityPersonRows .is-drop-target").forEach((item) => item.classList.remove("is-dragging", "is-drop-target"));
-      });
-      $("#activityPersonRows").addEventListener("drop", (event) => {
-        const row = event.target.closest("[data-roster-person-id]");
-        if (!row || !draggedRosterPerson || row.dataset.rosterActivityId !== draggedRosterPerson.activityId) return;
-        event.preventDefault();
-        const { activityId, personId } = draggedRosterPerson;
-        draggedRosterPerson = null;
-        reorderActivityRoster(activityId, personId, row.dataset.rosterPersonId);
+      document.addEventListener("pointerup", () => {
+        if (!rosterPointerDrag) return;
+        const { active, activityId, personId, targetRow, placeAfter } = rosterPointerDrag;
+        clearRosterPointerDrag();
+        if (active && targetRow) reorderActivityRoster(activityId, personId, targetRow.dataset.rosterPersonId, placeAfter);
       });
       $("#trashRows").addEventListener("click", (event) => {
         const row = event.target.closest("[data-select-trash-row]");
