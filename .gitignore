@@ -1,0 +1,11 @@
+node_modules/
+dist/
+src-tauri/target/
+.npm-cache/
+archive/cleanup-pending/
+test-results/
+playwright-report/
+.env
+.env.*
+.DS_Store
+*.log

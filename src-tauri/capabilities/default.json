@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "甜點社總務主視窗權限",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
+
