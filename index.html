@@ -2385,6 +2385,15 @@
       return result;
     }
 
+    function formatPaymentTimeValue(value) {
+      const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+      if (digits.length <= 2) return digits;
+      let result = `${digits.slice(0, 2)}-${digits.slice(2, 4)}`;
+      if (digits.length > 4) result += ` ${digits.slice(4, 6)}`;
+      if (digits.length > 6) result += `:${digits.slice(6, 8)}`;
+      return result;
+    }
+
     function isValidDateValue(value) {
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
       if (!match) return false;
@@ -5002,6 +5011,10 @@
       ["ledgerSearch", "ledgerParent", "ledgerDateFrom", "ledgerDateTo", "claimSearch", "claimStatusFilter", "claimParentFilter", "claimDateFrom", "claimDateTo"].forEach((id) => $("#" + id).addEventListener("input", render));
       ["personSearch", "activitySearch", "activityPersonSearch"].forEach((id) => $("#" + id).addEventListener("input", renderPeople));
       $("#activityPersonFilter").addEventListener("change", renderPeople);
+      $("#activityPersonRows").addEventListener("input", (event) => {
+        const paymentTime = event.target.closest("[data-payment-time]");
+        if (paymentTime) paymentTime.value = formatPaymentTimeValue(paymentTime.value);
+      });
       $("#activityPersonRows").addEventListener("change", (event) => {
         const paymentTime = event.target.closest("[data-payment-time]");
         if (paymentTime) setActivityPaymentTime(paymentTime.dataset.activityId, paymentTime.dataset.personId, paymentTime.value);
