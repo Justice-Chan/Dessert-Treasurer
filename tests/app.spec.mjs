@@ -88,3 +88,33 @@ test("monthly report uses the selected reconciliation month", async ({ page }) =
   await expect.poll(() => page.evaluate(() => window.__monthlyReportText || "")).toContain("2026 年 9 月");
   await expect.poll(() => page.evaluate(() => window.__monthlyReportText || "")).toContain("帳戶月末與對帳");
 });
+
+test("activity roster drag order persists after reload", async ({ page }) => {
+  await openSection(page, "人員");
+  for (const [name, studentId] of [["王小明", "A001"], ["陳小華", "A002"]]) {
+    await page.locator("#personName").fill(name);
+    await page.locator("#personStudentId").fill(studentId);
+    await page.locator("#personDepartment").fill("甜點系");
+    await page.locator("#personGrade").selectOption("大一");
+    await page.locator("#personSubmit").click();
+  }
+
+  await page.locator("#activityName").fill("拖曳排序測試");
+  await page.locator("#activityDate").fill(date);
+  await page.locator("#activityFee").fill("0");
+  await page.locator("#activitySubmit").click();
+
+  const rows = page.locator("#activityPersonRows [data-roster-person-id]");
+  await expect(rows).toHaveCount(2);
+  const first = rows.nth(0);
+  const second = rows.nth(1);
+  const originalFirst = await first.getAttribute("data-roster-person-id");
+  await second.dragTo(first);
+  await expect(rows.nth(0)).not.toHaveAttribute("data-roster-person-id", originalFirst);
+
+  await page.reload();
+  await openSection(page, "人員");
+  await page.locator("[data-select-activity]").filter({ hasText: "拖曳排序測試" }).click();
+  const restoredOrder = await page.locator("#activityPersonRows [data-roster-person-id]").evaluateAll((items) => items.map((item) => item.dataset.rosterPersonId));
+  expect(restoredOrder[0]).not.toBe(originalFirst);
+});

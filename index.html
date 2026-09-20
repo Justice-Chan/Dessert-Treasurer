@@ -1234,6 +1234,12 @@
     .activity-people-table td:nth-child(5),
     .activity-people-table td:nth-child(6) { text-align: right; }
     .activity-people-table .status-control { justify-content: flex-end; }
+    .activity-people-table .activity-roster-row { cursor: grab; }
+    .activity-people-table .activity-roster-row:active { cursor: grabbing; }
+    .activity-people-table .activity-roster-row.is-dragging { opacity: 0.45; }
+    .activity-people-table .activity-roster-row.is-drop-target td { box-shadow: inset 0 3px 0 var(--accent); }
+    .drag-handle { display: inline-block; margin-right: 7px; color: var(--muted); font-weight: 700; letter-spacing: 1px; user-select: none; }
+    .drag-handle { display: inline-block; margin-right: 7px; color: var(--muted); letter-spacing: 1px; user-select: none; }
 
     .status-summary {
       display: flex;
@@ -2298,7 +2304,10 @@
           date: isValidDateValue(activity.date) ? activity.date : today(),
           fee: Math.max(0, Number(activity.fee) || 0),
           note: String(activity.note || "").trim().slice(0, 500),
-          attendance
+          attendance,
+          rosterOrder: Array.isArray(activity.rosterOrder)
+            ? [...new Set(activity.rosterOrder.filter((personId) => personIds.has(personId)))]
+            : []
         };
       }).filter((activity) => activity.name) : [];
 
@@ -2356,6 +2365,7 @@
     let nativeSaveQueue = Promise.resolve();
     let selectedTrashIds = new Set();
     let trashPurgeTimer = null;
+    let draggedRosterPerson = null;
 
     function formatDateValue(value) {
       const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
@@ -3273,6 +3283,38 @@
       return activity?.attendance.find((item) => item.personId === personId);
     }
 
+    function defaultActivityRosterOrder(activity) {
+      return state.people
+        .map((person) => ({ person, record: activityRecord(activity, person.id), stats: personActivityStats(person.id) }))
+        .sort((a, b) => {
+          const rank = ({ record }) => record?.status !== "attending" ? 2 : record.paid ? 1 : 0;
+          return rank(a) - rank(b) || b.stats.unpaid - a.stats.unpaid || a.person.name.localeCompare(b.person.name, "zh-Hant");
+        })
+        .map(({ person }) => person.id);
+    }
+
+    function activityRosterOrder(activity) {
+      const personIds = new Set(state.people.map((person) => person.id));
+      const savedOrder = Array.isArray(activity.rosterOrder) ? activity.rosterOrder.filter((personId) => personIds.has(personId)) : [];
+      const fallback = defaultActivityRosterOrder(activity);
+      return [...savedOrder, ...fallback.filter((personId) => !savedOrder.includes(personId))];
+    }
+
+    function reorderActivityRoster(activityId, personId, targetPersonId) {
+      const activity = state.activities.find((item) => item.id === activityId);
+      if (!activity || personId === targetPersonId) return;
+      const order = activityRosterOrder(activity);
+      const sourceIndex = order.indexOf(personId);
+      const targetIndex = order.indexOf(targetPersonId);
+      if (sourceIndex < 0 || targetIndex < 0) return;
+      order.splice(sourceIndex, 1);
+      order.splice(targetIndex, 0, personId);
+      activity.rosterOrder = order;
+      if (!saveState()) return;
+      renderPeople();
+      toast("活動人員排序已儲存。");
+    }
+
     function personActivityStats(personId) {
       return state.activities.reduce((stats, activity) => {
         const record = activityRecord(activity, personId);
@@ -3359,6 +3401,7 @@
 
       const rosterQuery = $("#activityPersonSearch").value;
       const rosterFilter = $("#activityPersonFilter").value;
+      const rosterOrder = new Map(activityRosterOrder(activity).map((personId, index) => [personId, index]));
       const roster = state.people
         .map((person) => ({ person, record: activityRecord(activity, person.id), globalStats: personActivityStats(person.id) }))
         .filter(({ person }) => matchesSearch([person.name, person.studentId, person.department, person.grade], rosterQuery))
@@ -3368,13 +3411,10 @@
           if (rosterFilter === "attending") return record?.status === "attending";
           return record?.status !== "attending";
         })
-        .sort((a, b) => {
-          const rank = ({ record }) => record?.status !== "attending" ? 2 : record.paid ? 1 : 0;
-          return rank(a) - rank(b) || b.globalStats.unpaid - a.globalStats.unpaid || a.person.name.localeCompare(b.person.name, "zh-Hant");
-        });
+        .sort((a, b) => rosterOrder.get(a.person.id) - rosterOrder.get(b.person.id));
       $("#activityPersonRows").innerHTML = roster.length ? roster.map(({ person, record }) => `
-        <tr>
-          <td>${escapeHtml(person.name)}</td>
+        <tr class="activity-roster-row" draggable="true" data-roster-activity-id="${activity.id}" data-roster-person-id="${person.id}" tabindex="0" aria-label="拖曳排序 ${escapeHtml(person.name)}">
+          <td><span class="drag-handle" title="拖曳排序" aria-hidden="true">::</span>${escapeHtml(person.name)}</td>
           <td>${escapeHtml(person.studentId)}</td>
           <td>${escapeHtml(person.department)}</td>
           <td>${escapeHtml(person.grade)}</td>
@@ -3475,7 +3515,10 @@
       const note = relatedActivities ? `，並移除 ${relatedActivities} 個活動中的參加與繳費紀錄` : "";
       requestAppActionConfirmation({ title: "刪除人員", message: `確定刪除「${person.name}」${note}？此動作無法復原。`, confirmLabel: "確認刪除", action: () => {
         state.people = state.people.filter((item) => item.id !== id);
-        state.activities.forEach((activity) => { activity.attendance = activity.attendance.filter((item) => item.personId !== id); });
+        state.activities.forEach((activity) => {
+          activity.attendance = activity.attendance.filter((item) => item.personId !== id);
+          activity.rosterOrder = (activity.rosterOrder || []).filter((personId) => personId !== id);
+        });
         if ($("#personId").value === id) resetPersonForm();
         if (!saveState()) return;
         toast("人員已刪除。");
@@ -3517,7 +3560,7 @@
       const fee = Number($("#activityFee").value);
       if (!name || !isValidDateValue(date) || !Number.isFinite(fee) || fee < 0) return toast("請填寫活動名稱、日期與有效應繳金額。");
       const existing = state.activities.find((item) => item.id === id);
-      const activity = { id, name, date, fee, note: $("#activityNote").value.trim(), attendance: existing?.attendance || [] };
+      const activity = { id, name, date, fee, note: $("#activityNote").value.trim(), attendance: existing?.attendance || [], rosterOrder: existing?.rosterOrder || [] };
       const index = state.activities.findIndex((item) => item.id === id);
       if (index >= 0) state.activities[index] = activity;
       else state.activities.push(activity);
@@ -4452,10 +4495,16 @@
       (data.activities || []).forEach((activity) => {
         if (!activity || !safeId(activity.id) || !safeText(activity.name, 160) || !activity.name.trim() || !isValidDateValue(activity.date) || !validAmount(activity.fee) || !safeText(activity.note, 500)) throw new Error("invalid activity");
         if (!Array.isArray(activity.attendance || []) || activity.attendance.length > 10000) throw new Error("invalid activity attendance");
+        if (activity.rosterOrder !== undefined && (!Array.isArray(activity.rosterOrder) || activity.rosterOrder.length > 10000)) throw new Error("invalid activity roster order");
         const attendanceIds = new Set();
         (activity.attendance || []).forEach((item) => {
           if (!item || !safeId(item.personId) || !importedPersonIds.has(item.personId) || attendanceIds.has(item.personId) || !["attending", "not_attending"].includes(item.status) || typeof item.paid !== "boolean") throw new Error("invalid activity attendance");
           attendanceIds.add(item.personId);
+        });
+        const rosterIds = new Set();
+        (activity.rosterOrder || []).forEach((personId) => {
+          if (!safeId(personId) || !importedPersonIds.has(personId) || rosterIds.has(personId)) throw new Error("invalid activity roster order");
+          rosterIds.add(personId);
         });
       });
       (data.trash || []).forEach((item) => {
@@ -4912,6 +4961,38 @@
       ["ledgerSearch", "ledgerParent", "ledgerDateFrom", "ledgerDateTo", "claimSearch", "claimStatusFilter", "claimParentFilter", "claimDateFrom", "claimDateTo"].forEach((id) => $("#" + id).addEventListener("input", render));
       ["personSearch", "activitySearch", "activityPersonSearch"].forEach((id) => $("#" + id).addEventListener("input", renderPeople));
       $("#activityPersonFilter").addEventListener("change", renderPeople);
+      $("#activityPersonRows").addEventListener("dragstart", (event) => {
+        if (event.target.closest("button")) { event.preventDefault(); return; }
+        const row = event.target.closest("[data-roster-person-id]");
+        if (!row) return;
+        draggedRosterPerson = { activityId: row.dataset.rosterActivityId, personId: row.dataset.rosterPersonId };
+        row.classList.add("is-dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", row.dataset.rosterPersonId);
+      });
+      $("#activityPersonRows").addEventListener("dragover", (event) => {
+        const row = event.target.closest("[data-roster-person-id]");
+        if (!row || !draggedRosterPerson || row.dataset.rosterActivityId !== draggedRosterPerson.activityId || row.dataset.rosterPersonId === draggedRosterPerson.personId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        $$("#activityPersonRows .is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
+        row.classList.add("is-drop-target");
+      });
+      $("#activityPersonRows").addEventListener("dragleave", (event) => {
+        event.target.closest("[data-roster-person-id]")?.classList.remove("is-drop-target");
+      });
+      $("#activityPersonRows").addEventListener("dragend", () => {
+        draggedRosterPerson = null;
+        $$("#activityPersonRows .is-dragging, #activityPersonRows .is-drop-target").forEach((item) => item.classList.remove("is-dragging", "is-drop-target"));
+      });
+      $("#activityPersonRows").addEventListener("drop", (event) => {
+        const row = event.target.closest("[data-roster-person-id]");
+        if (!row || !draggedRosterPerson || row.dataset.rosterActivityId !== draggedRosterPerson.activityId) return;
+        event.preventDefault();
+        const { activityId, personId } = draggedRosterPerson;
+        draggedRosterPerson = null;
+        reorderActivityRoster(activityId, personId, row.dataset.rosterPersonId);
+      });
       $("#trashRows").addEventListener("click", (event) => {
         const row = event.target.closest("[data-select-trash-row]");
         if (!row) return;
