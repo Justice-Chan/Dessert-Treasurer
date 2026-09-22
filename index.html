@@ -166,6 +166,15 @@
     h3 { font-size: 15px; margin-bottom: 10px; }
     .subtle { color: var(--muted); font-size: 14px; margin-bottom: 0; }
 
+    .cloud-link {
+      color: var(--accent);
+      font-weight: 650;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .cloud-link:hover { color: var(--good); }
+
     .actions {
       display: flex;
       gap: 8px;
@@ -2202,6 +2211,23 @@
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
     const accountDigits = (value) => String(value || "").replace(/\D/g, "").slice(0, 14);
 
+    function cloudLinkUrl(value) {
+      const text = String(value || "").trim();
+      try {
+        const url = new URL(text);
+        return /^https?:$/.test(url.protocol) ? url.href : "";
+      } catch {
+        return "";
+      }
+    }
+
+    function claimReceiptMarkup(receipt) {
+      const url = cloudLinkUrl(receipt);
+      return url
+        ? `<a class="cloud-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">雲端連結</a>`
+        : escapeHtml(receipt || "");
+    }
+
     function defaultAccounts() {
       return [
         { id: "cash", name: "現金", type: "cash", accountNumber: "", qrCodeDataUrl: "", qrCodeName: "", openingDate: today(), openingBalance: 0, active: true },
@@ -3232,7 +3258,7 @@
         <tr class="selectable-row" data-select-claim="${claim.id}" tabindex="0" aria-label="選取 ${escapeHtml(claim.person)}的報銷申請" aria-selected="${$("#claimId").value === claim.id}">
           <td data-label="日期">${escapeHtml(claim.date)}</td>
           <td data-label="申請人">${escapeHtml(claim.person)}</td>
-          <td data-label="用途">${escapeHtml(claim.title)}<br><span class="subtle">${escapeHtml(claim.receipt || "")}${claim.attachments?.length ? ` · ${claim.attachments.length} 個附件` : ""}</span></td>
+          <td data-label="用途">${escapeHtml(claim.title)}<br><span class="subtle">${claimReceiptMarkup(claim.receipt)}${claim.attachments?.length ? ` · ${claim.attachments.length} 個附件` : ""}</span></td>
           <td data-label="分類">${escapeHtml(claim.parent)} / ${escapeHtml(claim.child)}</td>
           <td class="num" data-label="金額">${fmt.format(Number(claim.amount))}</td>
           <td class="claim-status-cell" data-label="狀態"><div class="claim-status-line"><span class="pill ${claim.status}">${statusText[claim.status]}</span>${claimActionButtons(claim)}</div>${claim.status === "paid" ? `<span class="subtle claim-payment-meta">${escapeHtml(claim.paymentDate || "")} · ${escapeHtml(accountName(claim.paymentAccountId))}</span>` : ""}</td>
@@ -5192,7 +5218,7 @@
           selectPayee(state.payees.find((item) => item.id === selectPayeeRow.dataset.selectPayee));
         }
 
-        if (selectClaimRow && !event.target.closest("button")) {
+        if (selectClaimRow && !event.target.closest("button, a")) {
           selectClaim(state.claims.find((item) => item.id === selectClaimRow.dataset.selectClaim));
         }
 
