@@ -1,6 +1,7 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    process::Command,
     sync::Mutex,
 };
 
@@ -381,6 +382,13 @@ fn error_text(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
+fn is_external_http_url(value: &str) -> bool {
+    let remainder = value
+        .strip_prefix("https://")
+        .or_else(|| value.strip_prefix("http://"));
+    remainder.is_some_and(|rest| !rest.is_empty() && !value.chars().any(char::is_whitespace))
+}
+
 #[tauri::command]
 fn load_state(storage: State<'_, AppStorage>) -> Result<Value, String> {
     storage.load_state()
@@ -444,6 +452,19 @@ fn print_monthly_report(window: WebviewWindow) -> Result<(), String> {
     window.print().map_err(error_text)
 }
 
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    if !is_external_http_url(&url) {
+        return Err("只支援 http 或 https 雲端連結".into());
+    }
+    let status = Command::new("open").arg(&url).status().map_err(error_text)?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("無法使用預設瀏覽器開啟連結".into())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -462,7 +483,8 @@ pub fn run() {
             delete_receipts,
             clear_receipts,
             import_receipts,
-            print_monthly_report
+            print_monthly_report,
+            open_external_url
         ])
         .run(tauri::generate_context!())
         .expect("無法啟動甜點社總務");
@@ -562,5 +584,14 @@ mod tests {
         assert!(!root.join("attachments/receipt-valid.png").exists());
         drop(store);
         fs::remove_dir_all(root).expect("remove test store");
+    }
+
+    #[test]
+    fn external_link_opener_only_allows_safe_web_urls() {
+        assert!(is_external_http_url("https://drive.google.com/file/d/example"));
+        assert!(is_external_http_url("http://localhost:4173"));
+        assert!(!is_external_http_url("file:///etc/passwd"));
+        assert!(!is_external_http_url("https://example.com/has a space"));
+        assert!(!is_external_http_url("open -a Calculator"));
     }
 }

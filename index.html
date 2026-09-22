@@ -2148,7 +2148,8 @@
       deleteReceipts: "delete_receipts",
       clearReceipts: "clear_receipts",
       importReceipts: "import_receipts",
-      printMonthlyReport: "print_monthly_report"
+      printMonthlyReport: "print_monthly_report",
+      openExternalUrl: "open_external_url"
     };
     const nativeStorageCall = (action, payload = {}) => {
       if (!nativeStorageEnabled) return Promise.reject(new Error("native storage unavailable"));
@@ -2224,8 +2225,18 @@
     function claimReceiptMarkup(receipt) {
       const url = cloudLinkUrl(receipt);
       return url
-        ? `<a class="cloud-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">雲端連結</a>`
+        ? `<a class="cloud-link" href="${escapeHtml(url)}" data-open-cloud-link="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">雲端連結</a>`
         : escapeHtml(receipt || "");
+    }
+
+    async function openCloudLink(url) {
+      if (!cloudLinkUrl(url)) return toast("這不是有效的雲端連結。", "error");
+      try {
+        if (tauriStorageEnabled) await nativeStorageCall("openExternalUrl", { url });
+        else window.open(url, "_blank", "noopener,noreferrer");
+      } catch {
+        toast("無法開啟雲端連結，請確認預設瀏覽器設定。", "error");
+      }
     }
 
     function defaultAccounts() {
@@ -5160,6 +5171,13 @@
         const previewAttachment = event.target.closest("[data-preview-attachment]");
         const previewPendingClaim = event.target.closest("[data-preview-pending-claim]");
         const removeAttachment = event.target.closest("[data-remove-attachment]");
+        const cloudLink = event.target.closest("[data-open-cloud-link]");
+
+        if (cloudLink) {
+          event.preventDefault();
+          await openCloudLink(cloudLink.dataset.openCloudLink);
+          return;
+        }
 
         if (monthButton) {
           selectedMonth = monthButton.dataset.month;
