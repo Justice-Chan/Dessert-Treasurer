@@ -1221,11 +1221,11 @@
     }
 
     .people-table { min-width: 0; }
-    .people-table col:nth-child(1) { width: 17%; }
-    .people-table col:nth-child(2) { width: 24%; }
-    .people-table col:nth-child(3) { width: 22%; }
-    .people-table col:nth-child(4) { width: 19%; }
-    .people-table col:nth-child(5) { width: 18%; }
+    .people-table col:nth-child(1) { width: 16%; }
+    .people-table col:nth-child(2) { width: 20%; }
+    .people-table col:nth-child(3) { width: 20%; }
+    .people-table col:nth-child(4) { width: 17%; }
+    .people-table col:nth-child(5) { width: 27%; }
     .people-table th,
     .people-table td { padding-inline: 6px; }
     .people-table .unpaid-count { font-size: 12px; }
@@ -1910,7 +1910,10 @@
                 </div>
               </div>
               <div class="form-actions account-form-actions">
-                <button type="button" id="personCancel">重設</button>
+                <div class="account-edit-actions">
+                  <button type="button" id="personCancel">重設</button>
+                  <button type="button" class="danger" id="personDelete" hidden>刪除</button>
+                </div>
                 <button type="submit" class="primary" id="personSubmit">儲存人員</button>
               </div>
               <div class="person-import-preview" id="personImportPreview" hidden>
@@ -1932,7 +1935,7 @@
               <div class="table-wrap" id="personList">
                 <table class="people-table">
                   <colgroup><col><col><col><col><col></colgroup>
-                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>繳費</th><th class="row-delete-cell">操作</th></tr></thead>
+                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>繳費</th><th>電子郵件</th></tr></thead>
                   <tbody id="personRows"></tbody>
                 </table>
               </div>
@@ -3449,7 +3452,7 @@
           <td>${escapeHtml(person.studentId)}</td>
           <td>${escapeHtml(person.department || "-")}</td>
           <td>${stats.unpaid ? `<span class="unpaid-count">未繳 ${stats.unpaid} 次</span>` : stats.attending ? `<span class="pill paid">已繳</span>` : `<span class="subtle">尚無參加</span>`}</td>
-          <td class="row-delete-cell"><button type="button" class="danger" data-delete-person="${person.id}" aria-label="刪除 ${escapeHtml(person.name)}">刪除</button></td>
+          <td title="${escapeHtml(person.email || "")}">${escapeHtml(person.email || "-")}</td>
         </tr>
       `).join("") : `<tr><td colspan="5"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "尚未新增人員。"}</div></td></tr>`;
       requestAnimationFrame(() => syncScrollableList("personList", 8));
@@ -3693,6 +3696,7 @@
       $("#personFormTitle").textContent = "新增人員";
       $("#personSubmit").textContent = "儲存人員";
       $("#personCancel").textContent = "重設";
+      $("#personDelete").hidden = true;
     }
 
     function selectPerson(person) {
@@ -3701,6 +3705,7 @@
       $("#personFormTitle").textContent = "編輯人員";
       $("#personSubmit").textContent = "更新人員";
       $("#personCancel").textContent = "取消編輯";
+      $("#personDelete").hidden = false;
       $("#personName").value = person.name;
       $("#personStudentId").value = person.studentId;
       $("#personDepartment").value = person.department;
@@ -5062,6 +5067,7 @@
         $("#personName").focus();
         if (wasEditing) toast("已取消編輯。");
       });
+      $("#personDelete").addEventListener("click", () => deletePerson($("#personId").value));
       $("#activityCancel").addEventListener("click", () => {
         const wasEditing = Boolean($("#activityId").value);
         resetActivityForm();
@@ -5310,7 +5316,6 @@
         const selectActivityRow = event.target.closest("[data-select-activity]");
         const deleteAccountRow = event.target.closest("[data-delete-account]");
         const deletePayeeRow = event.target.closest("[data-delete-payee]");
-        const deletePersonRow = event.target.closest("[data-delete-person]");
         const deleteActivityRow = event.target.closest("[data-delete-activity]");
         const attendanceButton = event.target.closest("[data-set-attendance]");
         const paymentButton = event.target.closest("[data-set-payment]");
@@ -5403,7 +5408,6 @@
 
         if (deleteAccountRow) deleteSelectedAccount(deleteAccountRow.dataset.deleteAccount);
         if (deletePayeeRow) deleteSelectedPayee(deletePayeeRow.dataset.deletePayee);
-        if (deletePersonRow) deletePerson(deletePersonRow.dataset.deletePerson);
         if (deleteActivityRow) deleteActivity(deleteActivityRow.dataset.deleteActivity);
         if (attendanceButton) setActivityAttendance(attendanceButton.dataset.activityId, attendanceButton.dataset.personId, attendanceButton.dataset.setAttendance);
         if (paymentButton) setActivityPayment(paymentButton.dataset.activityId, paymentButton.dataset.personId, paymentButton.dataset.setPayment === "paid");
