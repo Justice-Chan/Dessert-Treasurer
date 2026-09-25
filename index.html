@@ -1214,11 +1214,6 @@
 
     .person-import-preview[hidden] { display: none; }
 
-    .person-form-actions-right {
-      display: flex;
-      gap: 8px;
-    }
-
     .people-table,
     .activity-table,
     .activity-people-table {
@@ -1889,7 +1884,13 @@
         <div class="people-grid">
           <div class="panel">
             <form id="personForm">
-              <h2 id="personFormTitle">新增人員</h2>
+              <div class="section-heading">
+                <h2 id="personFormTitle">新增人員</h2>
+                <div>
+                  <input id="personImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
+                  <button type="button" id="choosePersonImport">匯入試算表</button>
+                </div>
+              </div>
               <input type="hidden" id="personId">
               <div class="person-form-grid">
                 <div class="field">
@@ -1917,12 +1918,8 @@
                 </div>
               </div>
               <div class="form-actions account-form-actions">
-                <input id="personImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
                 <button type="button" id="personCancel">重設</button>
-                <div class="person-form-actions-right">
-                  <button type="submit" class="primary" id="personSubmit">儲存人員</button>
-                  <button type="button" id="choosePersonImport">匯入試算表</button>
-                </div>
+                <button type="submit" class="primary" id="personSubmit">儲存人員</button>
               </div>
               <div class="person-import-preview" id="personImportPreview" hidden>
                 <p class="subtle" id="personImportSummary"></p>
