@@ -2230,6 +2230,7 @@
     const uid = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
     const accountDigits = (value) => String(value || "").replace(/\D/g, "").slice(0, 14);
+    const normalizeStudentId = (value) => String(value || "").trim().toLocaleUpperCase("en-US").slice(0, 30);
     const normalizeEmail = (value) => {
       const email = String(value || "").trim().toLocaleLowerCase("en-US").slice(0, 160);
       return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
@@ -2353,7 +2354,7 @@
       const people = Array.isArray(saved.people) ? saved.people.map((person) => ({
         id: String(person.id || uid()),
         name: String(person.name || "").trim().slice(0, 80),
-        studentId: String(person.studentId || "").trim().slice(0, 30),
+        studentId: normalizeStudentId(person.studentId),
         department: String(person.department || "").trim().slice(0, 100),
         email: normalizeEmail(person.email)
       })).filter((person) => person.name && person.studentId) : [];
@@ -3452,7 +3453,7 @@
           <td>${escapeHtml(person.studentId)}</td>
           <td>${escapeHtml(person.department || "-")}</td>
           <td>${stats.unpaid ? `<span class="unpaid-count">未繳 ${stats.unpaid} 次</span>` : stats.attending ? `<span class="pill paid">已繳</span>` : `<span class="subtle">尚無參加</span>`}</td>
-          <td title="${escapeHtml(person.email || "")}">${escapeHtml(person.email || "-")}</td>
+          <td><button type="button" data-copy-person-email="${escapeHtml(person.email || "")}" ${person.email ? "" : "disabled"} aria-label="複製 ${escapeHtml(person.name)} 的電子郵件">複製</button></td>
         </tr>
       `).join("") : `<tr><td colspan="5"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "尚未新增人員。"}</div></td></tr>`;
       requestAnimationFrame(() => syncScrollableList("personList", 8));
@@ -3609,7 +3610,7 @@
       rows.slice(header.rowIndex + 1).forEach((row) => {
         const value = (field) => String(row[header.columns[field]] || "").trim();
         const name = value("name");
-        const studentId = value("studentId");
+        const studentId = normalizeStudentId(value("studentId"));
         if (!name && !studentId) return;
         if (!name || !studentId) { invalid += 1; return; }
         const nameKey = normalizeSearchValue(name);
@@ -3634,7 +3635,7 @@
         importedStudentIds.add(studentIdKey);
         candidates.push({
           name: name.slice(0, 80),
-          studentId: studentId.slice(0, 30),
+          studentId,
           department,
           email
         });
@@ -3719,7 +3720,7 @@
       const person = {
         id,
         name: $("#personName").value.trim(),
-        studentId: $("#personStudentId").value.trim(),
+        studentId: normalizeStudentId($("#personStudentId").value),
         department: $("#personDepartment").value.trim(),
         email: normalizeEmail($("#personEmail").value)
       };
@@ -4308,6 +4309,24 @@
         if (!copied) return toast("無法自動複製，請手動選取帳號。");
       }
       toast("帳號已複製。");
+    }
+
+    async function copyPersonEmail(value) {
+      if (!value) return toast("這位人員尚未設定電子郵件。");
+      try {
+        await navigator.clipboard.writeText(value);
+      } catch {
+        const helper = document.createElement("textarea");
+        helper.value = value;
+        helper.style.position = "fixed";
+        helper.style.opacity = "0";
+        document.body.appendChild(helper);
+        helper.select();
+        const copied = document.execCommand("copy");
+        helper.remove();
+        if (!copied) return toast("無法自動複製，請手動選取電子郵件。");
+      }
+      toast("電子郵件已複製。");
     }
 
     async function upsertPayee(event) {
@@ -5321,6 +5340,7 @@
         const paymentButton = event.target.closest("[data-set-payment]");
         const copyAccount = event.target.closest("[data-copy-account-number]");
         const copyPayee = event.target.closest("[data-copy-payee-number]");
+        const copyPersonEmailButton = event.target.closest("[data-copy-person-email]");
         const viewAccountQr = event.target.closest("[data-view-account-qr]");
         const revokeAccountQr = event.target.closest("[data-revoke-account-qr]");
         const viewPayeeQr = event.target.closest("[data-view-payee-qr]");
@@ -5414,6 +5434,7 @@
 
         if (copyAccount) await copyAccountNumber(copyAccount.dataset.copyAccountNumber);
         if (copyPayee) await copyAccountNumber(copyPayee.dataset.copyPayeeNumber);
+        if (copyPersonEmailButton) await copyPersonEmail(copyPersonEmailButton.dataset.copyPersonEmail);
 
         if (viewAccountQr) {
           const account = state.accounts.find((item) => item.id === viewAccountQr.dataset.viewAccountQr);
