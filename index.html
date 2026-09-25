@@ -1905,17 +1905,6 @@
                   <label for="personDepartment">系別</label>
                   <input id="personDepartment" maxlength="100" placeholder="例：食品科學系">
                 </div>
-                <div class="field">
-                  <label for="personGrade">年級</label>
-                  <select id="personGrade" required>
-                    <option value="大一">大一</option>
-                    <option value="大二">大二</option>
-                    <option value="大三">大三</option>
-                    <option value="大四">大四</option>
-                    <option value="碩士">碩士</option>
-                    <option value="其他">其他</option>
-                  </select>
-                </div>
               </div>
               <div class="form-actions account-form-actions">
                 <button type="button" id="personCancel">重設</button>
@@ -1935,9 +1924,9 @@
                 <h2>人員名單 <span class="subtle" id="personCount"></span></h2>
               </div>
               <div class="people-tools single">
-                <input id="personSearch" type="search" placeholder="搜尋姓名、學號、系別或年級">
+                <input id="personSearch" type="search" placeholder="搜尋姓名、學號或系別">
               </div>
-              <div class="table-wrap">
+              <div class="table-wrap" id="personList">
                 <table class="people-table">
                   <colgroup><col><col><col><col><col></colgroup>
                   <thead><tr><th>姓名</th><th>學號</th><th>系級</th><th>繳費</th><th class="row-delete-cell">操作</th></tr></thead>
@@ -2005,7 +1994,7 @@
               </div>
               <div class="status-summary" id="activityStatusSummary"></div>
               <div class="people-tools">
-                <input id="activityPersonSearch" type="search" placeholder="搜尋姓名、學號、系別或年級">
+                <input id="activityPersonSearch" type="search" placeholder="搜尋姓名、學號或系別">
                 <select id="activityPersonFilter" aria-label="人員狀態篩選">
                   <option value="attending">全部參加</option>
                   <option value="paid">參加・已繳</option>
@@ -2013,7 +2002,7 @@
                   <option value="not_attending">未參加</option>
                 </select>
               </div>
-              <div class="table-wrap">
+              <div class="table-wrap" id="activityPersonList">
                 <table class="activity-people-table">
                   <colgroup><col><col><col><col><col><col><col></colgroup>
                   <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>學級</th><th>參加狀態</th><th>繳款時間</th><th>繳費狀態</th></tr></thead>
@@ -3021,6 +3010,8 @@
       syncScrollableList("claimList", 8);
       syncScrollableList("payeeList", 5);
       syncScrollableList("trashList", 8);
+      syncScrollableList("personList", 8);
+      syncScrollableList("activityPersonList", 8);
     }
 
     function render() {
@@ -3439,7 +3430,7 @@
     function renderPeople() {
       const personQuery = $("#personSearch").value;
       const visiblePeople = state.people
-        .filter((person) => matchesSearch([person.name, person.studentId, person.department, person.grade], personQuery))
+        .filter((person) => matchesSearch([person.name, person.studentId, person.department], personQuery))
         .map((person) => ({ person, stats: personActivityStats(person.id) }))
         .sort((a, b) => b.stats.unpaid - a.stats.unpaid || Number(b.stats.attending > 0) - Number(a.stats.attending > 0) || a.person.name.localeCompare(b.person.name, "zh-Hant"));
       $("#personCount").textContent = `(${visiblePeople.length}/${state.people.length})`;
@@ -3452,6 +3443,7 @@
           <td class="row-delete-cell"><button type="button" class="danger" data-delete-person="${person.id}" aria-label="刪除 ${escapeHtml(person.name)}">刪除</button></td>
         </tr>
       `).join("") : `<tr><td colspan="5"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "尚未新增人員。"}</div></td></tr>`;
+      requestAnimationFrame(() => syncScrollableList("personList", 8));
 
       const activityQuery = $("#activitySearch").value.trim().toLowerCase();
       const visibleActivities = state.activities
@@ -3475,7 +3467,10 @@
 
       const activity = state.activities.find((item) => item.id === $("#activityId").value);
       $("#activityRoster").hidden = !activity;
-      if (!activity) return;
+      if (!activity) {
+        requestAnimationFrame(() => syncScrollableList("activityPersonList", 8));
+        return;
+      }
       const stats = activityStats(activity);
       $("#activityRosterTitle").textContent = activity.name;
       $("#activityRosterDetails").textContent = [activity.date, `每人 ${fmt.format(activity.fee)}`, activity.note].filter(Boolean).join(" · ");
@@ -3494,7 +3489,7 @@
       const rosterOrder = new Map(activityRosterOrder(activity).map((personId, index) => [personId, index]));
       const roster = state.people
         .map((person) => ({ person, record: activityRecord(activity, person.id), globalStats: personActivityStats(person.id) }))
-        .filter(({ person }) => matchesSearch([person.name, person.studentId, person.department, person.grade], rosterQuery))
+        .filter(({ person }) => matchesSearch([person.name, person.studentId, person.department], rosterQuery))
         .filter(({ record }) => {
           if (rosterFilter === "unpaid") return record?.status === "attending" && !record.paid;
           if (rosterFilter === "paid") return record?.status === "attending" && record.paid;
@@ -3520,6 +3515,7 @@
           <td>${record?.status === "attending" ? `<div class="status-control payment" role="group" aria-label="${escapeHtml(person.name)}繳費狀態"><button type="button" data-set-payment="unpaid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${!record.paid}">未繳</button><button type="button" data-set-payment="paid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record.paid}">已繳</button></div>` : `<span class="subtle">-</span>`}</td>
         </tr>
       `).join("") : `<tr><td colspan="7"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`;
+      requestAnimationFrame(() => syncScrollableList("activityPersonList", 8));
     }
 
     function renderCategories() {
@@ -3712,7 +3708,6 @@
       $("#personFormTitle").textContent = "新增人員";
       $("#personSubmit").textContent = "儲存人員";
       $("#personCancel").textContent = "重設";
-      $("#personGrade").value = "大一";
     }
 
     function selectPerson(person) {
@@ -3724,19 +3719,19 @@
       $("#personName").value = person.name;
       $("#personStudentId").value = person.studentId;
       $("#personDepartment").value = person.department;
-      $("#personGrade").value = person.grade;
       renderPeople();
     }
 
     function upsertPerson(event) {
       event.preventDefault();
       const id = $("#personId").value || uid();
+      const existing = state.people.find((item) => item.id === id);
       const person = {
         id,
         name: $("#personName").value.trim(),
         studentId: $("#personStudentId").value.trim(),
         department: $("#personDepartment").value.trim(),
-        grade: $("#personGrade").value
+        grade: existing?.grade || "其他"
       };
       if (!person.name || !person.studentId) return toast("請填寫姓名與學號。");
       if (state.people.some((item) => item.id !== id && item.studentId.toLowerCase() === person.studentId.toLowerCase())) return toast("這個學號已經在人員名單中。");
