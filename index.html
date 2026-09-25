@@ -1241,20 +1241,19 @@
     .activity-table col:nth-child(6) { width: 14%; }
     .activity-table col:nth-child(7) { width: 12%; }
 
-    .activity-people-table { min-width: 720px; }
-    .activity-people-table col:nth-child(1) { width: 13%; }
-    .activity-people-table col:nth-child(2) { width: 13%; }
-    .activity-people-table col:nth-child(3) { width: 14%; }
-    .activity-people-table col:nth-child(4) { width: 8%; }
-    .activity-people-table col:nth-child(5) { width: 20%; }
-    .activity-people-table col:nth-child(6) { width: 17%; }
-    .activity-people-table col:nth-child(7) { width: 15%; }
+    .activity-people-table { min-width: 650px; }
+    .activity-people-table col:nth-child(1) { width: 15%; }
+    .activity-people-table col:nth-child(2) { width: 15%; }
+    .activity-people-table col:nth-child(3) { width: 17%; }
+    .activity-people-table col:nth-child(4) { width: 21%; }
+    .activity-people-table col:nth-child(5) { width: 17%; }
+    .activity-people-table col:nth-child(6) { width: 15%; }
+    .activity-people-table th:nth-child(4),
     .activity-people-table th:nth-child(5),
-    .activity-people-table th:nth-child(6),
+    .activity-people-table td:nth-child(4),
     .activity-people-table td:nth-child(5),
-    .activity-people-table td:nth-child(6),
-    .activity-people-table th:nth-child(7),
-    .activity-people-table td:nth-child(7) { text-align: right; }
+    .activity-people-table th:nth-child(6),
+    .activity-people-table td:nth-child(6) { text-align: right; }
     .activity-people-table .status-control { justify-content: flex-end; }
     .activity-people-table .activity-roster-row { cursor: grab; touch-action: none; user-select: none; }
     .activity-people-table .activity-roster-row:active { cursor: grabbing; }
@@ -1905,6 +1904,10 @@
                   <label for="personDepartment">系別</label>
                   <input id="personDepartment" maxlength="100" placeholder="例：食品科學系">
                 </div>
+                <div class="field">
+                  <label for="personEmail">電子郵件</label>
+                  <input id="personEmail" type="email" maxlength="160" placeholder="例：name@example.com">
+                </div>
               </div>
               <div class="form-actions account-form-actions">
                 <button type="button" id="personCancel">重設</button>
@@ -1924,12 +1927,12 @@
                 <h2>人員名單 <span class="subtle" id="personCount"></span></h2>
               </div>
               <div class="people-tools single">
-                <input id="personSearch" type="search" placeholder="搜尋姓名、學號或系別">
+                <input id="personSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
               </div>
               <div class="table-wrap" id="personList">
                 <table class="people-table">
                   <colgroup><col><col><col><col><col></colgroup>
-                  <thead><tr><th>姓名</th><th>學號</th><th>系級</th><th>繳費</th><th class="row-delete-cell">操作</th></tr></thead>
+                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>繳費</th><th class="row-delete-cell">操作</th></tr></thead>
                   <tbody id="personRows"></tbody>
                 </table>
               </div>
@@ -1994,7 +1997,7 @@
               </div>
               <div class="status-summary" id="activityStatusSummary"></div>
               <div class="people-tools">
-                <input id="activityPersonSearch" type="search" placeholder="搜尋姓名、學號或系別">
+                <input id="activityPersonSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
                 <select id="activityPersonFilter" aria-label="人員狀態篩選">
                   <option value="attending">全部參加</option>
                   <option value="paid">參加・已繳</option>
@@ -2004,8 +2007,8 @@
               </div>
               <div class="table-wrap" id="activityPersonList">
                 <table class="activity-people-table">
-                  <colgroup><col><col><col><col><col><col><col></colgroup>
-                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>學級</th><th>參加狀態</th><th>繳款時間</th><th>繳費狀態</th></tr></thead>
+                  <colgroup><col><col><col><col><col><col></colgroup>
+                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>參加狀態</th><th>繳款時間</th><th>繳費狀態</th></tr></thead>
                   <tbody id="activityPersonRows"></tbody>
                 </table>
               </div>
@@ -2224,6 +2227,12 @@
     const uid = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
     const accountDigits = (value) => String(value || "").replace(/\D/g, "").slice(0, 14);
+    const normalizeEmail = (value) => {
+      const email = String(value || "").trim().toLocaleLowerCase("en-US").slice(0, 160);
+      return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+    };
+
+    const hasLegacyPersonGrades = (saved) => Array.isArray(saved?.people) && saved.people.some((person) => Object.hasOwn(person || {}, "grade"));
 
     function cloudLinkUrl(value) {
       const text = String(value || "").trim();
@@ -2343,7 +2352,7 @@
         name: String(person.name || "").trim().slice(0, 80),
         studentId: String(person.studentId || "").trim().slice(0, 30),
         department: String(person.department || "").trim().slice(0, 100),
-        grade: ["大一", "大二", "大三", "大四", "碩士", "其他"].includes(person.grade) ? person.grade : "其他"
+        email: normalizeEmail(person.email)
       })).filter((person) => person.name && person.studentId) : [];
       const personIds = new Set(people.map((person) => person.id));
       const activities = Array.isArray(saved.activities) ? saved.activities.map((activity) => {
@@ -3430,7 +3439,7 @@
     function renderPeople() {
       const personQuery = $("#personSearch").value;
       const visiblePeople = state.people
-        .filter((person) => matchesSearch([person.name, person.studentId, person.department], personQuery))
+        .filter((person) => matchesSearch([person.name, person.studentId, person.department, person.email], personQuery))
         .map((person) => ({ person, stats: personActivityStats(person.id) }))
         .sort((a, b) => b.stats.unpaid - a.stats.unpaid || Number(b.stats.attending > 0) - Number(a.stats.attending > 0) || a.person.name.localeCompare(b.person.name, "zh-Hant"));
       $("#personCount").textContent = `(${visiblePeople.length}/${state.people.length})`;
@@ -3438,7 +3447,7 @@
         <tr class="selectable-row" data-select-person="${person.id}" tabindex="0" aria-label="選取 ${escapeHtml(person.name)}" aria-selected="${$("#personId").value === person.id}">
           <td>${escapeHtml(person.name)}</td>
           <td>${escapeHtml(person.studentId)}</td>
-          <td>${escapeHtml(person.department)}<br><span class="subtle">${escapeHtml(person.grade)}</span></td>
+          <td>${escapeHtml(person.department || "-")}</td>
           <td>${stats.unpaid ? `<span class="unpaid-count">未繳 ${stats.unpaid} 次</span>` : stats.attending ? `<span class="pill paid">已繳</span>` : `<span class="subtle">尚無參加</span>`}</td>
           <td class="row-delete-cell"><button type="button" class="danger" data-delete-person="${person.id}" aria-label="刪除 ${escapeHtml(person.name)}">刪除</button></td>
         </tr>
@@ -3489,7 +3498,7 @@
       const rosterOrder = new Map(activityRosterOrder(activity).map((personId, index) => [personId, index]));
       const roster = state.people
         .map((person) => ({ person, record: activityRecord(activity, person.id), globalStats: personActivityStats(person.id) }))
-        .filter(({ person }) => matchesSearch([person.name, person.studentId, person.department], rosterQuery))
+        .filter(({ person }) => matchesSearch([person.name, person.studentId, person.department, person.email], rosterQuery))
         .filter(({ record }) => {
           if (rosterFilter === "unpaid") return record?.status === "attending" && !record.paid;
           if (rosterFilter === "paid") return record?.status === "attending" && record.paid;
@@ -3508,13 +3517,12 @@
         <tr class="activity-roster-row" data-roster-activity-id="${activity.id}" data-roster-person-id="${person.id}" tabindex="0" aria-label="拖曳排序 ${escapeHtml(person.name)}">
           <td><span class="drag-handle" title="拖曳排序" aria-hidden="true">::</span>${escapeHtml(person.name)}</td>
           <td>${escapeHtml(person.studentId)}</td>
-          <td>${escapeHtml(person.department)}</td>
-          <td>${escapeHtml(person.grade)}</td>
+          <td>${escapeHtml(person.department || "-")}</td>
           <td><div class="status-control" role="group" aria-label="${escapeHtml(person.name)}參加狀態"><button type="button" data-set-attendance="attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status === "attending"}">參加</button><button type="button" data-set-attendance="not_attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status !== "attending"}">未參加</button></div></td>
           <td>${record?.status === "attending" && record.paid ? `<input type="text" inputmode="numeric" maxlength="11" placeholder="MM-DD HH:mm" value="${escapeHtml(record.paidAt || "")}" data-payment-time data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}繳款時間">` : `<span class="subtle">-</span>`}</td>
           <td>${record?.status === "attending" ? `<div class="status-control payment" role="group" aria-label="${escapeHtml(person.name)}繳費狀態"><button type="button" data-set-payment="unpaid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${!record.paid}">未繳</button><button type="button" data-set-payment="paid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record.paid}">已繳</button></div>` : `<span class="subtle">-</span>`}</td>
         </tr>
-      `).join("") : `<tr><td colspan="7"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`;
+      `).join("") : `<tr><td colspan="6"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`;
       requestAnimationFrame(() => syncScrollableList("activityPersonList", 8));
     }
 
@@ -3562,33 +3570,12 @@
     const personImportHeaders = {
       name: ["姓名", "名字", "name", "membername", "學生姓名"],
       studentId: ["學號", "學生學號", "學生編號", "studentid", "studentnumber", "studentno"],
-      department: ["系別", "系所", "科系", "學系", "department", "major"],
-      departmentGrade: ["系級", "系別年級", "班級", "departmentgrade"],
-      grade: ["年級", "學級", "年別", "grade"]
+      department: ["系別", "系所", "科系", "學系", "系級", "系別年級", "班級", "department", "major", "departmentgrade"],
+      email: ["電子郵件", "電子郵件地址", "電子郵箱", "email", "emailaddress", "emailbox", "mail", "e-mail"]
     };
 
     function normalizeImportHeader(value) {
       return String(value || "").normalize("NFKC").toLocaleLowerCase("zh-TW").replace(/[\s\-_()（）【】\[\]{}]/g, "");
-    }
-
-    function normalizeImportedGrade(value) {
-      const grade = normalizeImportHeader(value);
-      if (["大一", "1", "一年級", "1年級"].includes(grade)) return "大一";
-      if (["大二", "2", "二年級", "2年級"].includes(grade)) return "大二";
-      if (["大三", "3", "三年級", "3年級"].includes(grade)) return "大三";
-      if (["大四", "4", "四年級", "4年級"].includes(grade)) return "大四";
-      if (grade.includes("碩")) return "碩士";
-      return "其他";
-    }
-
-    function splitImportedDepartmentGrade(value) {
-      const text = String(value || "").trim();
-      const match = text.match(/(?:[\s/／,，-]*)(大[一二三四]|碩[一二三四]|[1-4](?:年級)?|[一二三四]年級|[一二三四])$/);
-      if (!match) return { department: text, grade: "其他" };
-      return {
-        department: text.slice(0, match.index).replace(/[\s/／,，-]+$/, "").trim(),
-        grade: normalizeImportedGrade(match[1])
-      };
     }
 
     function findPersonImportHeader(rows) {
@@ -3624,16 +3611,14 @@
         if (!name || !studentId) { invalid += 1; return; }
         const nameKey = normalizeSearchValue(name);
         const studentIdKey = normalizeSearchValue(studentId);
-        const combined = splitImportedDepartmentGrade(value("departmentGrade"));
-        const department = (value("department") || combined.department).slice(0, 100);
-        const separateGrade = normalizeImportedGrade(value("grade"));
-        const grade = separateGrade !== "其他" ? separateGrade : combined.grade;
+        const department = value("department").slice(0, 100);
+        const email = normalizeEmail(value("email"));
         const existing = peopleByStudentId.get(studentIdKey) || peopleByName.get(nameKey);
         if (existing) {
-          const supplement = supplementsById.get(existing.id) || { id: existing.id, department: "", grade: "" };
+          const supplement = supplementsById.get(existing.id) || { id: existing.id, department: "", email: "" };
           let changed = false;
           if (!existing.department && !supplement.department && department) { supplement.department = department; changed = true; }
-          if (existing.grade === "其他" && !supplement.grade && grade !== "其他") { supplement.grade = grade; changed = true; }
+          if (!existing.email && !supplement.email && email) { supplement.email = email; changed = true; }
           if (changed) supplementsById.set(existing.id, supplement);
           else duplicates += 1;
           return;
@@ -3648,7 +3633,7 @@
           name: name.slice(0, 80),
           studentId: studentId.slice(0, 30),
           department,
-          grade
+          email
         });
       });
       return { header, candidates, supplements: [...supplementsById.values()], duplicates, invalid };
@@ -3663,7 +3648,7 @@
 
     function showPersonImportPreview(importData) {
       pendingPersonImport = importData;
-      const recognized = Object.keys(importData.header.columns).map((field) => ({ name: "姓名", studentId: "學號", department: "系別", departmentGrade: "系級", grade: "年級" }[field])).join("、");
+      const recognized = Object.keys(importData.header.columns).map((field) => ({ name: "姓名", studentId: "學號", department: "系別", email: "電子郵件" }[field])).join("、");
       $("#personImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.candidates.length} 位；補齊 ${importData.supplements.length} 位；略過完整重複 ${importData.duplicates} 列、缺少姓名或學號 ${importData.invalid} 列。`;
       const actionable = importData.candidates.length + importData.supplements.length;
       $("#confirmPersonImport").textContent = actionable ? `新增／補齊 ${actionable} 位人員` : "沒有可匯入的人員";
@@ -3694,7 +3679,7 @@
         const person = state.people.find((item) => item.id === supplement.id);
         if (!person) return;
         if (!person.department && supplement.department) person.department = supplement.department;
-        if (person.grade === "其他" && supplement.grade) person.grade = supplement.grade;
+        if (!person.email && supplement.email) person.email = supplement.email;
       });
       if (!saveState()) return;
       clearPersonImport();
@@ -3719,19 +3704,19 @@
       $("#personName").value = person.name;
       $("#personStudentId").value = person.studentId;
       $("#personDepartment").value = person.department;
+      $("#personEmail").value = person.email || "";
       renderPeople();
     }
 
     function upsertPerson(event) {
       event.preventDefault();
       const id = $("#personId").value || uid();
-      const existing = state.people.find((item) => item.id === id);
       const person = {
         id,
         name: $("#personName").value.trim(),
         studentId: $("#personStudentId").value.trim(),
         department: $("#personDepartment").value.trim(),
-        grade: existing?.grade || "其他"
+        email: normalizeEmail($("#personEmail").value)
       };
       if (!person.name || !person.studentId) return toast("請填寫姓名與學號。");
       if (state.people.some((item) => item.id !== id && item.studentId.toLowerCase() === person.studentId.toLowerCase())) return toast("這個學號已經在人員名單中。");
@@ -3860,8 +3845,8 @@
       const unpaid = activityUnpaidPeople(activity);
       if (!unpaid.length) return toast("這個活動目前沒有未繳人員。");
       const rows = [
-        ["活動名稱", "活動日期", "姓名", "學號", "系別", "年級", "應繳金額", "備註"],
-        ...unpaid.map(({ person }) => [activity.name, activity.date, person.name, person.studentId, person.department, person.grade, activity.fee, activity.note || ""])
+        ["活動名稱", "活動日期", "姓名", "學號", "系別", "電子郵件", "應繳金額", "備註"],
+        ...unpaid.map(({ person }) => [activity.name, activity.date, person.name, person.studentId, person.department, person.email || "", activity.fee, activity.note || ""])
       ];
       download(`甜點社-${activity.name}-未繳名單-${activity.date}.csv`, "\ufeff" + csv(rows), "text/csv;charset=utf-8");
       toast(`未繳名單已開始下載，共 ${unpaid.length} 人。`);
@@ -4738,8 +4723,9 @@
         if (!/^\d{1,14}$/.test(payee.accountNumber || "") || !validQr) throw new Error("invalid payee data");
       });
       (data.people || []).forEach((person) => {
-        if (!person || !safeId(person.id) || !safeText(person.name, 80) || !safeText(person.studentId, 30) || !safeText(person.department, 100) || !["大一", "大二", "大三", "大四", "碩士", "其他"].includes(person.grade)) throw new Error("invalid person");
+        if (!person || !safeId(person.id) || !safeText(person.name, 80) || !safeText(person.studentId, 30) || !safeText(person.department, 100) || !safeText(person.email, 160)) throw new Error("invalid person");
         if (!person.name.trim() || !person.studentId.trim()) throw new Error("invalid person data");
+        if (person.email && !normalizeEmail(person.email)) throw new Error("invalid person email");
       });
       const importedPersonIds = new Set((data.people || []).map((person) => person.id));
       (data.activities || []).forEach((activity) => {
@@ -4884,10 +4870,10 @@
       );
       if (!state.people.length) {
         const demoPeople = [
-          { id: uid(), name: "小林", studentId: "B12345671", department: "食品科學系", grade: "大二" },
-          { id: uid(), name: "陳小美", studentId: "B12345672", department: "企業管理系", grade: "大一" },
-          { id: uid(), name: "王大安", studentId: "B12345673", department: "資訊工程系", grade: "大三" },
-          { id: uid(), name: "李佳穎", studentId: "B12345674", department: "外國語文系", grade: "大二" }
+          { id: uid(), name: "小林", studentId: "B12345671", department: "食品科學系", email: "" },
+          { id: uid(), name: "陳小美", studentId: "B12345672", department: "企業管理系", email: "" },
+          { id: uid(), name: "王大安", studentId: "B12345673", department: "資訊工程系", email: "" },
+          { id: uid(), name: "李佳穎", studentId: "B12345674", department: "外國語文系", email: "" }
         ];
         state.people.push(...demoPeople);
         state.activities.push(
@@ -5670,12 +5656,22 @@
     }
 
     async function initializeApp() {
+      let shouldRemoveLegacyGrades = false;
       if (tauriStorageEnabled) {
         try {
-          state = normalizeState(await nativeStorageCall("loadState"));
+          const savedState = await nativeStorageCall("loadState");
+          shouldRemoveLegacyGrades = hasLegacyPersonGrades(savedState);
+          state = normalizeState(savedState);
         } catch {
           state = normalizeState();
           toast("無法讀取本機資料，已暫時開啟空白帳本。");
+        }
+        if (shouldRemoveLegacyGrades) {
+          try {
+            await nativeStorageCall("saveState", { state });
+          } catch {
+            toast("年級欄位已在目前畫面移除，但暫時無法寫回本機資料。請先下載完整備份。", "error");
+          }
         }
       }
       purgeExpiredTrash();
