@@ -3567,6 +3567,7 @@
       name: ["姓名", "名字", "name", "membername", "學生姓名"],
       studentId: ["學號", "學生學號", "學生編號", "studentid", "studentnumber", "studentno"],
       department: ["系別", "系所", "科系", "學系", "department", "major"],
+      departmentGrade: ["系級", "系別年級", "班級", "departmentgrade"],
       grade: ["年級", "學級", "年別", "grade"]
     };
 
@@ -3582,6 +3583,16 @@
       if (["大四", "4", "四年級", "4年級"].includes(grade)) return "大四";
       if (grade.includes("碩")) return "碩士";
       return "其他";
+    }
+
+    function splitImportedDepartmentGrade(value) {
+      const text = String(value || "").trim();
+      const match = text.match(/(?:[\s/／,，-]*)(大[一二三四]|碩[一二三四]|[1-4](?:年級)?|[一二三四]年級|[一二三四])$/);
+      if (!match) return { department: text, grade: "其他" };
+      return {
+        department: text.slice(0, match.index).replace(/[\s/／,，-]+$/, "").trim(),
+        grade: normalizeImportedGrade(match[1])
+      };
     }
 
     function findPersonImportHeader(rows) {
@@ -3601,11 +3612,12 @@
     function personImportPreview(rows) {
       const header = findPersonImportHeader(rows);
       if (!header) throw new Error("找不到「姓名」與「學號」欄位，請確認試算表包含標題列。");
-      const existingStudentIds = new Set(state.people.map((person) => normalizeSearchValue(person.studentId)));
-      const existingNames = new Set(state.people.map((person) => normalizeSearchValue(person.name)));
+      const peopleByStudentId = new Map(state.people.map((person) => [normalizeSearchValue(person.studentId), person]));
+      const peopleByName = new Map(state.people.map((person) => [normalizeSearchValue(person.name), person]));
       const importedStudentIds = new Set();
       const importedNames = new Set();
       const candidates = [];
+      const supplementsById = new Map();
       let duplicates = 0;
       let invalid = 0;
       rows.slice(header.rowIndex + 1).forEach((row) => {
@@ -3616,7 +3628,21 @@
         if (!name || !studentId) { invalid += 1; return; }
         const nameKey = normalizeSearchValue(name);
         const studentIdKey = normalizeSearchValue(studentId);
-        if (existingNames.has(nameKey) || existingStudentIds.has(studentIdKey) || importedNames.has(nameKey) || importedStudentIds.has(studentIdKey)) {
+        const combined = splitImportedDepartmentGrade(value("departmentGrade"));
+        const department = (value("department") || combined.department).slice(0, 100);
+        const separateGrade = normalizeImportedGrade(value("grade"));
+        const grade = separateGrade !== "其他" ? separateGrade : combined.grade;
+        const existing = peopleByStudentId.get(studentIdKey) || peopleByName.get(nameKey);
+        if (existing) {
+          const supplement = supplementsById.get(existing.id) || { id: existing.id, department: "", grade: "" };
+          let changed = false;
+          if (!existing.department && !supplement.department && department) { supplement.department = department; changed = true; }
+          if (existing.grade === "其他" && !supplement.grade && grade !== "其他") { supplement.grade = grade; changed = true; }
+          if (changed) supplementsById.set(existing.id, supplement);
+          else duplicates += 1;
+          return;
+        }
+        if (importedNames.has(nameKey) || importedStudentIds.has(studentIdKey)) {
           duplicates += 1;
           return;
         }
@@ -3625,11 +3651,11 @@
         candidates.push({
           name: name.slice(0, 80),
           studentId: studentId.slice(0, 30),
-          department: value("department").slice(0, 100),
-          grade: normalizeImportedGrade(value("grade"))
+          department,
+          grade
         });
       });
-      return { header, candidates, duplicates, invalid };
+      return { header, candidates, supplements: [...supplementsById.values()], duplicates, invalid };
     }
 
     function clearPersonImport() {
@@ -3641,10 +3667,11 @@
 
     function showPersonImportPreview(importData) {
       pendingPersonImport = importData;
-      const recognized = Object.keys(importData.header.columns).map((field) => ({ name: "姓名", studentId: "學號", department: "系別", grade: "年級" }[field])).join("、");
-      $("#personImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.candidates.length} 位；略過重複 ${importData.duplicates} 列、缺少姓名或學號 ${importData.invalid} 列。`;
-      $("#confirmPersonImport").textContent = importData.candidates.length ? `匯入 ${importData.candidates.length} 位人員` : "沒有可匯入的人員";
-      $("#confirmPersonImport").disabled = !importData.candidates.length;
+      const recognized = Object.keys(importData.header.columns).map((field) => ({ name: "姓名", studentId: "學號", department: "系別", departmentGrade: "系級", grade: "年級" }[field])).join("、");
+      $("#personImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.candidates.length} 位；補齊 ${importData.supplements.length} 位；略過完整重複 ${importData.duplicates} 列、缺少姓名或學號 ${importData.invalid} 列。`;
+      const actionable = importData.candidates.length + importData.supplements.length;
+      $("#confirmPersonImport").textContent = actionable ? `新增／補齊 ${actionable} 位人員` : "沒有可匯入的人員";
+      $("#confirmPersonImport").disabled = !actionable;
       $("#personImportPreview").hidden = false;
     }
 
@@ -3663,14 +3690,20 @@
     }
 
     function confirmPersonImport() {
-      if (!pendingPersonImport?.candidates.length) return;
+      if (!pendingPersonImport) return;
       const importData = personImportPreview(pendingPersonImport.rows);
-      if (!importData.candidates.length) return showPersonImportPreview(importData);
+      if (!importData.candidates.length && !importData.supplements.length) return showPersonImportPreview(importData);
       state.people.push(...importData.candidates.map((person) => ({ ...person, id: uid() })));
+      importData.supplements.forEach((supplement) => {
+        const person = state.people.find((item) => item.id === supplement.id);
+        if (!person) return;
+        if (!person.department && supplement.department) person.department = supplement.department;
+        if (person.grade === "其他" && supplement.grade) person.grade = supplement.grade;
+      });
       if (!saveState()) return;
       clearPersonImport();
       renderPeople();
-      toast(`已新增 ${importData.candidates.length} 位人員；重複資料已略過。`);
+      toast(`已新增 ${importData.candidates.length} 位，補齊 ${importData.supplements.length} 位人員資料。`);
     }
 
     function resetPersonForm() {
