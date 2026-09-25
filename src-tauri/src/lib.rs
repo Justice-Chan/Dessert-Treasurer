@@ -1,17 +1,28 @@
 use std::{
     fs,
+    io::Cursor,
     path::{Path, PathBuf},
     process::Command,
     sync::Mutex,
 };
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
+use calamine::{Reader, open_workbook_auto_from_rs};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{Manager, State, WebviewWindow};
 
 const MAX_ATTACHMENT_BYTES: usize = 12 * 1024 * 1024;
+const MAX_MEMBER_IMPORT_BYTES: usize = 5 * 1024 * 1024;
+const MAX_MEMBER_IMPORT_ROWS: usize = 10_000;
+const MAX_MEMBER_IMPORT_COLUMNS: usize = 32;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SpreadsheetRows {
+    rows: Vec<Vec<String>>,
+}
 
 struct AppStorage {
     connection: Mutex<Connection>,
@@ -389,6 +400,96 @@ fn is_external_http_url(value: &str) -> bool {
     remainder.is_some_and(|rest| !rest.is_empty() && !value.chars().any(char::is_whitespace))
 }
 
+fn truncate_spreadsheet_cell(value: impl ToString) -> String {
+    value.to_string().trim().chars().take(300).collect()
+}
+
+fn parse_delimited_rows(contents: &str, delimiter: char) -> Vec<Vec<String>> {
+    let mut rows = Vec::new();
+    let mut row = Vec::new();
+    let mut field = String::new();
+    let mut quoted = false;
+    let mut chars = contents.trim_start_matches('\u{feff}').chars().peekable();
+    while let Some(character) = chars.next() {
+        match character {
+            '"' if quoted && chars.peek() == Some(&'"') => {
+                field.push('"');
+                chars.next();
+            }
+            '"' => quoted = !quoted,
+            value if value == delimiter && !quoted => {
+                row.push(truncate_spreadsheet_cell(&field));
+                field.clear();
+            }
+            '\n' if !quoted => {
+                row.push(truncate_spreadsheet_cell(&field));
+                field.clear();
+                if row.iter().any(|value| !value.is_empty()) {
+                    rows.push(row);
+                }
+                row = Vec::new();
+                if rows.len() >= MAX_MEMBER_IMPORT_ROWS {
+                    break;
+                }
+            }
+            '\r' if !quoted => {}
+            value => field.push(value),
+        }
+    }
+    if rows.len() < MAX_MEMBER_IMPORT_ROWS && (!field.is_empty() || !row.is_empty()) {
+        row.push(truncate_spreadsheet_cell(&field));
+        if row.iter().any(|value| !value.is_empty()) {
+            rows.push(row);
+        }
+    }
+    rows
+}
+
+fn parse_member_spreadsheet_rows(
+    file_name: &str,
+    file_data: Vec<u8>,
+) -> Result<SpreadsheetRows, String> {
+    if file_data.is_empty() || file_data.len() > MAX_MEMBER_IMPORT_BYTES {
+        return Err("試算表必須介於 1 Byte 至 5 MB。".into());
+    }
+    let extension = file_name
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if extension == "csv" || extension == "tsv" {
+        let contents = String::from_utf8(file_data).map_err(|_| "CSV 請使用 UTF-8 編碼。")?;
+        return Ok(SpreadsheetRows {
+            rows: parse_delimited_rows(&contents, if extension == "tsv" { '\t' } else { ',' }),
+        });
+    }
+    if !["xlsx", "xls", "xlsb", "ods"].contains(&extension.as_str()) {
+        return Err("請選擇 Excel、OpenDocument、CSV 或 TSV 試算表。".into());
+    }
+    let mut workbook =
+        open_workbook_auto_from_rs(Cursor::new(file_data)).map_err(|_| "無法讀取試算表。")?;
+    let range = workbook
+        .worksheet_range_at(0)
+        .ok_or("試算表沒有可讀取的工作表。")?
+        .map_err(|_| "無法讀取第一個工作表。")?;
+    let rows = range
+        .rows()
+        .take(MAX_MEMBER_IMPORT_ROWS)
+        .filter_map(|row| {
+            let values = row
+                .iter()
+                .take(MAX_MEMBER_IMPORT_COLUMNS)
+                .map(truncate_spreadsheet_cell)
+                .collect::<Vec<_>>();
+            values
+                .iter()
+                .any(|value| !value.is_empty())
+                .then_some(values)
+        })
+        .collect();
+    Ok(SpreadsheetRows { rows })
+}
+
 #[tauri::command]
 fn load_state(storage: State<'_, AppStorage>) -> Result<Value, String> {
     storage.load_state()
@@ -457,12 +558,23 @@ fn open_external_url(url: String) -> Result<(), String> {
     if !is_external_http_url(&url) {
         return Err("只支援 http 或 https 雲端連結".into());
     }
-    let status = Command::new("open").arg(&url).status().map_err(error_text)?;
+    let status = Command::new("open")
+        .arg(&url)
+        .status()
+        .map_err(error_text)?;
     if status.success() {
         Ok(())
     } else {
         Err("無法使用預設瀏覽器開啟連結".into())
     }
+}
+
+#[tauri::command]
+fn parse_member_spreadsheet(
+    file_name: String,
+    file_data: Vec<u8>,
+) -> Result<SpreadsheetRows, String> {
+    parse_member_spreadsheet_rows(&file_name, file_data)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -484,7 +596,8 @@ pub fn run() {
             clear_receipts,
             import_receipts,
             print_monthly_report,
-            open_external_url
+            open_external_url,
+            parse_member_spreadsheet
         ])
         .run(tauri::generate_context!())
         .expect("無法啟動甜點社總務");
@@ -588,10 +701,26 @@ mod tests {
 
     #[test]
     fn external_link_opener_only_allows_safe_web_urls() {
-        assert!(is_external_http_url("https://drive.google.com/file/d/example"));
+        assert!(is_external_http_url(
+            "https://drive.google.com/file/d/example"
+        ));
         assert!(is_external_http_url("http://localhost:4173"));
         assert!(!is_external_http_url("file:///etc/passwd"));
         assert!(!is_external_http_url("https://example.com/has a space"));
         assert!(!is_external_http_url("open -a Calculator"));
+    }
+
+    #[test]
+    fn member_import_reads_csv_rows_without_writing_data() {
+        let rows = parse_member_spreadsheet_rows(
+            "members.csv",
+            "學號,系別,姓名,年級\nB123,食品科學系,陳小美,大二\nB124,\"食品,科學系\",王小明,3\n"
+                .as_bytes()
+                .to_vec(),
+        )
+        .expect("read csv");
+        assert_eq!(rows.rows.len(), 3);
+        assert_eq!(rows.rows[0], vec!["學號", "系別", "姓名", "年級"]);
+        assert_eq!(rows.rows[2], vec!["B124", "食品,科學系", "王小明", "3"]);
     }
 }

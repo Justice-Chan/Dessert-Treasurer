@@ -1,6 +1,6 @@
 # Dessert Treasurer
 
-Dessert Treasurer is a macOS desktop finance tool for the Dessert Club. Built with Tauri 2, it supports income and expense tracking, reimbursements, reconciliation, people and activity fee management, attachments, backup and restore, trash, and monthly reports.
+Dessert Treasurer is a macOS desktop finance tool for the Dessert Club. Built with Tauri 2, it supports income and expense tracking, reimbursements, reconciliation, people and activity fee management, attachments, backup and restore, trash, and monthly reports. Member lists can be imported locally from Excel, OpenDocument, CSV, or TSV files: the app identifies supported headers in any column order and skips existing people.
 
 ## Getting started
 
