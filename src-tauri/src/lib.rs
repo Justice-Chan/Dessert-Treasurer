@@ -17,6 +17,7 @@ const MAX_ATTACHMENT_BYTES: usize = 12 * 1024 * 1024;
 const MAX_MEMBER_IMPORT_BYTES: usize = 5 * 1024 * 1024;
 const MAX_MEMBER_IMPORT_ROWS: usize = 10_000;
 const MAX_MEMBER_IMPORT_COLUMNS: usize = 32;
+const MAX_MEMBER_IMPORT_URL_LENGTH: usize = 2_048;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -490,6 +491,120 @@ fn parse_member_spreadsheet_rows(
     Ok(SpreadsheetRows { rows })
 }
 
+fn spreadsheet_extension(value: &str) -> Option<&'static str> {
+    let lowercase = value.to_ascii_lowercase();
+    ["xlsx", "xls", "xlsb", "ods", "csv", "tsv"]
+        .into_iter()
+        .find(|extension| lowercase.ends_with(&format!(".{extension}")))
+}
+
+fn prepare_member_import_url(value: &str) -> Result<(String, String), String> {
+    if value.len() > MAX_MEMBER_IMPORT_URL_LENGTH {
+        return Err("連結不可超過 2,048 個字元。".into());
+    }
+    let source = value.trim();
+    let remainder = source
+        .strip_prefix("https://")
+        .ok_or("只支援 HTTPS 公開連結。")?;
+    if source.chars().any(char::is_whitespace) {
+        return Err("請輸入有效的公開 HTTPS 連結。".into());
+    }
+    let authority_end = remainder.find(['/', '?', '#']).unwrap_or(remainder.len());
+    let authority = &remainder[..authority_end];
+    if authority.is_empty() || authority.contains(['@', ':', '[', ']']) {
+        return Err("請輸入有效的公開 HTTPS 連結。".into());
+    }
+    let host = authority.to_ascii_lowercase();
+    if !host.contains('.')
+        || !host.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '.' || character == '-'
+        })
+    {
+        return Err("請輸入有效的公開 HTTPS 連結。".into());
+    }
+    if host == "localhost" || host.ends_with(".local") || host.parse::<std::net::IpAddr>().is_ok() {
+        return Err("不支援本機或 IP 位址連結。".into());
+    }
+    let path_and_query = &remainder[authority_end..];
+    let path = path_and_query.split(['?', '#']).next().unwrap_or("");
+    if host == "docs.google.com" && path.contains("/spreadsheets/") {
+        let segments = path
+            .split('/')
+            .filter(|segment| !segment.is_empty())
+            .collect::<Vec<_>>();
+        if let Some(id) = segments
+            .windows(2)
+            .find_map(|parts| (parts[0] == "d").then_some(parts[1]))
+        {
+            if !id.is_empty()
+                && id.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || character == '-' || character == '_'
+                })
+            {
+                return Ok((
+                    format!("https://docs.google.com/spreadsheets/d/{id}/export?format=xlsx"),
+                    "members.xlsx".into(),
+                ));
+            }
+        }
+        return Err("無法辨識 Google Sheet 連結。".into());
+    }
+    let extension = spreadsheet_extension(path).or_else(|| {
+        path_and_query
+            .split('?')
+            .nth(1)
+            .and_then(|query| query.split('#').next())
+            .and_then(|query| {
+                query.split('&').find_map(|pair| {
+                    let (_, value) = pair.split_once('=')?;
+                    spreadsheet_extension(value).or_else(|| {
+                        ["xlsx", "xls", "xlsb", "ods", "csv", "tsv"]
+                            .into_iter()
+                            .find(|extension| value.eq_ignore_ascii_case(extension))
+                    })
+                })
+            })
+    });
+    let extension = extension.ok_or("連結必須指向 CSV、TSV、Excel 或 OpenDocument 試算表。")?;
+    Ok((source.into(), format!("members.{extension}")))
+}
+
+fn fetch_member_spreadsheet_url(url: &str) -> Result<SpreadsheetRows, String> {
+    let (download_url, file_name) = prepare_member_import_url(url)?;
+    let output = Command::new("/usr/bin/curl")
+        .args([
+            "--fail",
+            "--location",
+            "--silent",
+            "--show-error",
+            "--proto",
+            "=https",
+            "--proto-redir",
+            "=https",
+            "--connect-timeout",
+            "10",
+            "--max-time",
+            "20",
+            "--max-filesize",
+            "5242880",
+            "--output",
+            "-",
+        ])
+        .arg(&download_url)
+        .output()
+        .map_err(error_text)?;
+    if !output.status.success() {
+        return Err("無法下載公開試算表。請確認連結有效且分享權限允許檢視。".into());
+    }
+    let content = String::from_utf8_lossy(&output.stdout);
+    if content.trim_start().starts_with("<html")
+        || content.trim_start().starts_with("<!DOCTYPE html")
+    {
+        return Err("連結回傳登入頁面，請將試算表設為知道連結者可檢視。".into());
+    }
+    parse_member_spreadsheet_rows(&file_name, output.stdout)
+}
+
 #[tauri::command]
 fn load_state(storage: State<'_, AppStorage>) -> Result<Value, String> {
     storage.load_state()
@@ -577,6 +692,11 @@ fn parse_member_spreadsheet(
     parse_member_spreadsheet_rows(&file_name, file_data)
 }
 
+#[tauri::command]
+fn import_member_spreadsheet_url(url: String) -> Result<SpreadsheetRows, String> {
+    fetch_member_spreadsheet_url(&url)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -597,7 +717,8 @@ pub fn run() {
             import_receipts,
             print_monthly_report,
             open_external_url,
-            parse_member_spreadsheet
+            parse_member_spreadsheet,
+            import_member_spreadsheet_url
         ])
         .run(tauri::generate_context!())
         .expect("無法啟動甜點社總務");
@@ -722,5 +843,27 @@ mod tests {
         assert_eq!(rows.rows.len(), 3);
         assert_eq!(rows.rows[0], vec!["學號", "系別", "姓名", "年級"]);
         assert_eq!(rows.rows[2], vec!["B124", "食品,科學系", "王小明", "3"]);
+    }
+
+    #[test]
+    fn member_import_links_only_allow_public_spreadsheet_sources() {
+        let (google_url, google_file) = prepare_member_import_url(
+            "https://docs.google.com/spreadsheets/d/example-sheet_123/edit#gid=0",
+        )
+        .expect("google sheet link");
+        assert_eq!(
+            google_url,
+            "https://docs.google.com/spreadsheets/d/example-sheet_123/export?format=xlsx"
+        );
+        assert_eq!(google_file, "members.xlsx");
+
+        let (_, direct_file) =
+            prepare_member_import_url("https://example.edu/members.csv?download=1")
+                .expect("direct csv link");
+        assert_eq!(direct_file, "members.csv");
+        assert!(prepare_member_import_url("http://example.edu/members.csv").is_err());
+        assert!(prepare_member_import_url("https://localhost/members.csv").is_err());
+        assert!(prepare_member_import_url("https://127.0.0.1/members.csv").is_err());
+        assert!(prepare_member_import_url("https://example.edu/members.pdf").is_err());
     }
 }
