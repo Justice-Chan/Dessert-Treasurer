@@ -1225,6 +1225,22 @@
     .person-link-status[hidden] { display: none; }
     .person-link-status p { margin: 3px 0 0; }
     .person-link-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .person-import-link-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .person-import-link-heading label { min-width: 0; }
+    .person-import-link-heading .person-link-auto {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+    .person-link-auto input { margin: 0; }
 
     .people-table,
     .activity-table,
@@ -2189,10 +2205,12 @@
     <div class="app-modal-card">
       <h2 id="personImportLinkDialogTitle">匯入連結</h2>
       <div class="field">
-        <label for="personImportUrl">公開試算表連結</label>
+        <div class="person-import-link-heading">
+          <label for="personImportUrl">公開試算表連結</label>
+          <label class="person-link-auto"><input id="enablePersonLink" type="checkbox" checked> 每次開啟 App 自動同步</label>
+        </div>
         <input id="personImportUrl" type="url" maxlength="2048" placeholder="貼上公開 Google Sheet 或試算表下載連結">
       </div>
-      <label><input id="enablePersonLink" type="checkbox" checked> 每次開啟 App 自動同步</label>
       <div class="form-actions dialog-actions">
         <button type="button" id="cancelPersonImportLink">取消</button>
         <button type="button" class="primary" id="importPersonUrl">讀取</button>
