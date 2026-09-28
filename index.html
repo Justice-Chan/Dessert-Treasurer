@@ -3128,16 +3128,30 @@
       syncScrollableList("activityPersonList", 8);
     }
 
+    function currentSection() {
+      return $(".nav-button[aria-current='page']")?.dataset.section || "overview";
+    }
+
+    function renderCurrentSection(section = currentSection()) {
+      if (section === "overview") renderOverview();
+      else if (section === "ledger") renderLedger();
+      else if (section === "reimburse") renderClaims();
+      else if (section === "accounts") renderAccounts();
+      else if (section === "people") renderPeople();
+      else if (section === "categories") renderCategories();
+      else if (section === "trash") renderTrash();
+      else if (section === "backup") renderBackupHealth();
+    }
+
     function render() {
-      renderOverview();
-      renderLedger();
-      renderClaims();
-      renderAccounts();
-      renderPeople();
-      renderCategories();
-      renderTrash();
-      renderBackupHealth();
+      renderCurrentSection();
       requestAnimationFrame(syncScrollableLists);
+    }
+
+    function scheduleMemberImportSync() {
+      const synchronize = () => setTimeout(() => void syncMemberImportLink({ quiet: true }), 250);
+      if ("requestIdleCallback" in window) window.requestIdleCallback(synchronize, { timeout: 1600 });
+      else requestAnimationFrame(synchronize);
     }
 
     function renderBackupHealth() {
@@ -5368,6 +5382,7 @@
           $$(".section").forEach((node) => node.classList.toggle("active", node.id === section));
           $("#pageTitle").textContent = sectionMeta[section][0];
           $("#pageSubtitle").textContent = sectionMeta[section][1];
+          renderCurrentSection(section);
           requestAnimationFrame(syncScrollableLists);
         });
       });
@@ -6094,7 +6109,7 @@
       updateExportUi();
       bindEvents();
       render();
-      void syncMemberImportLink({ quiet: true });
+      scheduleMemberImportSync();
     }
 
     initializeApp();
