@@ -1353,6 +1353,7 @@
       border-bottom: 1px solid var(--soft-line);
     }
     .activity-roster .person-import-preview .form-actions { margin-top: 0; }
+    .import-defaults { margin: 6px 0 0; overflow-wrap: anywhere; font-size: 12px; }
 
     .attachment-item button { min-height: 30px; padding: 0 8px; font-size: 12px; }
 
@@ -2168,16 +2169,16 @@
           <form id="importSynonymForm">
             <h3>人員匯入</h3>
             <div class="form-grid">
-              <div class="field"><label for="synonymPersonName">姓名</label><input id="synonymPersonName" maxlength="500" placeholder="例：社員姓名、中文姓名"></div>
-              <div class="field"><label for="synonymPersonStudentId">學號</label><input id="synonymPersonStudentId" maxlength="500" placeholder="例：學生代碼、學生證號"></div>
-              <div class="field"><label for="synonymPersonDepartment">系別</label><input id="synonymPersonDepartment" maxlength="500" placeholder="例：就讀系所"></div>
-              <div class="field"><label for="synonymPersonEmail">電子郵件</label><input id="synonymPersonEmail" maxlength="500" placeholder="例：學校信箱"></div>
+              <div class="field"><label for="synonymPersonName">姓名</label><input id="synonymPersonName" maxlength="500" placeholder="例：社員姓名、中文姓名"><p class="subtle import-defaults" id="defaultSynonymPersonName"></p></div>
+              <div class="field"><label for="synonymPersonStudentId">學號</label><input id="synonymPersonStudentId" maxlength="500" placeholder="例：學生代碼、學生證號"><p class="subtle import-defaults" id="defaultSynonymPersonStudentId"></p></div>
+              <div class="field"><label for="synonymPersonDepartment">系別</label><input id="synonymPersonDepartment" maxlength="500" placeholder="例：就讀系所"><p class="subtle import-defaults" id="defaultSynonymPersonDepartment"></p></div>
+              <div class="field"><label for="synonymPersonEmail">電子郵件</label><input id="synonymPersonEmail" maxlength="500" placeholder="例：學校信箱"><p class="subtle import-defaults" id="defaultSynonymPersonEmail"></p></div>
             </div>
             <h3 style="margin-top: 20px;">活動匯入</h3>
             <div class="form-grid">
-              <div class="field"><label for="synonymActivityAttendance">參加狀態</label><input id="synonymActivityAttendance" maxlength="500" placeholder="例：是否出席"></div>
-              <div class="field"><label for="synonymActivityPayment">繳費狀態</label><input id="synonymActivityPayment" maxlength="500" placeholder="例：對帳結果"></div>
-              <div class="field"><label for="synonymActivityPaidAt">繳費日期</label><input id="synonymActivityPaidAt" maxlength="500" placeholder="例：入帳時間"></div>
+              <div class="field"><label for="synonymActivityAttendance">參加狀態</label><input id="synonymActivityAttendance" maxlength="500" placeholder="例：是否出席"><p class="subtle import-defaults" id="defaultSynonymActivityAttendance"></p></div>
+              <div class="field"><label for="synonymActivityPayment">繳費狀態</label><input id="synonymActivityPayment" maxlength="500" placeholder="例：對帳結果"><p class="subtle import-defaults" id="defaultSynonymActivityPayment"></p></div>
+              <div class="field"><label for="synonymActivityPaidAt">繳費日期</label><input id="synonymActivityPaidAt" maxlength="500" placeholder="例：入帳時間"><p class="subtle import-defaults" id="defaultSynonymActivityPaidAt"></p></div>
             </div>
             <div class="form-actions account-form-actions">
               <button type="button" id="resetImportSynonyms">清除自訂同義詞</button>
@@ -3986,7 +3987,11 @@
         ["synonymActivityAttendance", "activity", "attendance"], ["synonymActivityPayment", "activity", "payment"],
         ["synonymActivityPaidAt", "activity", "paidAt"]
       ];
-      fields.forEach(([id, scope, field]) => { $("#" + id).value = (state.importSynonyms[scope][field] || []).join("、"); });
+      fields.forEach(([id, scope, field]) => {
+        $("#" + id).value = (state.importSynonyms[scope][field] || []).join("、");
+        const defaults = scope === "people" ? personImportHeaders[field] : activityImportHeaders[field];
+        $("#default" + id.slice(0, 1).toUpperCase() + id.slice(1)).textContent = `內建：${defaults.join("、")}`;
+      });
     }
 
     function saveImportSynonyms(event) {
