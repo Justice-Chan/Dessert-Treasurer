@@ -2166,7 +2166,7 @@
       <section class="section" id="settings" aria-labelledby="pageTitle">
         <div class="panel">
           <h2>匯入欄位同義詞</h2>
-          <p class="subtle">可直接編輯所有可辨識的欄位名稱，多個名稱以頓號、逗號或換行分隔。</p>
+          <p class="subtle">可直接編輯所有可辨識的欄位名稱，多個名稱以頓號、逗號或換行分隔。姓名與學號各至少保留一個名稱。</p>
           <form id="importSynonymForm">
             <h3>人員匯入</h3>
             <div class="form-grid">
@@ -4000,7 +4000,7 @@
 
     function saveImportSynonyms(event) {
       event.preventDefault();
-      state.importSynonyms = {
+      const nextSynonyms = {
         mode: "editable",
         people: {
           name: splitImportSynonyms($("#synonymPersonName").value), studentId: splitImportSynonyms($("#synonymPersonStudentId").value),
@@ -4011,6 +4011,11 @@
           paidAt: splitImportSynonyms($("#synonymActivityPaidAt").value)
         }
       };
+      if (!nextSynonyms.people.name.length || !nextSynonyms.people.studentId.length) {
+        toast("姓名與學號各至少保留一個可辨識的欄位名稱。", "error");
+        return;
+      }
+      state.importSynonyms = nextSynonyms;
       if (!saveState()) return;
       toast("匯入欄位同義詞已儲存。");
     }

@@ -95,7 +95,6 @@ test("activity roster drag order persists after reload", async ({ page }) => {
     await page.locator("#personName").fill(name);
     await page.locator("#personStudentId").fill(studentId);
     await page.locator("#personDepartment").fill("甜點系");
-    await page.locator("#personGrade").selectOption("大一");
     await page.locator("#personSubmit").click();
   }
 
@@ -122,4 +121,12 @@ test("activity roster drag order persists after reload", async ({ page }) => {
   await page.locator("[data-select-activity]").filter({ hasText: "拖曳排序測試" }).click();
   const restoredOrder = await page.locator("#activityPersonRows [data-roster-person-id]").evaluateAll((items) => items.map((item) => item.dataset.rosterPersonId));
   expect(restoredOrder[0]).not.toBe(originalFirst);
+});
+
+test("import synonym settings require name and student ID headers", async ({ page }) => {
+  await openSection(page, "設定");
+  await page.locator("#synonymPersonName").fill("");
+  await page.locator("#synonymPersonStudentId").fill("");
+  await page.getByRole("button", { name: "儲存設定" }).click();
+  await expect(page.locator("#toast")).toContainText("姓名與學號各至少保留一個");
 });

@@ -7,6 +7,7 @@ All notable user-facing changes are recorded here.
 - Spreadsheet import for people and activity attendance, including public spreadsheet links and optional startup synchronization.
 - Editable import-header synonyms in Settings.
 - Faster initial view rendering and improved activity roster management.
+- Prevented import settings from removing all name or student ID header synonyms.
 
 ## 0.2.0 - 2026-09-20
 
