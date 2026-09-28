@@ -1345,6 +1345,7 @@
 
     .activity-roster[hidden] { display: none; }
     .activity-roster .section-heading { align-items: center; }
+    .activity-roster-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 
     .attachment-item button { min-height: 30px; padding: 0 8px; font-size: 12px; }
 
@@ -2038,9 +2039,20 @@
                   <h2 id="activityRosterTitle">活動人員</h2>
                   <p class="subtle" id="activityRosterDetails"></p>
                 </div>
-                <button type="button" id="exportActivityUnpaid">下載未繳名單</button>
+                <div class="activity-roster-actions">
+                  <button type="button" id="exportActivityUnpaid">下載未繳名單</button>
+                  <input id="activityImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
+                  <button type="button" class="primary" id="openActivityImport">匯入試算表</button>
+                </div>
               </div>
               <div class="status-summary" id="activityStatusSummary"></div>
+              <div class="person-import-preview" id="activityImportPreview" hidden>
+                <p class="subtle" id="activityImportSummary"></p>
+                <div class="form-actions">
+                  <button type="button" id="cancelActivityImport">取消</button>
+                  <button type="button" class="primary" id="confirmActivityImport">匯入活動人員</button>
+                </div>
+              </div>
               <div class="people-tools">
                 <input id="activityPersonSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
                 <select id="activityPersonFilter" aria-label="人員狀態篩選">
@@ -2525,6 +2537,7 @@
     let trashPurgeTimer = null;
     let rosterPointerDrag = null;
     let pendingPersonImport = null;
+    let pendingActivityImport = null;
     let memberImportSyncing = false;
 
     function formatDateValue(value) {
@@ -3810,6 +3823,165 @@
       return { added: importData.candidates.length, supplemented: importData.supplements.length };
     }
 
+    const activityImportHeaders = {
+      ...personImportHeaders,
+      attendance: ["參加狀態", "參與狀態", "出席狀態", "參加", "出席", "attendance", "attendancestatus", "participation", "participationstatus"],
+      payment: ["匯款狀態", "繳費狀態", "繳款狀態", "付款狀態", "匯款", "繳費", "繳款", "付款", "payment", "paymentstatus", "paid", "paidstatus"],
+      paidAt: ["匯款日期", "繳費日期", "繳款日期", "付款日期", "匯款時間", "繳費時間", "繳款時間", "付款時間", "paymentdate", "paymenttime", "paidat"]
+    };
+
+    function findActivityImportHeader(rows) {
+      for (let rowIndex = 0; rowIndex < Math.min(rows.length, 12); rowIndex += 1) {
+        const columns = {};
+        rows[rowIndex].forEach((value, index) => {
+          const header = normalizeImportHeader(value);
+          Object.entries(activityImportHeaders).forEach(([field, aliases]) => {
+            if (columns[field] === undefined && aliases.map(normalizeImportHeader).includes(header)) columns[field] = index;
+          });
+        });
+        if (columns.name !== undefined && columns.studentId !== undefined) return { rowIndex, columns };
+      }
+      return null;
+    }
+
+    function importedAttendanceStatus(value) {
+      const normalized = normalizeSearchValue(value).replace(/[\s・,，;；:：()（）]/g, "");
+      if (!normalized) return "attending";
+      if (["未參加", "不參加", "缺席", "否", "no", "n", "false", "0"].some((item) => normalized === item || normalized.includes(item))) return "not_attending";
+      return "attending";
+    }
+
+    function importedPaymentStatus(value) {
+      const normalized = normalizeSearchValue(value).replace(/[\s・,，;；:：()（）]/g, "");
+      if (!normalized) return null;
+      if (["未繳", "未付款", "未匯款", "待繳", "待付款", "待匯款", "否", "no", "n", "false", "0", "unpaid", "pending"].some((item) => normalized === item || normalized.includes(item))) return false;
+      if (["已繳", "已付款", "已匯款", "已收款", "完成", "是", "yes", "y", "true", "1", "paid", "completed"].some((item) => normalized === item || normalized.includes(item))) return true;
+      return null;
+    }
+
+    function normalizeImportedPaymentTime(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      const serial = Number(raw);
+      if (/^\d+(?:\.\d+)?$/.test(raw) && Number.isFinite(serial) && serial >= 1 && serial <= 90000) {
+        const date = new Date(Date.UTC(1899, 11, 30) + Math.round(serial * 86400000));
+        return normalizePaymentTime(`${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")} ${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`);
+      }
+      const text = raw.normalize("NFKC").replace(/[年月]/g, "-").replace(/日/g, " ").replace(/[T／]/g, " ").replace(/[：]/g, ":");
+      const match = text.match(/(?:\d{2,4}[-\/]?)?(\d{1,2})[-\/](\d{1,2})\s+([01]?\d|2[0-3]):([0-5]\d)/);
+      if (!match) return "";
+      return normalizePaymentTime(`${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")} ${match[3].padStart(2, "0")}:${match[4]}`);
+    }
+
+    function activityImportPreview(rows, activity) {
+      const header = findActivityImportHeader(rows);
+      if (!header) throw new Error("找不到「姓名」與「學號」欄位，請確認試算表包含標題列。");
+      const peopleImport = personImportPreview(rows);
+      const existingByStudentId = new Map(state.people.map((person) => [normalizeSearchValue(person.studentId), person]));
+      const existingByName = new Map(state.people.map((person) => [normalizeSearchValue(person.name), person]));
+      const candidateByStudentId = new Map(peopleImport.candidates.map((person) => [normalizeSearchValue(person.studentId), person]));
+      const candidateByName = new Map(peopleImport.candidates.map((person) => [normalizeSearchValue(person.name), person]));
+      const importedPeople = new Set();
+      const attendance = [];
+      let duplicateRows = 0;
+      let invalidRows = 0;
+      rows.slice(header.rowIndex + 1).forEach((row) => {
+        const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] || "").trim();
+        const name = value("name");
+        const studentId = normalizeStudentId(value("studentId"));
+        if (!name && !studentId) return;
+        if (!name || !studentId) { invalidRows += 1; return; }
+        const existing = existingByStudentId.get(normalizeSearchValue(studentId)) || existingByName.get(normalizeSearchValue(name));
+        const candidate = candidateByStudentId.get(normalizeSearchValue(studentId)) || candidateByName.get(normalizeSearchValue(name));
+        if (!existing && !candidate) { invalidRows += 1; return; }
+        const personKey = existing ? `person:${existing.id}` : `candidate:${normalizeSearchValue(candidate.studentId)}`;
+        if (importedPeople.has(personKey)) { duplicateRows += 1; return; }
+        importedPeople.add(personKey);
+        const status = importedAttendanceStatus(value("attendance"));
+        const paidAt = normalizeImportedPaymentTime(value("paidAt"));
+        const importedPaid = importedPaymentStatus(value("payment"));
+        attendance.push({
+          personId: existing?.id || "",
+          candidateStudentId: candidate?.studentId || "",
+          status,
+          paid: status === "attending" && (importedPaid === true || (importedPaid === null && Boolean(paidAt))),
+          paidAt: status === "attending" && (importedPaid === true || (importedPaid === null && Boolean(paidAt))) ? paidAt : ""
+        });
+      });
+      return {
+        header,
+        peopleImport,
+        attendance,
+        duplicateRows,
+        invalidRows,
+        activityId: activity.id
+      };
+    }
+
+    function clearActivityImport() {
+      pendingActivityImport = null;
+      $("#activityImportFile").value = "";
+      $("#activityImportPreview").hidden = true;
+      $("#activityImportSummary").textContent = "";
+    }
+
+    function showActivityImportPreview(importData) {
+      pendingActivityImport = importData;
+      const labels = { name: "姓名", studentId: "學號", department: "系別", email: "電子郵件", attendance: "參加狀態", payment: "繳費狀態", paidAt: "繳費日期" };
+      const recognized = Object.keys(importData.header.columns).map((field) => labels[field]).filter(Boolean).join("、");
+      const existingRecords = new Map((state.activities.find((item) => item.id === importData.activityId)?.attendance || []).map((record) => [record.personId, record]));
+      const updates = importData.attendance.filter((record) => {
+        const personId = record.personId;
+        const current = personId && existingRecords.get(personId);
+        return !current || current.status !== record.status || current.paid !== record.paid || current.paidAt !== record.paidAt;
+      }).length;
+      const peopleChanges = importData.peopleImport.candidates.length + importData.peopleImport.supplements.length;
+      $("#activityImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.peopleImport.candidates.length} 位、補齊 ${importData.peopleImport.supplements.length} 位人員；將登記或更新 ${updates} 筆活動狀態。略過重複 ${importData.duplicateRows} 列、缺少姓名或學號 ${importData.invalidRows} 列。`;
+      const actionable = peopleChanges + updates;
+      $("#confirmActivityImport").textContent = actionable ? `匯入 ${importData.attendance.length} 位活動人員` : "沒有可匯入的資料";
+      $("#confirmActivityImport").disabled = !actionable;
+      $("#activityImportPreview").hidden = false;
+    }
+
+    async function readActivityImportFile(file) {
+      const activity = state.activities.find((item) => item.id === $("#activityId").value);
+      if (!file || !activity) return;
+      if (file.size > 5 * 1024 * 1024) return toast("試算表不可超過 5 MB。", "error");
+      if (!tauriStorageEnabled) return toast("試算表匯入僅支援桌面 App。", "error");
+      try {
+        const fileData = Array.from(new Uint8Array(await file.arrayBuffer()));
+        const result = await nativeStorageCall("parseMemberSpreadsheet", { fileName: file.name, fileData });
+        showActivityImportPreview({ ...activityImportPreview(result.rows || [], activity), rows: result.rows || [] });
+      } catch (error) {
+        clearActivityImport();
+        toast(error?.message || "試算表讀取失敗。", "error");
+      }
+    }
+
+    function confirmActivityImport() {
+      if (!pendingActivityImport) return;
+      const activity = state.activities.find((item) => item.id === pendingActivityImport.activityId);
+      if (!activity || $("#activityId").value !== activity.id) return toast("活動已切換，請重新選擇試算表。", "error");
+      const importData = activityImportPreview(pendingActivityImport.rows, activity);
+      const peopleChanges = applyPersonImport(importData.peopleImport);
+      const personByStudentId = new Map(state.people.map((person) => [normalizeSearchValue(person.studentId), person]));
+      let updated = 0;
+      importData.attendance.forEach((record) => {
+        const personId = record.personId || personByStudentId.get(normalizeSearchValue(record.candidateStudentId))?.id;
+        if (!personId) return;
+        const current = activityRecord(activity, personId);
+        if (current && current.status === record.status && current.paid === record.paid && current.paidAt === record.paidAt) return;
+        if (current) Object.assign(current, { personId, status: record.status, paid: record.paid, paidAt: record.paidAt });
+        else activity.attendance.push({ personId, status: record.status, paid: record.paid, paidAt: record.paidAt });
+        updated += 1;
+      });
+      if (!peopleChanges.added && !peopleChanges.supplemented && !updated) return showActivityImportPreview(importData);
+      if (!saveState()) return;
+      clearActivityImport();
+      renderPeople();
+      toast(`已新增 ${peopleChanges.added} 位、補齊 ${peopleChanges.supplemented} 位人員，更新 ${updated} 筆活動狀態。`);
+    }
+
     async function syncMemberImportLink({ quiet = false } = {}) {
       const link = state.memberImportLink;
       if (!link?.url || !tauriStorageEnabled || memberImportSyncing) return;
@@ -3914,6 +4086,7 @@
     function resetActivityForm() {
       $("#activityForm").reset();
       $("#activityId").value = "";
+      clearActivityImport();
       $("#activityFormTitle").textContent = "新增活動";
       $("#activitySubmit").textContent = "儲存活動";
       $("#activityCancel").textContent = "重設";
@@ -3925,6 +4098,7 @@
 
     function selectActivity(activity, initialFilter = "attending") {
       if (!activity) return;
+      clearActivityImport();
       $("#activityId").value = activity.id;
       $("#activityFormTitle").textContent = "編輯活動";
       $("#activitySubmit").textContent = "更新活動";
@@ -5255,6 +5429,13 @@
         });
       });
       $("#activityForm").addEventListener("submit", upsertActivity);
+      $("#openActivityImport").addEventListener("click", () => {
+        if (!$("#activityId").value) return toast("請先選擇一個活動。", "error");
+        $("#activityImportFile").click();
+      });
+      $("#activityImportFile").addEventListener("change", () => readActivityImportFile($("#activityImportFile").files[0]));
+      $("#cancelActivityImport").addEventListener("click", clearActivityImport);
+      $("#confirmActivityImport").addEventListener("click", confirmActivityImport);
       $("#reconciliationForm").addEventListener("submit", saveReconciliation);
       $("#entryCancel").addEventListener("click", () => {
         resetEntryForm();
