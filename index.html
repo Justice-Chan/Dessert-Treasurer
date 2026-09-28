@@ -3840,7 +3840,7 @@
     const activityImportHeaders = {
       ...personImportHeaders,
       attendance: ["參加狀態", "參與狀態", "出席狀態", "參加", "出席", "attendance", "attendancestatus", "participation", "participationstatus"],
-      payment: ["匯款狀態", "繳費狀態", "繳款狀態", "付款狀態", "匯款", "繳費", "繳款", "付款", "payment", "paymentstatus", "paid", "paidstatus"],
+      payment: ["匯款狀態", "繳費狀態", "繳款狀態", "付款狀態", "對帳狀態", "匯款", "繳費", "繳款", "付款", "payment", "paymentstatus", "paid", "paidstatus"],
       paidAt: ["匯款日期", "繳費日期", "繳款日期", "付款日期", "匯款時間", "繳費時間", "繳款時間", "付款時間", "paymentdate", "paymenttime", "paidat"]
     };
 
@@ -3869,7 +3869,7 @@
       const normalized = normalizeSearchValue(value).replace(/[\s・,，;；:：()（）]/g, "");
       if (!normalized) return null;
       if (["未繳", "未付款", "未匯款", "待繳", "待付款", "待匯款", "否", "no", "n", "false", "0", "unpaid", "pending"].some((item) => normalized === item || normalized.includes(item))) return false;
-      if (["已繳", "已付款", "已匯款", "已收款", "完成", "是", "yes", "y", "true", "1", "paid", "completed"].some((item) => normalized === item || normalized.includes(item))) return true;
+      if (["已繳", "已付款", "已匯款", "已收款", "已確認", "完成", "是", "yes", "y", "true", "1", "paid", "completed"].some((item) => normalized === item || normalized.includes(item))) return true;
       return null;
     }
 
