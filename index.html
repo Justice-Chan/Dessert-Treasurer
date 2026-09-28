@@ -1346,6 +1346,13 @@
     .activity-roster[hidden] { display: none; }
     .activity-roster .section-heading { align-items: center; }
     .activity-roster-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+    .activity-roster .person-import-preview {
+      margin: 0 0 14px;
+      padding: 0 0 14px;
+      border-top: 0;
+      border-bottom: 1px solid var(--soft-line);
+    }
+    .activity-roster .person-import-preview .form-actions { margin-top: 0; }
 
     .attachment-item button { min-height: 30px; padding: 0 8px; font-size: 12px; }
 
@@ -1479,6 +1486,7 @@
         <button class="nav-button" data-section="categories"><span>分類</span><span>Tags</span></button>
         <button class="nav-button" data-section="trash"><span>垃圾桶</span><span>Trash</span></button>
         <button class="nav-button" data-section="backup"><span>備份</span><span>Export</span></button>
+        <button class="nav-button" data-section="settings"><span>設定</span><span>Settings</span></button>
       </nav>
       <div class="sidebar-note">
         資料會留在這台電腦的本機資料夾。交接或換電腦前，請先到「備份」下載完整備份。
@@ -2053,6 +2061,13 @@
                   <button type="button" class="primary" id="confirmActivityImport">匯入活動人員</button>
                 </div>
               </div>
+              <div class="person-link-status" id="activityLinkStatus" hidden>
+                <div><strong>活動名單連線</strong><p class="subtle" id="activityLinkStatusText"></p></div>
+                <div class="person-link-actions">
+                  <button type="button" class="danger" id="disconnectActivityLink">取消連線</button>
+                  <button type="button" id="syncActivityLink">立即同步</button>
+                </div>
+              </div>
               <div class="people-tools">
                 <input id="activityPersonSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
                 <select id="activityPersonFilter" aria-label="人員狀態篩選">
@@ -2145,6 +2160,32 @@
           </div>
         </div>
       </section>
+
+      <section class="section" id="settings" aria-labelledby="pageTitle">
+        <div class="panel">
+          <h2>匯入欄位同義詞</h2>
+          <p class="subtle">填入額外可辨識的欄位名稱，多個名稱以頓號、逗號或換行分隔。原有預設名稱會保留。</p>
+          <form id="importSynonymForm">
+            <h3>人員匯入</h3>
+            <div class="form-grid">
+              <div class="field"><label for="synonymPersonName">姓名</label><input id="synonymPersonName" maxlength="500" placeholder="例：社員姓名、中文姓名"></div>
+              <div class="field"><label for="synonymPersonStudentId">學號</label><input id="synonymPersonStudentId" maxlength="500" placeholder="例：學生代碼、學生證號"></div>
+              <div class="field"><label for="synonymPersonDepartment">系別</label><input id="synonymPersonDepartment" maxlength="500" placeholder="例：就讀系所"></div>
+              <div class="field"><label for="synonymPersonEmail">電子郵件</label><input id="synonymPersonEmail" maxlength="500" placeholder="例：學校信箱"></div>
+            </div>
+            <h3 style="margin-top: 20px;">活動匯入</h3>
+            <div class="form-grid">
+              <div class="field"><label for="synonymActivityAttendance">參加狀態</label><input id="synonymActivityAttendance" maxlength="500" placeholder="例：是否出席"></div>
+              <div class="field"><label for="synonymActivityPayment">繳費狀態</label><input id="synonymActivityPayment" maxlength="500" placeholder="例：對帳結果"></div>
+              <div class="field"><label for="synonymActivityPaidAt">繳費日期</label><input id="synonymActivityPaidAt" maxlength="500" placeholder="例：入帳時間"></div>
+            </div>
+            <div class="form-actions account-form-actions">
+              <button type="button" id="resetImportSynonyms">清除自訂同義詞</button>
+              <button type="submit" class="primary">儲存設定</button>
+            </div>
+          </form>
+        </div>
+      </section>
     </main>
   </div>
   <section class="monthly-report" id="monthlyReport" aria-hidden="true"></section>
@@ -2229,6 +2270,33 @@
       </div>
     </div>
   </div>
+  <div class="app-modal" id="activityImportDialog" role="dialog" aria-modal="true" aria-labelledby="activityImportDialogTitle" hidden>
+    <div class="app-modal-card">
+      <h2 id="activityImportDialogTitle">匯入活動人員</h2>
+      <p class="confirmation-message">選擇試算表來源。</p>
+      <div class="form-actions dialog-actions">
+        <button type="button" id="cancelActivityImportDialog">取消</button>
+        <button type="button" id="chooseActivityImport">匯入試算表</button>
+        <button type="button" class="primary" id="openActivityImportLink">匯入連結</button>
+      </div>
+    </div>
+  </div>
+  <div class="app-modal" id="activityImportLinkDialog" role="dialog" aria-modal="true" aria-labelledby="activityImportLinkDialogTitle" hidden>
+    <div class="app-modal-card">
+      <h2 id="activityImportLinkDialogTitle">匯入活動連結</h2>
+      <div class="field">
+        <div class="person-import-link-heading">
+          <label for="activityImportUrl">公開試算表連結</label>
+          <label class="person-link-auto"><input id="enableActivityLink" type="checkbox" checked> 每次開啟 App 自動同步</label>
+        </div>
+        <input id="activityImportUrl" type="url" maxlength="2048" placeholder="貼上公開 Google Sheet 或試算表下載連結">
+      </div>
+      <div class="form-actions dialog-actions">
+        <button type="button" id="cancelActivityImportLink">取消</button>
+        <button type="button" class="primary" id="importActivityUrl">讀取</button>
+      </div>
+    </div>
+  </div>
   <div class="calendar-popover" id="calendarPopover" role="dialog" aria-label="選擇日期" hidden></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -2288,7 +2356,8 @@
       people: ["人員", "管理社員名單、活動參加與繳費狀態。"],
       categories: ["分類", "依甜點社常見情境整理主項目與副項目。"],
       trash: ["垃圾桶", "刪除項目保留 30 天，可在到期前還原。"],
-      backup: ["備份", "以 JSON 或 CSV 下載、還原帳務資料。"]
+      backup: ["備份", "以 JSON 或 CSV 下載、還原帳務資料。"],
+      settings: ["設定", "管理匯入試算表時可辨識的欄位同義詞。"]
     };
 
     const $ = (selector) => document.querySelector(selector);
@@ -2460,6 +2529,7 @@
             paid: item.status === "attending" && Boolean(item.paid),
             paidAt: item.status === "attending" && Boolean(item.paid) ? normalizePaymentTime(item.paidAt) : ""
           })) : [];
+        const importLinkUrl = normalizeMemberImportLink(activity.importLink?.url);
         return {
           id: String(activity.id || uid()),
           name: String(activity.name || "").trim().slice(0, 160),
@@ -2469,7 +2539,10 @@
           attendance,
           rosterOrder: Array.isArray(activity.rosterOrder)
             ? [...new Set(activity.rosterOrder.filter((personId) => personIds.has(personId)))]
-            : []
+            : [],
+          importLink: importLinkUrl
+            ? { url: importLinkUrl, lastSyncedAt: typeof activity.importLink?.lastSyncedAt === "string" ? activity.importLink.lastSyncedAt : "" }
+            : null
         };
       }).filter((activity) => activity.name) : [];
       const memberImportLinkUrl = normalizeMemberImportLink(saved.memberImportLink?.url);
@@ -2479,6 +2552,22 @@
             lastSyncedAt: typeof saved.memberImportLink?.lastSyncedAt === "string" ? saved.memberImportLink.lastSyncedAt : ""
           }
         : null;
+      const normalizeSynonymList = (value) => Array.isArray(value)
+        ? [...new Set(value.map((item) => String(item || "").trim().slice(0, 100)).filter((item) => item && normalizeImportHeader(item)))].slice(0, 30)
+        : [];
+      const importSynonyms = {
+        people: {
+          name: normalizeSynonymList(saved.importSynonyms?.people?.name),
+          studentId: normalizeSynonymList(saved.importSynonyms?.people?.studentId),
+          department: normalizeSynonymList(saved.importSynonyms?.people?.department),
+          email: normalizeSynonymList(saved.importSynonyms?.people?.email)
+        },
+        activity: {
+          attendance: normalizeSynonymList(saved.importSynonyms?.activity?.attendance),
+          payment: normalizeSynonymList(saved.importSynonyms?.activity?.payment),
+          paidAt: normalizeSynonymList(saved.importSynonyms?.activity?.paidAt)
+        }
+      };
 
       return {
         entries,
@@ -2489,6 +2578,7 @@
         people,
         activities,
         memberImportLink,
+        importSynonyms,
         reconciliations: Array.isArray(saved.reconciliations) ? saved.reconciliations : [],
         lastBackupAt: typeof saved.lastBackupAt === "string" ? saved.lastBackupAt : "",
         lockedMonths: Array.isArray(saved.lockedMonths) ? [...new Set(saved.lockedMonths)] : []
@@ -2539,6 +2629,7 @@
     let pendingPersonImport = null;
     let pendingActivityImport = null;
     let memberImportSyncing = false;
+    let activityImportSyncing = new Set();
 
     function formatDateValue(value) {
       const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
@@ -3141,6 +3232,7 @@
       else if (section === "categories") renderCategories();
       else if (section === "trash") renderTrash();
       else if (section === "backup") renderBackupHealth();
+      else if (section === "settings") renderImportSynonymSettings();
     }
 
     function render() {
@@ -3149,7 +3241,10 @@
     }
 
     function scheduleMemberImportSync() {
-      const synchronize = () => setTimeout(() => void syncMemberImportLink({ quiet: true }), 250);
+      const synchronize = () => setTimeout(() => {
+        void syncMemberImportLink({ quiet: true });
+        void syncActivityImportLinks({ quiet: true });
+      }, 250);
       if ("requestIdleCallback" in window) window.requestIdleCallback(synchronize, { timeout: 1600 });
       else requestAnimationFrame(synchronize);
     }
@@ -3568,6 +3663,20 @@
       $("#syncPersonLink").textContent = memberImportSyncing ? "同步中" : "立即同步";
     }
 
+    function renderActivityImportLink(activity) {
+      const link = activity?.importLink;
+      $("#activityLinkStatus").hidden = !link;
+      if (!link) return;
+      const syncedAt = new Date(link.lastSyncedAt).getTime();
+      $("#activityLinkStatusText").textContent = Number.isFinite(syncedAt)
+        ? `上次同步：${new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(syncedAt)}`
+        : "尚未同步";
+      $("#activityLinkStatusText").title = link.url;
+      const syncing = activityImportSyncing.has(activity.id);
+      $("#syncActivityLink").disabled = syncing;
+      $("#syncActivityLink").textContent = syncing ? "同步中" : "立即同步";
+    }
+
     function renderPeople() {
       renderMemberImportLink();
       const personQuery = $("#personSearch").value;
@@ -3609,6 +3718,7 @@
 
       const activity = state.activities.find((item) => item.id === $("#activityId").value);
       $("#activityRoster").hidden = !activity;
+      renderActivityImportLink(activity);
       if (!activity) {
         requestAnimationFrame(() => syncScrollableList("activityPersonList", 8));
         return;
@@ -3716,7 +3826,7 @@
         const columns = {};
         rows[rowIndex].forEach((value, index) => {
           const header = normalizeImportHeader(value);
-          Object.entries(personImportHeaders).forEach(([field, aliases]) => {
+          Object.entries(importHeaders("people")).forEach(([field, aliases]) => {
             if (columns[field] === undefined && aliases.map(normalizeImportHeader).includes(header)) columns[field] = index;
           });
         });
@@ -3844,12 +3954,63 @@
       paidAt: ["匯款日期", "繳費日期", "繳款日期", "付款日期", "匯款時間", "繳費時間", "繳款時間", "付款時間", "paymentdate", "paymenttime", "paidat"]
     };
 
+    function importHeaders(scope) {
+      const defaults = scope === "people" ? personImportHeaders : activityImportHeaders;
+      const custom = scope === "people" ? state.importSynonyms.people : state.importSynonyms.activity;
+      return Object.fromEntries(Object.entries(defaults).map(([field, aliases]) => {
+        const seen = new Set();
+        const personAliases = scope === "activity" ? (state.importSynonyms.people[field] || []) : [];
+        return [field, [...aliases, ...personAliases, ...(custom[field] || [])].filter((alias) => {
+          const normalized = normalizeImportHeader(alias);
+          if (!normalized || seen.has(normalized)) return false;
+          seen.add(normalized);
+          return true;
+        })];
+      }));
+    }
+
+    function splitImportSynonyms(value) {
+      const seen = new Set();
+      return String(value || "").split(/[、,，\n]/).map((item) => item.trim().slice(0, 100)).filter((item) => {
+        const normalized = normalizeImportHeader(item);
+        if (!normalized || seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      }).slice(0, 30);
+    }
+
+    function renderImportSynonymSettings() {
+      const fields = [
+        ["synonymPersonName", "people", "name"], ["synonymPersonStudentId", "people", "studentId"],
+        ["synonymPersonDepartment", "people", "department"], ["synonymPersonEmail", "people", "email"],
+        ["synonymActivityAttendance", "activity", "attendance"], ["synonymActivityPayment", "activity", "payment"],
+        ["synonymActivityPaidAt", "activity", "paidAt"]
+      ];
+      fields.forEach(([id, scope, field]) => { $("#" + id).value = (state.importSynonyms[scope][field] || []).join("、"); });
+    }
+
+    function saveImportSynonyms(event) {
+      event.preventDefault();
+      state.importSynonyms = {
+        people: {
+          name: splitImportSynonyms($("#synonymPersonName").value), studentId: splitImportSynonyms($("#synonymPersonStudentId").value),
+          department: splitImportSynonyms($("#synonymPersonDepartment").value), email: splitImportSynonyms($("#synonymPersonEmail").value)
+        },
+        activity: {
+          attendance: splitImportSynonyms($("#synonymActivityAttendance").value), payment: splitImportSynonyms($("#synonymActivityPayment").value),
+          paidAt: splitImportSynonyms($("#synonymActivityPaidAt").value)
+        }
+      };
+      if (!saveState()) return;
+      toast("匯入欄位同義詞已儲存。");
+    }
+
     function findActivityImportHeader(rows) {
       for (let rowIndex = 0; rowIndex < Math.min(rows.length, 12); rowIndex += 1) {
         const columns = {};
         rows[rowIndex].forEach((value, index) => {
           const header = normalizeImportHeader(value);
-          Object.entries(activityImportHeaders).forEach(([field, aliases]) => {
+          Object.entries(importHeaders("activity")).forEach(([field, aliases]) => {
             if (columns[field] === undefined && aliases.map(normalizeImportHeader).includes(header)) columns[field] = index;
           });
         });
@@ -3914,12 +4075,13 @@
         const status = importedAttendanceStatus(value("attendance"));
         const paidAt = normalizeImportedPaymentTime(value("paidAt"));
         const importedPaid = importedPaymentStatus(value("payment"));
+        const paid = status === "attending" && (importedPaid === true || (header.columns.payment === undefined && Boolean(paidAt)));
         attendance.push({
           personId: existing?.id || "",
           candidateStudentId: candidate?.studentId || "",
           status,
-          paid: status === "attending" && (importedPaid === true || (importedPaid === null && Boolean(paidAt))),
-          paidAt: status === "attending" && (importedPaid === true || (importedPaid === null && Boolean(paidAt))) ? paidAt : ""
+          paid,
+          paidAt: paid ? paidAt : ""
         });
       });
       return {
@@ -3935,12 +4097,17 @@
     function clearActivityImport() {
       pendingActivityImport = null;
       $("#activityImportFile").value = "";
+      $("#activityImportUrl").value = "";
+      $("#enableActivityLink").checked = true;
+      $("#activityImportDialog").hidden = true;
+      $("#activityImportLinkDialog").hidden = true;
       $("#activityImportPreview").hidden = true;
       $("#activityImportSummary").textContent = "";
     }
 
     function showActivityImportPreview(importData) {
       pendingActivityImport = importData;
+      $("#activityImportLinkDialog").hidden = true;
       const labels = { name: "姓名", studentId: "學號", department: "系別", email: "電子郵件", attendance: "參加狀態", payment: "繳費狀態", paidAt: "繳費日期" };
       const recognized = Object.keys(importData.header.columns).map((field) => labels[field]).filter(Boolean).join("、");
       const existingRecords = new Map((state.activities.find((item) => item.id === importData.activityId)?.attendance || []).map((record) => [record.personId, record]));
@@ -3950,9 +4117,10 @@
         return !current || current.status !== record.status || current.paid !== record.paid || current.paidAt !== record.paidAt;
       }).length;
       const peopleChanges = importData.peopleImport.candidates.length + importData.peopleImport.supplements.length;
-      $("#activityImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.peopleImport.candidates.length} 位、補齊 ${importData.peopleImport.supplements.length} 位人員；將登記或更新 ${updates} 筆活動狀態。略過重複 ${importData.duplicateRows} 列、缺少姓名或學號 ${importData.invalidRows} 列。`;
-      const actionable = peopleChanges + updates;
-      $("#confirmActivityImport").textContent = actionable ? `匯入 ${importData.attendance.length} 位活動人員` : "沒有可匯入的資料";
+      const connectsLink = Boolean(importData.sourceUrl && importData.enableLink);
+      $("#activityImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.peopleImport.candidates.length} 位、補齊 ${importData.peopleImport.supplements.length} 位人員；將登記或更新 ${updates} 筆活動狀態。略過重複 ${importData.duplicateRows} 列、缺少姓名或學號 ${importData.invalidRows} 列。${connectsLink ? "確認後會啟用開啟 App 時的自動同步。" : ""}`;
+      const actionable = peopleChanges + updates + Number(connectsLink);
+      $("#confirmActivityImport").textContent = !actionable ? "沒有可匯入的資料" : connectsLink ? "匯入並啟用連線" : `匯入 ${importData.attendance.length} 位活動人員`;
       $("#confirmActivityImport").disabled = !actionable;
       $("#activityImportPreview").hidden = false;
     }
@@ -3965,18 +4133,33 @@
       try {
         const fileData = Array.from(new Uint8Array(await file.arrayBuffer()));
         const result = await nativeStorageCall("parseMemberSpreadsheet", { fileName: file.name, fileData });
-        showActivityImportPreview({ ...activityImportPreview(result.rows || [], activity), rows: result.rows || [] });
+        showActivityImportPreview({ ...activityImportPreview(result.rows || [], activity), rows: result.rows || [], sourceUrl: "", enableLink: false });
       } catch (error) {
         clearActivityImport();
         toast(error?.message || "試算表讀取失敗。", "error");
       }
     }
 
-    function confirmActivityImport() {
-      if (!pendingActivityImport) return;
-      const activity = state.activities.find((item) => item.id === pendingActivityImport.activityId);
-      if (!activity || $("#activityId").value !== activity.id) return toast("活動已切換，請重新選擇試算表。", "error");
-      const importData = activityImportPreview(pendingActivityImport.rows, activity);
+    async function readActivityImportUrl() {
+      const activity = state.activities.find((item) => item.id === $("#activityId").value);
+      const url = $("#activityImportUrl").value.trim();
+      if (!activity || !url) return toast("請貼上公開試算表連結。", "error");
+      if (!tauriStorageEnabled) return toast("試算表匯入僅支援桌面 App。", "error");
+      const button = $("#importActivityUrl");
+      button.disabled = true;
+      button.textContent = "讀取中";
+      try {
+        const result = await nativeStorageCall("importMemberSpreadsheetUrl", { url });
+        showActivityImportPreview({ ...activityImportPreview(result.rows || [], activity), rows: result.rows || [], sourceUrl: url, enableLink: $("#enableActivityLink").checked });
+      } catch (error) {
+        toast(error?.message || "無法讀取公開試算表連結。", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "讀取";
+      }
+    }
+
+    function applyActivityImport(activity, importData) {
       const peopleChanges = applyPersonImport(importData.peopleImport);
       const personByStudentId = new Map(state.people.map((person) => [normalizeSearchValue(person.studentId), person]));
       let updated = 0;
@@ -3989,11 +4172,25 @@
         else activity.attendance.push({ personId, status: record.status, paid: record.paid, paidAt: record.paidAt });
         updated += 1;
       });
-      if (!peopleChanges.added && !peopleChanges.supplemented && !updated) return showActivityImportPreview(importData);
+      return { ...peopleChanges, updated };
+    }
+
+    function confirmActivityImport() {
+      if (!pendingActivityImport) return;
+      const activity = state.activities.find((item) => item.id === pendingActivityImport.activityId);
+      if (!activity || $("#activityId").value !== activity.id) return toast("活動已切換，請重新選擇試算表。", "error");
+      const importData = { ...activityImportPreview(pendingActivityImport.rows, activity), sourceUrl: pendingActivityImport.sourceUrl || "", enableLink: Boolean(pendingActivityImport.enableLink) };
+      const connectsLink = Boolean(importData.sourceUrl && importData.enableLink);
+      const changes = applyActivityImport(activity, importData);
+      if (!changes.added && !changes.supplemented && !changes.updated && !connectsLink) return showActivityImportPreview(importData);
+      if (connectsLink) activity.importLink = { url: importData.sourceUrl, lastSyncedAt: new Date().toISOString() };
       if (!saveState()) return;
       clearActivityImport();
       renderPeople();
-      toast(`已新增 ${peopleChanges.added} 位、補齊 ${peopleChanges.supplemented} 位人員，更新 ${updated} 筆活動狀態。`);
+      toast(connectsLink
+        ? `已新增 ${changes.added} 位、補齊 ${changes.supplemented} 位，更新 ${changes.updated} 筆活動狀態，活動名單連線已啟用。`
+        : `已新增 ${changes.added} 位、補齊 ${changes.supplemented} 位人員，更新 ${changes.updated} 筆活動狀態。`
+      );
     }
 
     async function syncMemberImportLink({ quiet = false } = {}) {
@@ -4018,6 +4215,36 @@
         memberImportSyncing = false;
         renderMemberImportLink();
       }
+    }
+
+    async function syncActivityImportLink(activityId, { quiet = false } = {}) {
+      const activity = state.activities.find((item) => item.id === activityId);
+      const link = activity?.importLink;
+      if (!activity || !link?.url || !tauriStorageEnabled || activityImportSyncing.has(activityId)) return;
+      activityImportSyncing.add(activityId);
+      renderPeople();
+      try {
+        const result = await nativeStorageCall("importMemberSpreadsheetUrl", { url: link.url });
+        const changes = applyActivityImport(activity, activityImportPreview(result.rows || [], activity));
+        link.lastSyncedAt = new Date().toISOString();
+        if (!saveState()) return;
+        if (!quiet || changes.added || changes.supplemented || changes.updated) {
+          toast(changes.added || changes.supplemented || changes.updated
+            ? `「${activity.name}」已新增 ${changes.added} 位、補齊 ${changes.supplemented} 位，更新 ${changes.updated} 筆狀態。`
+            : `「${activity.name}」名單連線已同步，沒有新資料。`
+          );
+        }
+      } catch (error) {
+        toast(quiet ? `「${activity.name}」名單連線同步失敗，原有資料已保留。` : (error?.message || `「${activity.name}」名單連線同步失敗，原有資料已保留。`), "error");
+      } finally {
+        activityImportSyncing.delete(activityId);
+        renderPeople();
+      }
+    }
+
+    async function syncActivityImportLinks({ quiet = false } = {}) {
+      const ids = state.activities.filter((activity) => activity.importLink?.url).map((activity) => activity.id);
+      for (const id of ids) await syncActivityImportLink(id, { quiet });
     }
 
     function confirmPersonImport() {
@@ -4134,7 +4361,7 @@
       const fee = Number($("#activityFee").value);
       if (!name || !isValidDateValue(date) || !Number.isFinite(fee) || fee < 0) return toast("請填寫活動名稱、日期與有效應繳金額。");
       const existing = state.activities.find((item) => item.id === id);
-      const activity = { id, name, date, fee, note: $("#activityNote").value.trim(), attendance: existing?.attendance || [], rosterOrder: existing?.rosterOrder || [] };
+      const activity = { id, name, date, fee, note: $("#activityNote").value.trim(), attendance: existing?.attendance || [], rosterOrder: existing?.rosterOrder || [], importLink: existing?.importLink || null };
       const index = state.activities.findIndex((item) => item.id === id);
       if (index >= 0) state.activities[index] = activity;
       else state.activities.push(activity);
@@ -5443,14 +5670,62 @@
           }
         });
       });
+      $("#importSynonymForm").addEventListener("submit", saveImportSynonyms);
+      $("#resetImportSynonyms").addEventListener("click", () => {
+        requestAppActionConfirmation({
+          title: "清除自訂同義詞",
+          message: "將清除所有自行新增的欄位名稱；預設可辨識名稱會保留。",
+          confirmLabel: "確認清除",
+          action: () => {
+            state.importSynonyms = { people: { name: [], studentId: [], department: [], email: [] }, activity: { attendance: [], payment: [], paidAt: [] } };
+            if (!saveState()) return;
+            renderImportSynonymSettings();
+            toast("自訂同義詞已清除。");
+          }
+        });
+      });
       $("#activityForm").addEventListener("submit", upsertActivity);
       $("#openActivityImport").addEventListener("click", () => {
         if (!$("#activityId").value) return toast("請先選擇一個活動。", "error");
+        $("#activityImportDialog").hidden = false;
+      });
+      const closeActivityImportDialog = () => { $("#activityImportDialog").hidden = true; };
+      const closeActivityImportLinkDialog = () => { $("#activityImportLinkDialog").hidden = true; };
+      $("#cancelActivityImportDialog").addEventListener("click", closeActivityImportDialog);
+      $("#activityImportDialog").addEventListener("click", (event) => { if (event.target === $("#activityImportDialog")) closeActivityImportDialog(); });
+      $("#chooseActivityImport").addEventListener("click", () => {
+        closeActivityImportDialog();
         $("#activityImportFile").click();
       });
+      $("#openActivityImportLink").addEventListener("click", () => {
+        closeActivityImportDialog();
+        $("#activityImportLinkDialog").hidden = false;
+        $("#activityImportUrl").focus();
+      });
+      $("#cancelActivityImportLink").addEventListener("click", closeActivityImportLinkDialog);
+      $("#activityImportLinkDialog").addEventListener("click", (event) => { if (event.target === $("#activityImportLinkDialog")) closeActivityImportLinkDialog(); });
       $("#activityImportFile").addEventListener("change", () => readActivityImportFile($("#activityImportFile").files[0]));
+      $("#importActivityUrl").addEventListener("click", readActivityImportUrl);
+      $("#activityImportUrl").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") { event.preventDefault(); readActivityImportUrl(); }
+      });
       $("#cancelActivityImport").addEventListener("click", clearActivityImport);
       $("#confirmActivityImport").addEventListener("click", confirmActivityImport);
+      $("#syncActivityLink").addEventListener("click", () => syncActivityImportLink($("#activityId").value));
+      $("#disconnectActivityLink").addEventListener("click", () => {
+        const activity = state.activities.find((item) => item.id === $("#activityId").value);
+        if (!activity?.importLink) return;
+        requestAppActionConfirmation({
+          title: "取消活動名單連線",
+          message: "取消後不再於開啟 App 時自動同步；已匯入的人員與活動紀錄會保留。",
+          confirmLabel: "確認取消",
+          action: () => {
+            activity.importLink = null;
+            if (!saveState()) return;
+            toast("活動名單連線已取消。");
+          }
+        });
+      });
       $("#reconciliationForm").addEventListener("submit", saveReconciliation);
       $("#entryCancel").addEventListener("click", () => {
         resetEntryForm();
