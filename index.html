@@ -1353,7 +1353,6 @@
       border-bottom: 1px solid var(--soft-line);
     }
     .activity-roster .person-import-preview .form-actions { margin-top: 0; }
-    .import-defaults { margin: 6px 0 0; overflow-wrap: anywhere; font-size: 12px; }
 
     .attachment-item button { min-height: 30px; padding: 0 8px; font-size: 12px; }
 
@@ -2165,23 +2164,23 @@
       <section class="section" id="settings" aria-labelledby="pageTitle">
         <div class="panel">
           <h2>匯入欄位同義詞</h2>
-          <p class="subtle">填入額外可辨識的欄位名稱，多個名稱以頓號、逗號或換行分隔。原有預設名稱會保留。</p>
+          <p class="subtle">可直接編輯所有可辨識的欄位名稱，多個名稱以頓號、逗號或換行分隔。</p>
           <form id="importSynonymForm">
             <h3>人員匯入</h3>
             <div class="form-grid">
-              <div class="field"><label for="synonymPersonName">姓名</label><input id="synonymPersonName" maxlength="500" placeholder="例：社員姓名、中文姓名"><p class="subtle import-defaults" id="defaultSynonymPersonName"></p></div>
-              <div class="field"><label for="synonymPersonStudentId">學號</label><input id="synonymPersonStudentId" maxlength="500" placeholder="例：學生代碼、學生證號"><p class="subtle import-defaults" id="defaultSynonymPersonStudentId"></p></div>
-              <div class="field"><label for="synonymPersonDepartment">系別</label><input id="synonymPersonDepartment" maxlength="500" placeholder="例：就讀系所"><p class="subtle import-defaults" id="defaultSynonymPersonDepartment"></p></div>
-              <div class="field"><label for="synonymPersonEmail">電子郵件</label><input id="synonymPersonEmail" maxlength="500" placeholder="例：學校信箱"><p class="subtle import-defaults" id="defaultSynonymPersonEmail"></p></div>
+              <div class="field"><label for="synonymPersonName">姓名</label><input id="synonymPersonName" maxlength="500" placeholder="例：社員姓名、中文姓名"></div>
+              <div class="field"><label for="synonymPersonStudentId">學號</label><input id="synonymPersonStudentId" maxlength="500" placeholder="例：學生代碼、學生證號"></div>
+              <div class="field"><label for="synonymPersonDepartment">系別</label><input id="synonymPersonDepartment" maxlength="500" placeholder="例：就讀系所"></div>
+              <div class="field"><label for="synonymPersonEmail">電子郵件</label><input id="synonymPersonEmail" maxlength="500" placeholder="例：學校信箱"></div>
             </div>
             <h3 style="margin-top: 20px;">活動匯入</h3>
             <div class="form-grid">
-              <div class="field"><label for="synonymActivityAttendance">參加狀態</label><input id="synonymActivityAttendance" maxlength="500" placeholder="例：是否出席"><p class="subtle import-defaults" id="defaultSynonymActivityAttendance"></p></div>
-              <div class="field"><label for="synonymActivityPayment">繳費狀態</label><input id="synonymActivityPayment" maxlength="500" placeholder="例：對帳結果"><p class="subtle import-defaults" id="defaultSynonymActivityPayment"></p></div>
-              <div class="field"><label for="synonymActivityPaidAt">繳費日期</label><input id="synonymActivityPaidAt" maxlength="500" placeholder="例：入帳時間"><p class="subtle import-defaults" id="defaultSynonymActivityPaidAt"></p></div>
+              <div class="field"><label for="synonymActivityAttendance">參加狀態</label><input id="synonymActivityAttendance" maxlength="500" placeholder="例：是否出席"></div>
+              <div class="field"><label for="synonymActivityPayment">繳費狀態</label><input id="synonymActivityPayment" maxlength="500" placeholder="例：對帳結果"></div>
+              <div class="field"><label for="synonymActivityPaidAt">繳費日期</label><input id="synonymActivityPaidAt" maxlength="500" placeholder="例：入帳時間"></div>
             </div>
             <div class="form-actions account-form-actions">
-              <button type="button" id="resetImportSynonyms">清除自訂同義詞</button>
+              <button type="button" id="resetImportSynonyms">還原預設同義詞</button>
               <button type="submit" class="primary">儲存設定</button>
             </div>
           </form>
@@ -2557,6 +2556,7 @@
         ? [...new Set(value.map((item) => String(item || "").trim().slice(0, 100)).filter((item) => item && normalizeImportHeader(item)))].slice(0, 30)
         : [];
       const importSynonyms = {
+        mode: saved.importSynonyms?.mode === "editable" ? "editable" : "legacy",
         people: {
           name: normalizeSynonymList(saved.importSynonyms?.people?.name),
           studentId: normalizeSynonymList(saved.importSynonyms?.people?.studentId),
@@ -3956,18 +3956,24 @@
     };
 
     function importHeaders(scope) {
-      const defaults = scope === "people" ? personImportHeaders : activityImportHeaders;
-      const custom = scope === "people" ? state.importSynonyms.people : state.importSynonyms.activity;
-      return Object.fromEntries(Object.entries(defaults).map(([field, aliases]) => {
+      const aliasesFor = (defaults, configured) => {
         const seen = new Set();
-        const personAliases = scope === "activity" ? (state.importSynonyms.people[field] || []) : [];
-        return [field, [...aliases, ...personAliases, ...(custom[field] || [])].filter((alias) => {
+        const values = state.importSynonyms.mode === "editable" ? configured : [...defaults, ...configured];
+        return values.filter((alias) => {
           const normalized = normalizeImportHeader(alias);
           if (!normalized || seen.has(normalized)) return false;
           seen.add(normalized);
           return true;
-        })];
-      }));
+        });
+      };
+      const people = Object.fromEntries(Object.entries(personImportHeaders).map(([field, defaults]) => [field, aliasesFor(defaults, state.importSynonyms.people[field] || [])]));
+      if (scope === "people") return people;
+      return {
+        ...people,
+        attendance: aliasesFor(activityImportHeaders.attendance, state.importSynonyms.activity.attendance || []),
+        payment: aliasesFor(activityImportHeaders.payment, state.importSynonyms.activity.payment || []),
+        paidAt: aliasesFor(activityImportHeaders.paidAt, state.importSynonyms.activity.paidAt || [])
+      };
     }
 
     function splitImportSynonyms(value) {
@@ -3987,16 +3993,13 @@
         ["synonymActivityAttendance", "activity", "attendance"], ["synonymActivityPayment", "activity", "payment"],
         ["synonymActivityPaidAt", "activity", "paidAt"]
       ];
-      fields.forEach(([id, scope, field]) => {
-        $("#" + id).value = (state.importSynonyms[scope][field] || []).join("、");
-        const defaults = scope === "people" ? personImportHeaders[field] : activityImportHeaders[field];
-        $("#default" + id.slice(0, 1).toUpperCase() + id.slice(1)).textContent = `內建：${defaults.join("、")}`;
-      });
+      fields.forEach(([id, scope, field]) => { $("#" + id).value = importHeaders(scope)[field].join("、"); });
     }
 
     function saveImportSynonyms(event) {
       event.preventDefault();
       state.importSynonyms = {
+        mode: "editable",
         people: {
           name: splitImportSynonyms($("#synonymPersonName").value), studentId: splitImportSynonyms($("#synonymPersonStudentId").value),
           department: splitImportSynonyms($("#synonymPersonDepartment").value), email: splitImportSynonyms($("#synonymPersonEmail").value)
@@ -5678,14 +5681,14 @@
       $("#importSynonymForm").addEventListener("submit", saveImportSynonyms);
       $("#resetImportSynonyms").addEventListener("click", () => {
         requestAppActionConfirmation({
-          title: "清除自訂同義詞",
-          message: "將清除所有自行新增的欄位名稱；預設可辨識名稱會保留。",
-          confirmLabel: "確認清除",
+          title: "還原預設同義詞",
+          message: "將放棄目前的自訂名稱，恢復 App 原本的可辨識欄位名稱。",
+          confirmLabel: "確認還原",
           action: () => {
-            state.importSynonyms = { people: { name: [], studentId: [], department: [], email: [] }, activity: { attendance: [], payment: [], paidAt: [] } };
+            state.importSynonyms = { mode: "legacy", people: { name: [], studentId: [], department: [], email: [] }, activity: { attendance: [], payment: [], paidAt: [] } };
             if (!saveState()) return;
             renderImportSynonymSettings();
-            toast("自訂同義詞已清除。");
+            toast("匯入同義詞已還原預設。");
           }
         });
       });
