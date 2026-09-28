@@ -6,10 +6,9 @@ People and activity attendance can be imported from local Excel, OpenDocument, C
 
 ## Getting started
 
-1. Download the latest DMG from GitHub Releases.
-2. Drag `Dessert Treasurer.app` to Applications.
-3. If Gatekeeper blocks the first launch, Control-click the app in Finder and choose Open.
-4. Download a full JSON backup after every monthly close.
+1. Download the internal DMG from GitHub Releases.
+2. Follow the [internal installation guide](docs/INTERNAL_INSTALL.md).
+3. Download a full JSON backup after every monthly close.
 
 All data stays on the local machine and is never uploaded to a cloud service. See [Data and backups](docs/DATA.md).
 
