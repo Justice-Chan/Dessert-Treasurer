@@ -19,6 +19,7 @@ jobs:
           components: rustfmt, clippy
       - run: npm ci
       - run: npx playwright install chromium
+      - run: npm run build:web
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

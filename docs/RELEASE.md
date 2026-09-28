@@ -8,6 +8,7 @@
 
 ```sh
 npm ci
+npm run build:web
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run test:ui
