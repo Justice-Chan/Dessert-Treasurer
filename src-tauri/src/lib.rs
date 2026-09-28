@@ -535,17 +535,15 @@ fn prepare_member_import_url(value: &str) -> Result<(String, String), String> {
         if let Some(id) = segments
             .windows(2)
             .find_map(|parts| (parts[0] == "d").then_some(parts[1]))
+            && !id.is_empty()
+            && id.chars().all(|character| {
+                character.is_ascii_alphanumeric() || character == '-' || character == '_'
+            })
         {
-            if !id.is_empty()
-                && id.chars().all(|character| {
-                    character.is_ascii_alphanumeric() || character == '-' || character == '_'
-                })
-            {
-                return Ok((
-                    format!("https://docs.google.com/spreadsheets/d/{id}/export?format=xlsx"),
-                    "members.xlsx".into(),
-                ));
-            }
+            return Ok((
+                format!("https://docs.google.com/spreadsheets/d/{id}/export?format=xlsx"),
+                "members.xlsx".into(),
+            ));
         }
         return Err("無法辨識 Google Sheet 連結。".into());
     }

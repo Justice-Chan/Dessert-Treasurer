@@ -12,6 +12,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run test:ui
 npm run build:mac
+npm run build:dmg
 ```
 
 4. Manually verify export, restore, and a monthly PDF report using real data.
@@ -20,8 +21,9 @@ npm run build:mac
 
 1. Create a `vX.Y.Z` Git tag.
 2. Create a matching GitHub Release.
-3. Upload the signed and notarized DMG.
+3. Upload the signed and notarized DMG and its SHA-256 checksum.
 4. Copy the matching CHANGELOG section into the release notes.
+5. Mark the release as a draft until the downloaded DMG has been installed and opened on a second Mac user account.
 
 ## Public distribution
 
@@ -34,3 +36,10 @@ npm run build:mac
 5. To staple the notarization ticket to the DMG.
 
 After this process, users can install from GitHub Releases without Gatekeeper blocking the app as an unidentified developer.
+
+## Repository launch checklist
+
+1. Choose a repository license before making the repository public.
+2. Confirm that no database, attachments, backups, exports, private links, or real names appear in commits or screenshots.
+3. Enable GitHub Actions and confirm the Verify workflow passes on the default branch.
+4. Add a repository description, topic tags, and a contact method for private security reports.

@@ -303,6 +303,8 @@
       align-items: center;
     }
 
+    .account-form-actions > .primary { margin-left: auto; }
+
     .account-edit-actions {
       display: flex;
       gap: 8px;
@@ -1798,7 +1800,7 @@
             </div>
             <div class="form-actions account-form-actions">
               <div class="account-edit-actions">
-                <button type="button" id="accountCancel">重設</button>
+                <button type="button" id="accountCancel" hidden>取消編輯</button>
               </div>
               <button type="submit" class="primary">儲存帳戶</button>
             </div>
@@ -1846,7 +1848,7 @@
                     </div>
                   </div>
                   <div class="payee-form-actions">
-                    <button type="button" id="payeeCancel">重設</button>
+                    <button type="button" id="payeeCancel" hidden>取消編輯</button>
                     <button type="submit" class="primary">儲存帳戶</button>
                   </div>
                   <div class="attachment-list" id="payeeQrCurrent"></div>
@@ -1955,7 +1957,7 @@
               </div>
               <div class="form-actions account-form-actions">
                 <div class="account-edit-actions">
-                  <button type="button" id="personCancel">重設</button>
+                  <button type="button" id="personCancel" hidden>取消編輯</button>
                   <button type="button" class="danger" id="personDelete" hidden>刪除</button>
                 </div>
                 <button type="submit" class="primary" id="personSubmit">儲存人員</button>
@@ -2020,7 +2022,7 @@
                 </div>
               </div>
               <div class="form-actions account-form-actions">
-                <button type="button" id="activityCancel">重設</button>
+                <button type="button" id="activityCancel" hidden>取消編輯</button>
                 <button type="submit" class="primary" id="activitySubmit">儲存活動</button>
               </div>
             </form>
@@ -4276,7 +4278,7 @@
       $("#personId").value = "";
       $("#personFormTitle").textContent = "新增人員";
       $("#personSubmit").textContent = "儲存人員";
-      $("#personCancel").textContent = "重設";
+      $("#personCancel").hidden = true;
       $("#personDelete").hidden = true;
     }
 
@@ -4285,7 +4287,7 @@
       $("#personId").value = person.id;
       $("#personFormTitle").textContent = "編輯人員";
       $("#personSubmit").textContent = "更新人員";
-      $("#personCancel").textContent = "取消編輯";
+      $("#personCancel").hidden = false;
       $("#personDelete").hidden = false;
       $("#personName").value = person.name;
       $("#personStudentId").value = person.studentId;
@@ -4338,7 +4340,7 @@
       clearActivityImport();
       $("#activityFormTitle").textContent = "新增活動";
       $("#activitySubmit").textContent = "儲存活動";
-      $("#activityCancel").textContent = "重設";
+      $("#activityCancel").hidden = true;
       setDateValue("activityDate", today());
       $("#activityFee").value = "0";
       $("#activityPersonSearch").value = "";
@@ -4351,7 +4353,7 @@
       $("#activityId").value = activity.id;
       $("#activityFormTitle").textContent = "編輯活動";
       $("#activitySubmit").textContent = "更新活動";
-      $("#activityCancel").textContent = "取消編輯";
+      $("#activityCancel").hidden = false;
       $("#activityName").value = activity.name;
       setDateValue("activityDate", activity.date);
       $("#activityFee").value = activity.fee;
@@ -4725,7 +4727,7 @@
       $("#accountQrFile").value = "";
       $("#accountQrFileName").textContent = "尚未選取圖片";
       $("#accountQrCurrent").innerHTML = "";
-      $("#accountCancel").textContent = "重設";
+      $("#accountCancel").hidden = true;
       removeAccountQr = false;
       pendingAccountQrDataUrl = "";
       updateAccountBankFields();
@@ -4742,7 +4744,7 @@
       $("#accountNumber").value = account.accountNumber || "";
       $("#accountQrFile").value = "";
       $("#accountQrFileName").textContent = "尚未選取圖片";
-      $("#accountCancel").textContent = "取消編輯";
+      $("#accountCancel").hidden = false;
       removeAccountQr = false;
       pendingAccountQrDataUrl = "";
       updateAccountBankFields();
@@ -4780,7 +4782,7 @@
       $("#payeeQrFile").value = "";
       $("#payeeQrFileName").textContent = "尚未選取圖片";
       $("#payeeQrCurrent").innerHTML = "";
-      $("#payeeCancel").textContent = "重設";
+      $("#payeeCancel").hidden = true;
       removePayeeQr = false;
       pendingPayeeQrDataUrl = "";
     }
@@ -4793,7 +4795,7 @@
       $("#payeeNumber").value = payee.accountNumber;
       $("#payeeQrFile").value = "";
       $("#payeeQrFileName").textContent = "尚未選取圖片";
-      $("#payeeCancel").textContent = "取消編輯";
+      $("#payeeCancel").hidden = false;
       removePayeeQr = false;
       pendingPayeeQrDataUrl = "";
       renderCurrentPayeeQr(payee);

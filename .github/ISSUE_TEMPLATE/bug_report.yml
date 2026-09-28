@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible problem in Dessert Treasurer
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include account numbers, member details, receipt images, backups, or private spreadsheet links.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: "0.2.0"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. ...\\n2. ...\\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: data-risk
+    attributes:
+      label: Does this involve possible data loss or private-data exposure?
+      options:
+        - "No"
+        - "Yes - I will report it privately instead"
+    validations:
+      required: true

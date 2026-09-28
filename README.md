@@ -1,6 +1,8 @@
 # Dessert Treasurer
 
-Dessert Treasurer is a macOS desktop finance tool for the Dessert Club. Built with Tauri 2, it supports income and expense tracking, reimbursements, reconciliation, people and activity fee management, attachments, backup and restore, trash, and monthly reports. Member lists can be imported locally from Excel, OpenDocument, CSV, or TSV files: the app identifies supported headers in any column order and skips existing people.
+Dessert Treasurer is a macOS desktop finance tool for the Dessert Club. Built with Tauri 2, it supports income and expense tracking, reimbursements, reconciliation, people and activity fee management, attachments, backup and restore, trash, and monthly reports.
+
+People and activity attendance can be imported from local Excel, OpenDocument, CSV, or TSV files. Public Google Sheets and direct spreadsheet-download links can also be connected and synchronized on app launch. The import flow identifies supported headers in any column order, lets administrators edit recognition synonyms, avoids duplicate people, and fills missing person details when new source data is available.
 
 ## Getting started
 
@@ -55,6 +57,8 @@ The DMG is written to `src-tauri/target/release/bundle/dmg/`. An unsigned or unn
 UI tests require a local listening port. If endpoint security blocks localhost, allow Node.js to listen on `127.0.0.1:4173`.
 
 ## Release
+
+Read [Contributing](CONTRIBUTING.md) before opening a pull request. For vulnerabilities or data-safety issues, use the private reporting route in [Security](SECURITY.md) rather than a public issue.
 
 Before a public release, follow the [release guide](docs/RELEASE.md) to complete Apple Developer ID signing and notarization. Unsigned builds are appropriate for personal or internal use, but external users may see a Gatekeeper warning.
 
