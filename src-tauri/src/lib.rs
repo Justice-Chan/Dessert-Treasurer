@@ -132,6 +132,8 @@ impl AppStorage {
         let mut saved = Vec::with_capacity(records.len());
         for record in records {
             let (extension, bytes) = decode_attachment(&record.mime_type, &record.data_url)?;
+            let size = u64::try_from(bytes.len()).map_err(|_| "附件檔案過大。".to_string())?;
+            let sqlite_size = i64::try_from(size).map_err(|_| "附件檔案過大。".to_string())?;
             let file_name = format!("{}.{}", record.id, extension);
             let destination = self.attachments_dir.join(&file_name);
             write_atomic(&destination, &bytes)?;
@@ -162,7 +164,7 @@ impl AppStorage {
                             record.claim_id,
                             truncate(&record.name, 300),
                             record.mime_type,
-                            bytes.len() as u64,
+                            sqlite_size,
                             record.created_at,
                             file_name,
                         ],
@@ -180,7 +182,7 @@ impl AppStorage {
                 claim_id: record.claim_id,
                 name: truncate(&record.name, 300),
                 mime_type: record.mime_type,
-                size: bytes.len() as u64,
+                size,
                 created_at: record.created_at,
                 data_url: record.data_url,
             });
@@ -318,12 +320,20 @@ fn query_receipt(connection: &Connection, id: &str) -> Result<Option<ReceiptRow>
 }
 
 fn receipt_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ReceiptRow> {
+    let sqlite_size: i64 = row.get(4)?;
+    let size = u64::try_from(sqlite_size).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(
+            4,
+            rusqlite::types::Type::Integer,
+            Box::new(error),
+        )
+    })?;
     Ok(ReceiptRow {
         id: row.get(0)?,
         claim_id: row.get(1)?,
         name: row.get(2)?,
         mime_type: row.get(3)?,
-        size: row.get(4)?,
+        size,
         created_at: row.get(5)?,
         file_name: row.get(6)?,
     })
