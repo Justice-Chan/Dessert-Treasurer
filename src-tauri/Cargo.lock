@@ -627,7 +627,7 @@ dependencies = [
 name = "dessert-treasurer"
 version = "0.2.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "calamine",
  "rusqlite",
  "serde",
