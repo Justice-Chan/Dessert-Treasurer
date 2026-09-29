@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-const date = "2026-09-20";
+// Keep records after each default account's opening date as time moves forward.
+const date = "2099-09-20";
 
 async function openSection(page, name) {
   await page.getByRole("button", { name: new RegExp(name) }).click();
@@ -91,11 +92,13 @@ test("monthly report uses the selected reconciliation month", async ({ page }) =
 
 test("activity roster drag order persists after reload", async ({ page }) => {
   await openSection(page, "人員");
-  for (const [name, studentId] of [["王小明", "A001"], ["陳小華", "A002"]]) {
+  const people = [["王小明", "A001"], ["陳小華", "A002"]];
+  for (const [index, [name, studentId]] of people.entries()) {
     await page.locator("#personName").fill(name);
     await page.locator("#personStudentId").fill(studentId);
     await page.locator("#personDepartment").fill("甜點系");
     await page.locator("#personSubmit").click();
+    if (index < people.length - 1) await page.locator("#personCancel").click();
   }
 
   await page.locator("#activityName").fill("拖曳排序測試");
