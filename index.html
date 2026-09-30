@@ -4112,7 +4112,6 @@
         const name = value("name");
         const studentId = normalizeStudentId(value("studentId"));
         if (!name && !studentId) return;
-        if (!name || !studentId) { invalidRows += 1; return; }
         const existing = (studentId && existingByStudentId.get(normalizeSearchValue(studentId))) || (name && existingByName.get(normalizeSearchValue(name)));
         const candidate = (studentId && candidateByStudentId.get(normalizeSearchValue(studentId))) || (name && candidateByName.get(normalizeSearchValue(name)));
         if (!existing && !candidate) { invalidRows += 1; return; }
