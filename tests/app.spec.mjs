@@ -133,3 +133,25 @@ test("import synonym settings require name and student ID headers", async ({ pag
   await page.getByRole("button", { name: "儲存設定" }).click();
   await expect(page.locator("#toast")).toContainText("姓名與學號各至少保留一個");
 });
+
+test("empty form links can be connected before the first response", async ({ page }) => {
+  await openSection(page, "人員");
+  const previews = await page.evaluate(() => {
+    const activity = { id: "empty-form-activity", attendance: [] };
+    const people = personImportPreview([], { allowEmptyLink: true });
+    const activityImport = activityImportPreview([], activity, { allowEmptyLink: true });
+    return {
+      peopleAwaiting: people.awaitingResponses,
+      peopleCandidates: people.candidates.length,
+      activityAwaiting: activityImport.awaitingResponses,
+      activityAttendance: activityImport.attendance.length
+    };
+  });
+
+  expect(previews).toEqual({
+    peopleAwaiting: true,
+    peopleCandidates: 0,
+    activityAwaiting: true,
+    activityAttendance: 0
+  });
+});
