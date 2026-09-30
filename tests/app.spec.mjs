@@ -155,3 +155,24 @@ test("empty form links can be connected before the first response", async ({ pag
     activityAttendance: 0
   });
 });
+
+test("imports can match registered people by either name or student ID", async ({ page }) => {
+  await openSection(page, "人員");
+  const result = await page.evaluate(() => {
+    state.people = [{ id: "person-1", name: "王小明", studentId: "B12345678", department: "甜點系", email: "" }];
+    const nameOnly = personImportPreview([["姓名"], ["王小明"]]);
+    const idOnlyActivity = activityImportPreview(
+      [["學號", "繳費狀態"], ["b12345678", "已繳"]],
+      { id: "activity-1", attendance: [] }
+    );
+    return {
+      nameOnlyInvalid: nameOnly.invalid,
+      nameOnlyDuplicates: nameOnly.duplicates,
+      attendance: idOnlyActivity.attendance
+    };
+  });
+
+  expect(result.nameOnlyInvalid).toBe(0);
+  expect(result.nameOnlyDuplicates).toBe(1);
+  expect(result.attendance).toEqual([{ personId: "person-1", candidateStudentId: "", status: "attending", paid: true, paidAt: "" }]);
+});

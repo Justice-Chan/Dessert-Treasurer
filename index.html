@@ -3833,7 +3833,7 @@
             if (columns[field] === undefined && aliases.map(normalizeImportHeader).includes(header)) columns[field] = index;
           });
         });
-        if (columns.name !== undefined && columns.studentId !== undefined) return { rowIndex, columns };
+        if (columns.name !== undefined || columns.studentId !== undefined) return { rowIndex, columns };
       }
       return null;
     }
@@ -3853,7 +3853,7 @@
       const header = findPersonImportHeader(rows);
       if (!header) {
         if (allowEmptyLink && rows.length <= 1) return emptyPersonImportPreview();
-        throw new Error("找不到「姓名」與「學號」欄位，請確認試算表包含標題列。");
+        throw new Error("找不到「姓名」或「學號」欄位，請確認試算表包含其中一項標題列。");
       }
       const peopleByStudentId = new Map(state.people.map((person) => [normalizeSearchValue(person.studentId), person]));
       const peopleByName = new Map(state.people.map((person) => [normalizeSearchValue(person.name), person]));
@@ -3864,16 +3864,15 @@
       let duplicates = 0;
       let invalid = 0;
       rows.slice(header.rowIndex + 1).forEach((row) => {
-        const value = (field) => String(row[header.columns[field]] || "").trim();
+        const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] || "").trim();
         const name = value("name");
         const studentId = normalizeStudentId(value("studentId"));
         if (!name && !studentId) return;
-        if (!name || !studentId) { invalid += 1; return; }
         const nameKey = normalizeSearchValue(name);
         const studentIdKey = normalizeSearchValue(studentId);
         const department = value("department").slice(0, 100);
         const email = normalizeEmail(value("email"));
-        const existing = peopleByStudentId.get(studentIdKey) || peopleByName.get(nameKey);
+        const existing = (studentId && peopleByStudentId.get(studentIdKey)) || (name && peopleByName.get(nameKey));
         if (existing) {
           const supplement = supplementsById.get(existing.id) || { id: existing.id, department: "", email: "" };
           let changed = false;
@@ -3883,6 +3882,7 @@
           else duplicates += 1;
           return;
         }
+        if (!name || !studentId) { invalid += 1; return; }
         if (importedNames.has(nameKey) || importedStudentIds.has(studentIdKey)) {
           duplicates += 1;
           return;
@@ -3921,7 +3921,7 @@
         $("#personImportPreview").hidden = false;
         return;
       }
-      $("#personImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.candidates.length} 位；補齊 ${importData.supplements.length} 位；略過完整重複 ${importData.duplicates} 列、缺少姓名或學號 ${importData.invalid} 列。${connectsLink ? "確認後會啟用開啟 App 時的自動同步。" : ""}`;
+      $("#personImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.candidates.length} 位；補齊 ${importData.supplements.length} 位；略過完整重複 ${importData.duplicates} 列、無法對應人員 ${importData.invalid} 列。${connectsLink ? "確認後會啟用開啟 App 時的自動同步。" : ""}`;
       const actionable = importData.candidates.length + importData.supplements.length + Number(connectsLink);
       $("#confirmPersonImport").textContent = !actionable ? "沒有可匯入的人員" : connectsLink ? "匯入並啟用連線" : `新增／補齊 ${actionable} 位人員`;
       $("#confirmPersonImport").disabled = !actionable;
@@ -4050,7 +4050,7 @@
             if (columns[field] === undefined && aliases.map(normalizeImportHeader).includes(header)) columns[field] = index;
           });
         });
-        if (columns.name !== undefined && columns.studentId !== undefined) return { rowIndex, columns };
+        if (columns.name !== undefined || columns.studentId !== undefined) return { rowIndex, columns };
       }
       return null;
     }
@@ -4098,7 +4098,7 @@
           awaitingResponses: true
         };
       }
-      if (!header) throw new Error("找不到「姓名」與「學號」欄位，請確認試算表包含標題列。");
+      if (!header) throw new Error("找不到「姓名」或「學號」欄位，請確認試算表包含其中一項標題列。");
       const existingByStudentId = new Map(state.people.map((person) => [normalizeSearchValue(person.studentId), person]));
       const existingByName = new Map(state.people.map((person) => [normalizeSearchValue(person.name), person]));
       const candidateByStudentId = new Map(peopleImport.candidates.map((person) => [normalizeSearchValue(person.studentId), person]));
@@ -4113,8 +4113,8 @@
         const studentId = normalizeStudentId(value("studentId"));
         if (!name && !studentId) return;
         if (!name || !studentId) { invalidRows += 1; return; }
-        const existing = existingByStudentId.get(normalizeSearchValue(studentId)) || existingByName.get(normalizeSearchValue(name));
-        const candidate = candidateByStudentId.get(normalizeSearchValue(studentId)) || candidateByName.get(normalizeSearchValue(name));
+        const existing = (studentId && existingByStudentId.get(normalizeSearchValue(studentId))) || (name && existingByName.get(normalizeSearchValue(name)));
+        const candidate = (studentId && candidateByStudentId.get(normalizeSearchValue(studentId))) || (name && candidateByName.get(normalizeSearchValue(name)));
         if (!existing && !candidate) { invalidRows += 1; return; }
         const personKey = existing ? `person:${existing.id}` : `candidate:${normalizeSearchValue(candidate.studentId)}`;
         if (importedPeople.has(personKey)) { duplicateRows += 1; return; }
@@ -4173,7 +4173,7 @@
         $("#activityImportPreview").hidden = false;
         return;
       }
-      $("#activityImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.peopleImport.candidates.length} 位、補齊 ${importData.peopleImport.supplements.length} 位人員；將登記或更新 ${updates} 筆活動狀態。略過重複 ${importData.duplicateRows} 列、缺少姓名或學號 ${importData.invalidRows} 列。${connectsLink ? "確認後會啟用開啟 App 時的自動同步。" : ""}`;
+      $("#activityImportSummary").textContent = `已辨識欄位：${recognized}。可新增 ${importData.peopleImport.candidates.length} 位、補齊 ${importData.peopleImport.supplements.length} 位人員；將登記或更新 ${updates} 筆活動狀態。略過重複 ${importData.duplicateRows} 列、無法對應人員 ${importData.invalidRows} 列。${connectsLink ? "確認後會啟用開啟 App 時的自動同步。" : ""}`;
       const actionable = peopleChanges + updates + Number(connectsLink);
       $("#confirmActivityImport").textContent = !actionable ? "沒有可匯入的資料" : connectsLink ? "匯入並啟用連線" : `匯入 ${importData.attendance.length} 位活動人員`;
       $("#confirmActivityImport").disabled = !actionable;
