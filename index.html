@@ -905,6 +905,9 @@
       body.print-monthly-report .calendar-popover { display: none !important; }
       body.print-monthly-report { margin: 0; }
       body.print-monthly-report .monthly-report { display: block !important; color: #20211f; font-family: "Noto Sans TC", -apple-system, sans-serif; width: 100%; }
+    }
+      body.print-monthly-report .monthly-report { display: block; position: absolute; left: -10000px; width: 186mm; color: #20211f; font-family: "Noto Sans TC", -apple-system, sans-serif; line-height: 1.5; }
+      .monthly-report .report-page { height: 270mm; display: flow-root; box-sizing: border-box; }
       .monthly-report h1 { margin: 0; font-size: 24px; }
       .monthly-report h2 { margin: 22px 0 8px; font-size: 16px; }
       .monthly-report p { margin: 4px 0; }
@@ -923,6 +926,11 @@
       .monthly-report .report-note { color: #686a64; font-size: 11px; }
       .monthly-report .report-section { margin-top: 20px; }
       .monthly-report .report-section h2 { break-after: avoid-page; page-break-after: avoid; }
+    @media print {
+      body.print-monthly-report .monthly-report { position: static; left: auto; width: 186mm; }
+      .monthly-report .report-page { break-after: page; page-break-after: always; }
+      .monthly-report .report-page:last-child { break-after: auto; page-break-after: auto; }
+      .monthly-report .report-table thead { display: table-row-group; }
     }
 
     .balance-guide {
@@ -5167,13 +5175,73 @@
       `;
     }
 
+    function paginateMonthlyReport() {
+      const report = $("#monthlyReport");
+      const source = Array.from(report.children);
+      report.replaceChildren();
+      let page;
+      const nextPage = () => {
+        page = document.createElement("div");
+        page.className = "report-page";
+        report.appendChild(page);
+      };
+      // Measure at the same physical width and font size used for printing.
+      const fits = () => {
+        const bottom = page.lastElementChild?.getBoundingClientRect().bottom || 0;
+        return bottom <= page.getBoundingClientRect().bottom - 2;
+      };
+      nextPage();
+      for (const block of source) {
+        const originalTable = block.querySelector(".report-table");
+        if (!originalTable) {
+          page.appendChild(block);
+          if (!fits()) {
+            block.remove();
+            if (page.children.length) nextPage();
+            page.appendChild(block);
+            if (!fits()) throw new Error("報表內容超過單頁可列印範圍。");
+          }
+          continue;
+        }
+        const rows = Array.from(originalTable.tBodies[0].rows);
+        let section;
+        let body;
+        const startTable = (continued = false) => {
+          section = block.cloneNode(true);
+          if (continued) section.querySelector("h2")?.remove();
+          body = section.querySelector("tbody");
+          body.replaceChildren();
+          page.appendChild(section);
+        };
+        startTable();
+        for (const row of rows) {
+          body.appendChild(row);
+          if (fits()) continue;
+          row.remove();
+          const continued = body.children.length > 0;
+          if (!body.children.length) section.remove();
+          if (page.children.length) nextPage();
+          startTable(continued);
+          body.appendChild(row);
+          if (!fits()) throw new Error("報表有一筆資料超過單頁高度，請縮短用途或備註後再列印。");
+        }
+      }
+    }
+
     async function printMonthlyReport() {
       const month = $("#reconcileMonth").value;
       if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || "")) return toast("請先選擇要列印的月份。");
       renderMonthlyReport(month);
       document.body.classList.add("print-monthly-report");
       monthlyReportPrintActive = true;
+      await document.fonts.ready;
       await new Promise((resolve) => requestAnimationFrame(resolve));
+      try {
+        paginateMonthlyReport();
+      } catch (error) {
+        finishMonthlyReportPrint();
+        return toast(error.message, "error");
+      }
       if (tauriStorageEnabled) {
         try {
           await nativeStorageCall("printMonthlyReport");

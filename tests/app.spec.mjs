@@ -140,6 +140,37 @@ test("activity roster drag order persists after reload", async ({ page }) => {
   expect(restoredOrder[0]).not.toBe(originalFirst);
 });
 
+test("long monthly reports keep every row and heading inside explicit pages", async ({ page }) => {
+  const layout = await page.evaluate(async () => {
+    state.accounts = [{ id: "test-cash", name: "測試現金", type: "cash", openingDate: "2099-01-01", openingBalance: 0, active: true }];
+    state.entries = Array.from({ length: 130 }, (_, index) => ({
+      id: `test-entry-${String(index).padStart(3, "0")}`, date: "2099-09-20", type: "income",
+      title: `測試收款 ${index} ${"較長的用途說明".repeat(index % 4)}`, parent: "社費與會費", child: "單次活動費",
+      amount: 100, accountId: "test-cash"
+    }));
+    state.claims = [];
+    renderMonthlyReport("2099-09");
+    document.body.classList.add("print-monthly-report");
+    await document.fonts.ready;
+    paginateMonthlyReport();
+    const pages = Array.from(document.querySelectorAll(".report-page"));
+    return {
+      pageCount: pages.length,
+      entryCount: document.querySelectorAll(".entry-report-table tbody tr").length,
+      entryHeadingCount: Array.from(document.querySelectorAll(".report-section")).filter((section) => section.querySelector(".entry-report-table") && section.querySelector("h2")).length,
+      entryHeadersRepeated: Array.from(document.querySelectorAll(".entry-report-table")).every((table) => table.querySelector("thead th")),
+      rowsContained: pages.every((sheet) => Array.from(sheet.querySelectorAll("tr")).every((row) => row.getBoundingClientRect().bottom <= sheet.getBoundingClientRect().bottom)),
+      headingsWithData: pages.every((sheet) => Array.from(sheet.querySelectorAll(".report-section")).every((section) => !section.querySelector("table") || section.querySelectorAll("tbody tr").length > 0))
+    };
+  });
+  expect(layout.pageCount).toBeGreaterThan(1);
+  expect(layout.entryCount).toBe(130);
+  expect(layout.entryHeadingCount).toBe(1);
+  expect(layout.entryHeadersRepeated).toBe(true);
+  expect(layout.rowsContained).toBe(true);
+  expect(layout.headingsWithData).toBe(true);
+});
+
 test("import synonym settings require name and student ID headers", async ({ page }) => {
   await openSection(page, "設定");
   await page.locator("#synonymPersonName").fill("");
