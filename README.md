@@ -111,6 +111,14 @@ npm run build:dmg
 
 The built app is written to `src-tauri/target/release/bundle/macos/`; the DMG is written to `src-tauri/target/release/bundle/dmg/`.
 
+To build and replace the local app in Applications in one step, save any pending edits in the app, then run:
+
+```sh
+npm run update:mac
+```
+
+This closes the running app and installs the verified new bundle. Reopen it from the Dock after the command finishes. The app's stored data is kept in its separate Application Support folder.
+
 ## Repository Guide
 
 ```text

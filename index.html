@@ -914,8 +914,8 @@
       .monthly-report-summary div { min-width: 0; padding: 10px; border: 1px solid #dedbd2; box-sizing: border-box; }
       .monthly-report-summary span { display: block; color: #686a64; font-size: 11px; }
       .monthly-report-summary strong { display: block; margin-top: 4px; font-size: 16px; }
-      .monthly-report .report-table { width: 100%; margin-top: 8px; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
-      .monthly-report .report-table th, .monthly-report .report-table td { min-width: 0; padding: 7px 6px; border: 1px solid #dedbd2; text-align: left; vertical-align: top; overflow-wrap: anywhere; box-sizing: border-box; }
+      .monthly-report .report-table { width: calc(100% - 2px); min-width: 0; margin-top: 8px; border-collapse: collapse; table-layout: fixed; font-size: 11px; background: white; }
+      .monthly-report .report-table th, .monthly-report .report-table td { position: static; top: auto; z-index: auto; min-width: 0; padding: 7px 6px; border: 1px solid #dedbd2; text-align: left; vertical-align: top; font-size: 11px; overflow-wrap: anywhere; box-sizing: border-box; }
       .monthly-report .report-table th { background: #f6f4ee; font-weight: 700; }
       .monthly-report .report-table thead { display: table-header-group; }
       .monthly-report .report-table tr { break-inside: avoid; page-break-inside: avoid; }

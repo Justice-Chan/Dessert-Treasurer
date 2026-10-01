@@ -91,6 +91,17 @@ test("monthly report uses the selected reconciliation month", async ({ page }) =
   await expect(page.locator("#monthlyReport .report-table")).toHaveCount(3);
   await expect(page.locator("#monthlyReport .report-table thead th")).toHaveCount(17);
   await expect.poll(() => page.locator("#monthlyReport .report-table tbody tr").count()).toBeGreaterThanOrEqual(3);
+  await page.emulateMedia({ media: "print" });
+  const printLayout = await page.locator("#monthlyReport .report-table").evaluateAll((tables) => tables.map((table) => ({
+    headerPosition: getComputedStyle(table.querySelector("th")).position,
+    minWidth: getComputedStyle(table).minWidth,
+    fitsReport: table.getBoundingClientRect().right <= document.querySelector("#monthlyReport").getBoundingClientRect().right,
+    rowBreak: getComputedStyle(table.querySelector("tr")).breakInside,
+    bottomBorder: getComputedStyle(table.querySelector("tbody tr:last-child td")).borderBottomWidth
+  })));
+  for (const layout of printLayout) {
+    expect(layout).toEqual({ headerPosition: "static", minWidth: "0px", fitsReport: true, rowBreak: "avoid", bottomBorder: "1px" });
+  }
 });
 
 test("activity roster drag order persists after reload", async ({ page }) => {
