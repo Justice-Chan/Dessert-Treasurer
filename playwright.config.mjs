@@ -11,7 +11,7 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 }
   },
   webServer: {
-    command: "node scripts/test-server.mjs",
+    command: "npm run build:web && node scripts/test-server.mjs",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: false
   }

@@ -11,6 +11,7 @@
     "build:mac": "npm run tauri build -- --bundles app && node scripts/sign-macos.mjs",
     "update:mac": "npm run build:mac && node scripts/install-macos.mjs",
     "build:dmg": "npm run tauri build -- --bundles dmg",
+    "test:build": "node --test tests/build.mjs",
     "test:ui": "playwright test"
   },
   "devDependencies": {

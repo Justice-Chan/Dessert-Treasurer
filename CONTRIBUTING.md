@@ -11,6 +11,7 @@ Thank you for helping improve Dessert Treasurer.
 
 ```sh
 npm run build:web
+npm run test:build
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run test:ui
@@ -18,6 +19,8 @@ npm run test:ui
 
 ## Code conventions
 
+- Use [Architecture](docs/ARCHITECTURE.md) to find the relevant source file. Do not edit `dist/` or commit generated build output.
+- Keep `frontend/scripts.json` in dependency order. The build combines these files into one classic script to preserve shared state and function hoisting.
 - Keep the app usable without a network connection.
 - Preserve the existing local-first data model.
 - Prefer clear Traditional Chinese for user-facing text.

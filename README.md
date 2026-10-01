@@ -122,13 +122,16 @@ This closes the running app and installs the verified new bundle. Reopen it from
 ## Repository Guide
 
 ```text
+frontend/     Interface, styles, and JavaScript organized by feature
 assets/       Reusable app icon source files
-docs/         Installation, data, and release documentation
-scripts/      Build, signing, and local test-server helpers
 src-tauri/    Rust, SQLite, and Tauri native code
-tests/        Playwright UI tests
-index.html    Application interface and interaction logic
+tests/        Build checks and Playwright UI tests
+scripts/      Build, signing, installation, and local test-server helpers
+docs/         Architecture, installation, data, and release documentation
+dist/         Generated frontend output (not committed)
 ```
+
+See [Architecture](docs/ARCHITECTURE.md) for the source map and build flow. Edit files in `frontend/`, not the generated files in `dist/`.
 
 Read [Contributing](CONTRIBUTING.md) before opening a pull request. Report security or data-safety concerns through the private route in [Security](SECURITY.md), rather than a public issue.
 

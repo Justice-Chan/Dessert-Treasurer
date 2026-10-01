@@ -1,0 +1,17 @@
+[
+  "js/core/state.js",
+  "js/ui/calendar.js",
+  "js/core/receipts.js",
+  "js/core/accounting.js",
+  "js/ui/render.js",
+  "js/features/imports.js",
+  "js/features/people.js",
+  "js/features/ledger.js",
+  "js/ui/dialogs.js",
+  "js/features/accounts.js",
+  "js/features/reports.js",
+  "js/features/backups.js",
+  "js/features/trash.js",
+  "js/ui/events.js",
+  "js/bootstrap.js"
+]
