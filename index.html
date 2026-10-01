@@ -914,17 +914,15 @@
       .monthly-report-summary div { min-width: 0; padding: 10px; border: 1px solid #dedbd2; box-sizing: border-box; }
       .monthly-report-summary span { display: block; color: #686a64; font-size: 11px; }
       .monthly-report-summary strong { display: block; margin-top: 4px; font-size: 16px; }
-      .monthly-report .report-grid { display: grid; width: calc(100% - 2px); margin-top: 8px; border: 1px solid #dedbd2; border-bottom: 0; font-size: 11px; box-sizing: border-box; }
-      .monthly-report .account-report-grid { grid-template-columns: 18fr 18fr 18fr 16fr 30fr; }
-      .monthly-report .entry-report-grid { grid-template-columns: 12fr 9fr 19fr 25fr 17fr 18fr; }
-      .monthly-report .claim-report-grid { grid-template-columns: 14fr 14fr 25fr 14fr 15fr 18fr; }
-      .monthly-report .report-grid > div { min-width: 0; padding: 7px 6px; border-right: 1px solid #dedbd2; border-bottom: 1px solid #dedbd2; text-align: left; vertical-align: top; overflow-wrap: anywhere; box-sizing: border-box; }
-      .monthly-report .report-grid .report-grid-head { background: #f6f4ee; font-weight: 700; }
+      .monthly-report .report-table { width: 100%; margin-top: 8px; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+      .monthly-report .report-table th, .monthly-report .report-table td { min-width: 0; padding: 7px 6px; border: 1px solid #dedbd2; text-align: left; vertical-align: top; overflow-wrap: anywhere; box-sizing: border-box; }
+      .monthly-report .report-table th { background: #f6f4ee; font-weight: 700; }
+      .monthly-report .report-table thead { display: table-header-group; }
+      .monthly-report .report-table tr { break-inside: avoid; page-break-inside: avoid; }
       .monthly-report .num { display: block; text-align: right; white-space: nowrap; }
       .monthly-report .report-note { color: #686a64; font-size: 11px; }
       .monthly-report .report-section { margin-top: 20px; }
-      .monthly-report .account-report-section { break-inside: avoid; }
-      .monthly-report .report-grid > div { break-inside: avoid; }
+      .monthly-report .report-section h2 { break-after: avoid-page; page-break-after: avoid; }
     }
 
     .balance-guide {
@@ -5133,22 +5131,24 @@
         return record && !currentReconciliationValues(record).stale;
       });
       const generatedAt = new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
-      const reportGridCells = (cells, header = false) => cells.map((cell) => `<div${header ? ' class="report-grid-head"' : ""}>${cell}</div>`).join("");
-      const entryRows = entries.length ? entries.map((entry) => reportGridCells([
+      const reportTable = (headers, widths, rows, className) => `<table class="report-table ${className}"><colgroup>${widths.map((width) => `<col style="width:${width}%">`).join("")}</colgroup><thead><tr>${headers.map((header) => `<th scope="col">${header}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`;
+      const reportTableRow = (cells) => `<tr>${cells.map((cell) => `<td>${cell}</td>`).join("")}</tr>`;
+      const reportEmptyRow = (message, columnCount) => `<tr><td colspan="${columnCount}">${message}</td></tr>`;
+      const entryRows = entries.length ? entries.map((entry) => reportTableRow([
         escapeHtml(entry.date), entry.type === "income" ? "收入" : "支出", escapeHtml(entry.title || entry.child || "未命名紀錄"),
         `${escapeHtml(entry.parent || "-")} / ${escapeHtml(entry.child || "-")}`, escapeHtml(accountName(entry.accountId)),
         `<span class="num">${entry.type === "income" ? "+" : "-"}${fmt.format(Number(entry.amount))}</span>`
-      ])).join("") : reportGridCells(["本月沒有已入帳收支。", "", "", "", "", ""]);
-      const claimRows = claims.length ? claims.map((claim) => reportGridCells([
+      ])).join("") : reportEmptyRow("本月沒有已入帳收支。", 6);
+      const claimRows = claims.length ? claims.map((claim) => reportTableRow([
         escapeHtml(claim.date), escapeHtml(claim.person), escapeHtml(claim.title || claim.child || "未填用途"),
         escapeHtml(statusText[claim.status]), escapeHtml(claim.paymentDate || "-"), `<span class="num">${fmt.format(Number(claim.amount))}</span>`
-      ])).join("") : reportGridCells(["本月沒有報銷申請或付款紀錄。", "", "", "", "", ""]);
+      ])).join("") : reportEmptyRow("本月沒有報銷申請或付款紀錄。", 6);
       const accountRows = accounts.length ? accounts.map((account) => {
         const record = reconciliations.get(account.id);
         const current = record ? currentReconciliationValues(record) : null;
         const reconciliationStatus = !record ? "尚未對帳" : current.stale ? "帳務已變更，需重新核對" : "已核對";
-        return reportGridCells([escapeHtml(account.name), `<span class="num">${fmt.format(accountBalance(account.id, monthEnd))}</span>`, `<span class="num">${record ? fmt.format(Number(record.actualBalance)) : "-"}</span>`, `<span class="num">${record ? fmt.format(current.difference) : "-"}</span>`, `${escapeHtml(reconciliationStatus)}${record?.note ? `<br><span class="report-note">${escapeHtml(record.note)}</span>` : ""}`]);
-      }).join("") : reportGridCells(["本月沒有可列入的帳戶。", "", "", "", ""]);
+        return reportTableRow([escapeHtml(account.name), `<span class="num">${fmt.format(accountBalance(account.id, monthEnd))}</span>`, `<span class="num">${record ? fmt.format(Number(record.actualBalance)) : "-"}</span>`, `<span class="num">${record ? fmt.format(current.difference) : "-"}</span>`, `${escapeHtml(reconciliationStatus)}${record?.note ? `<br><span class="report-note">${escapeHtml(record.note)}</span>` : ""}`]);
+      }).join("") : reportEmptyRow("本月沒有可列入的帳戶。", 5);
 
       $("#monthlyReport").innerHTML = `
         <header class="monthly-report-header">
@@ -5161,9 +5161,9 @@
           <div><span>本月收支差額</span><strong>${fmt.format(income - expense)}</strong></div>
           <div><span>待付款報銷</span><strong>${fmt.format(pendingClaims)}</strong></div>
         </div><p class="report-note">已入帳支出包含已付款報銷；待付款報銷尚未扣除帳面。</p></section>
-        <section class="report-section account-report-section"><h2>帳戶月末與對帳</h2><div class="report-grid account-report-grid">${reportGridCells(["帳戶", "系統帳面", "實際餘額", "差額", "對帳狀態與備註"], true)}${accountRows}</div></section>
-        <section class="report-section"><h2>已入帳收支明細</h2><div class="report-grid entry-report-grid">${reportGridCells(["日期", "類型", "項目", "分類", "帳戶", "金額"], true)}${entryRows}</div></section>
-        <section class="report-section"><h2>報銷紀錄</h2><div class="report-grid claim-report-grid">${reportGridCells(["申請日期", "申請人", "用途", "狀態", "付款日期", "金額"], true)}${claimRows}</div></section>
+        <section class="report-section"><h2>帳戶月末與對帳</h2>${reportTable(["帳戶", "系統帳面", "實際餘額", "差額", "對帳狀態與備註"], [18, 18, 18, 16, 30], accountRows, "account-report-table")}</section>
+        <section class="report-section"><h2>已入帳收支明細</h2>${reportTable(["日期", "類型", "項目", "分類", "帳戶", "金額"], [12, 9, 19, 25, 17, 18], entryRows, "entry-report-table")}</section>
+        <section class="report-section"><h2>報銷紀錄</h2>${reportTable(["申請日期", "申請人", "用途", "狀態", "付款日期", "金額"], [14, 14, 25, 14, 15, 18], claimRows, "claim-report-table")}</section>
       `;
     }
 

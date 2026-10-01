@@ -88,6 +88,9 @@ test("monthly report uses the selected reconciliation month", async ({ page }) =
   await page.locator("#printMonthlyReport").click();
   await expect.poll(() => page.evaluate(() => window.__monthlyReportText || "")).toContain("2026 年 9 月");
   await expect.poll(() => page.evaluate(() => window.__monthlyReportText || "")).toContain("帳戶月末與對帳");
+  await expect(page.locator("#monthlyReport .report-table")).toHaveCount(3);
+  await expect(page.locator("#monthlyReport .report-table thead th")).toHaveCount(17);
+  await expect.poll(() => page.locator("#monthlyReport .report-table tbody tr").count()).toBeGreaterThanOrEqual(3);
 });
 
 test("activity roster drag order persists after reload", async ({ page }) => {
