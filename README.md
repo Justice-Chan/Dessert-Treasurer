@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.0/Dessert.Treasurer_0.2.0_aarch64.dmg"><img src="https://img.shields.io/badge/Download-macOS-355E4B?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Dessert Treasurer 0.2.0 for macOS" /></a>
-  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467/artifacts/11227664404"><img src="https://img.shields.io/badge/Download-Windows%20x64-806529?style=for-the-badge" alt="Download the Windows x64 preview installer ZIP; GitHub sign-in required" /></a>
+  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467/artifacts/11227664404"><img src="https://img.shields.io/badge/Download-Windows%20x64-806529?style=for-the-badge&amp;logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NDggNTEyIj48IS0tISBGb250IEF3ZXNvbWUgRnJlZSA2LjcuMiBieSBAZm9udGF3ZXNvbWUgLSBodHRwczovL2ZvbnRhd2Vzb21lLmNvbSBMaWNlbnNlIC0gaHR0cHM6Ly9mb250YXdlc29tZS5jb20vbGljZW5zZS9mcmVlIChJY29uczogQ0MgQlkgNC4wLCBGb250czogU0lMIE9GTCAxLjEsIENvZGU6IE1JVCBMaWNlbnNlKSBDb3B5cmlnaHQgMjAyNCBGb250aWNvbnMsIEluYy4gLS0%2BPHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDkzLjdsMTgzLjYtMjUuM3YxNzcuNEgwVjkzLjd6bTAgMzI0LjZsMTgzLjYgMjUuM1YyNjguNEgwdjE0OS45em0yMDMuOCAyOEw0NDggNDgwVjI2OC40SDIwMy44djE3Ny45em0wLTM4MC42djE4MC4xSDQ0OFYzMkwyMDMuOCA2NS43eiIvPjwvc3ZnPg%3D%3D" alt="Download the Windows x64 preview installer ZIP; GitHub sign-in required" /></a>
   <a href="docs/USER_GUIDE.md"><img src="https://img.shields.io/badge/Guide-Installation-45515A?style=for-the-badge" alt="Read the user guide" /></a>
 </p>
 
