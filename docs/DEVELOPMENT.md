@@ -134,13 +134,6 @@ Acceptance records include Windows and WebView2 versions, display scaling, insta
 4. Verify export, restore and the saved monthly PDF with synthetic data. Complete Windows acceptance testing for a Windows release.
 5. Ensure commits, screenshots and packages contain no real databases, receipts, backups, account details, member information or private spreadsheet links.
 
-### Publish on GitHub
-
-1. Create a `vX.Y.Z` tag for the tested commit and a matching draft Release.
-2. Upload the DMG or Windows installer with its SHA-256 checksum, not build caches or runtime installations.
-3. Copy the matching Changelog entry and disclose unsigned-app warnings and unverified functionality. Link to the [User guide](USER_GUIDE.md) for installation steps instead of duplicating them.
-4. Test the downloaded package on a separate user account or test device before publishing. If real-device validation is unavailable, keep it clearly labeled as an unverified preview.
-
 Packages are currently provided for internal use. macOS builds are ad-hoc signed, not Developer ID signed or notarized; Windows installers are unsigned. GitHub hosting does not remove operating-system warnings. Signing and notarization requirements must be reviewed before broader distribution.
 
 CI checks apply to the default branch and pull requests. External reuse requires permission under the repository's license policy; vulnerability handling is described in [Security](SECURITY.md).
