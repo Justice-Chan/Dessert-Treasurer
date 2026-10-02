@@ -685,7 +685,7 @@ dependencies = [
 
 [[package]]
 name = "dessert-treasurer"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64 0.23.1",
  "calamine",

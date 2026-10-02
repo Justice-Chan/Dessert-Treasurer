@@ -2,7 +2,7 @@
 
 All notable user-facing changes are recorded here.
 
-## Unreleased
+## 0.2.1 (Unreleased)
 
 - Added Windows x64 installer configuration and a manual CI build workflow for internal previews; Windows device acceptance testing is still required.
 - Replaced macOS-specific spreadsheet downloads and external-link commands with shared cross-platform implementations.

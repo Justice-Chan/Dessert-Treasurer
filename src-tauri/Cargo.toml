@@ -1,6 +1,6 @@
 [package]
 name = "dessert-treasurer"
-version = "0.2.0"
+version = "0.2.1"
 description = "甜點社總務記帳與報銷工具"
 authors = ["Dessert Treasurer"]
 edition = "2024"

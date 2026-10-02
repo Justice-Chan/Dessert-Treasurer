@@ -49,6 +49,19 @@ test("platform packaging shares app identity and references existing icons", asy
   assert.equal(windows.bundle.windows.webviewInstallMode.type, "downloadBootstrapper");
 });
 
+test("app version is consistent across package manifests and lockfiles", async () => {
+  const pkg = JSON.parse(await read("package.json"));
+  const lock = JSON.parse(await read("package-lock.json"));
+  const tauri = JSON.parse(await read("src-tauri/tauri.conf.json"));
+  assert.equal(lock.version, pkg.version);
+  assert.equal(lock.packages[""].version, pkg.version);
+  assert.equal(tauri.version, pkg.version);
+  const manifest = (await read("src-tauri/Cargo.toml")).match(/^\[package\]\s+name = "dessert-treasurer"\s+version = "([^"]+)"/m);
+  const cargoLock = (await read("src-tauri/Cargo.lock")).match(/^name = "dessert-treasurer"\s+version = "([^"]+)"/m);
+  assert.equal(manifest?.[1], pkg.version);
+  assert.equal(cargoLock?.[1], pkg.version);
+});
+
 test("CI uses the same pinned Rust version as local builds", async () => {
   const toolchain = await read("rust-toolchain.toml");
   const version = toolchain.match(/^channel = "(\d+\.\d+\.\d+)"$/m)?.[1];
