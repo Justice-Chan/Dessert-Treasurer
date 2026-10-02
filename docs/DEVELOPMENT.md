@@ -1,4 +1,6 @@
-# Development environment
+# Development guide
+
+Tool setup, verification, packaging and releases for maintainers. For installation warnings, data locations and recovery, use the [User guide](USER_GUIDE.md); for module ownership, use [Architecture](ARCHITECTURE.md).
 
 ## Approach
 
@@ -50,6 +52,12 @@ npm run test:ui
 
 `test:build` first creates `dist/`, which the Rust application context requires. Tests must use synthetic data and temporary stores, never the installed app's real database or attachments.
 
+## Run locally
+
+```sh
+npm run dev
+```
+
 ## Platform builds
 
 On macOS:
@@ -68,6 +76,8 @@ npm run build:windows
 
 The Windows command refuses to run on macOS. The recommended Mac workflow is to push the source and use GitHub Actions, not attempt cross-compilation.
 
+macOS output is written to `src-tauri/target/release/bundle/macos/` and `src-tauri/target/release/bundle/dmg/`. To build and replace the local app in Applications, save pending edits and run `npm run update:mac`. This closes the app and installs the verified bundle without targeting the separate data folder. Export a backup before updating.
+
 ## GitHub workflows
 
 - **Verify** runs checks on macOS and Windows for pushes and pull requests.
@@ -79,4 +89,51 @@ The Windows command refuses to run on macOS. The recommended Mac workflow is to 
 
 Change Node or Rust deliberately, then run checks on both platforms. When updating Rust, update `rust-toolchain.toml` and the `toolchain` input in both workflows together. Build tests detect mismatched Rust versions. Commit lockfile changes with the dependency change, and leave unrelated upgrades out of platform-support work.
 
-For Windows artifact download and acceptance testing, see [Windows testing and installation](WINDOWS.md).
+## Windows installer
+
+1. Commit and push changes to the default branch. The manual workflow must be present there for GitHub to display it.
+2. Open **Actions > Build Windows Installer > Run workflow** and select the branch.
+3. Wait for checks and packaging to finish successfully.
+4. Download the `dessert-treasurer-windows-x64-...` artifact from the completed run.
+5. Extract the ZIP; it contains a `-setup.exe` installer and an adjacent SHA-256 checksum file.
+
+The workflow does not publish a Release. Keep unverified builds labeled as previews. For installation and checksum verification, see the [User guide](USER_GUIDE.md#windows-preview).
+
+### Windows acceptance checklist
+
+Use a dedicated installation and synthetic records, never the production club database.
+
+- Install and launch from the Start menu on Windows 11 x64.
+- Check Chinese text, scrolling, date controls and resizing at 100% and 150% display scaling.
+- Create and edit entries, claims, accounts, people and activities.
+- Pay an approved claim, check its linked expense, then revoke the payment.
+- Import local spreadsheets and public links; confirm startup synchronization can be cancelled.
+- Open cloud receipts in the default browser; copy email addresses and account numbers.
+- Attach and preview images; verify full backup and restore includes them.
+- Check activity roster dragging and editable payment times.
+- Export and restore a full JSON backup into an isolated store, including a synthetic macOS backup.
+- Check Trash selection, confirmations, restore and permanent deletion.
+- Save monthly PDFs with long tables, multi-line notes, page breaks and right borders. Inspect the saved PDF, not just its preview.
+- Restart to verify persistence; install a newer build to verify data preservation.
+- Confirm the resolved data location and absence of test records or personal data in the installer.
+
+Record Windows and WebView2 versions, display scaling, installer hash and failures. Automated checks and compilation cannot replace this checklist; do not promote the preview to verified Windows support until it is completed.
+
+## Prepare a release
+
+1. Update the version in `package.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, keeping lockfiles consistent.
+2. Record user-facing changes in [Changelog](CHANGELOG.md).
+3. Install dependencies, run the checks above and build the relevant platform package.
+4. Verify export, restore and the saved monthly PDF with synthetic data. Complete Windows acceptance testing for a Windows release.
+5. Ensure commits, screenshots and packages contain no real databases, receipts, backups, account details, member information or private spreadsheet links.
+
+### Publish on GitHub
+
+1. Create a `vX.Y.Z` tag for the tested commit and a matching draft Release.
+2. Upload the DMG or Windows installer with its SHA-256 checksum, not build caches or runtime installations.
+3. Copy the matching Changelog entry and disclose unsigned-app warnings and unverified functionality. Link to the [User guide](USER_GUIDE.md) for installation steps instead of duplicating them.
+4. Test the downloaded package on a separate user account or test device before publishing. If real-device validation is unavailable, keep it clearly labeled as an unverified preview.
+
+The current distribution policy is internal use. macOS builds are ad-hoc signed, not Developer ID signed or notarized; Windows installers are unsigned. Publishing a GitHub Release does not remove operating-system warnings. If distribution policy changes, reassess platform signing and notarization before promising a warning-free installation.
+
+Keep CI enabled on the default branch. Review the repository's license policy before permitting external reuse, and provide a private reporting route through [Security](SECURITY.md).

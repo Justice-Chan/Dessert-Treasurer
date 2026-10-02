@@ -74,7 +74,7 @@ There is no framework migration or data-model change in this directory reorganiz
 | Backup formats and validation | `frontend/js/features/backups.js` |
 | SQLite, file attachments, native commands | `src-tauri/src/lib.rs` |
 | Workflow regression coverage | `tests/app.spec.mjs` |
-| Packaging and local installation | `scripts/`, `docs/RELEASE.md` |
+| Packaging and local installation | `scripts/`, `docs/DEVELOPMENT.md` |
 
 Some shared concerns still span files: section rendering lives in `ui/render.js`, event wiring in `ui/events.js`, and backup-restore application in the event handler. Follow the function name across files rather than duplicating logic. These are deliberate existing boundaries, not isolated independent modules.
 
@@ -96,5 +96,5 @@ Build tests verify the source manifest, script syntax and generated asset integr
 - Commit `frontend/`, `src-tauri/` source/configuration, `assets/`, scripts, tests, documentation and dependency lockfiles.
 - Do not commit `dist/`, `node_modules/`, `src-tauri/target/` or test results. They are generated and ignored.
 - Keep installed toolchains and shared package caches outside the repository.
-- Keep real databases, member spreadsheets, receipt images and backups outside the repository. Production App data stays in the separate Application Support directory documented in [Data and backups](DATA.md).
+- Keep real databases, member spreadsheets, receipt images and backups outside the repository. Production App data stays in the separate data directory documented in the [User guide](USER_GUIDE.md#local-data-and-attachments).
 - Keep the Tauri identifier and storage keys unchanged when reorganizing source files; changing them can make the installed app appear to have a different or empty data store.

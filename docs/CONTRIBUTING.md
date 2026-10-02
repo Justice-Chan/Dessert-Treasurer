@@ -6,7 +6,7 @@ Thank you for helping improve Dessert Treasurer.
 
 1. Keep each change focused on one user-visible problem.
 2. Do not add real accounting data, databases, receipt images, exported backups, or personally identifiable member data to the repository.
-3. Update CHANGELOG.md when the change affects users.
+3. Update [CHANGELOG.md](CHANGELOG.md) when the change affects users.
 4. Run the relevant checks:
 
 ```sh
@@ -19,7 +19,7 @@ npm run test:ui
 
 ## Code conventions
 
-- Use [Architecture](docs/ARCHITECTURE.md) to find the relevant source file. Do not edit `dist/` or commit generated build output.
+- Use [Architecture](ARCHITECTURE.md) to find the relevant source file. Do not edit `dist/` or commit generated build output.
 - Keep `frontend/scripts.json` in dependency order. The build combines these files into one classic script to preserve shared state and function hoisting.
 - Keep the app usable without a network connection.
 - Preserve the existing local-first data model.

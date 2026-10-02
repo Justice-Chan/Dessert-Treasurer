@@ -11,8 +11,8 @@
 
 <p align="center">
   <a href="https://github.com/Justice-Chan/Dessert-Treasurer/releases/latest"><img src="https://img.shields.io/badge/Download-macOS-355E4B?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download the latest macOS release" /></a>
-  <a href="docs/WINDOWS.md"><img src="https://img.shields.io/badge/Windows-Preview-806529?style=for-the-badge" alt="Windows preview information, not a verified release" /></a>
-  <a href="docs/INTERNAL_INSTALL.md"><img src="https://img.shields.io/badge/Guide-Installation-45515A?style=for-the-badge" alt="Read the installation guide" /></a>
+  <a href="docs/USER_GUIDE.md#windows-preview"><img src="https://img.shields.io/badge/Windows-Preview-806529?style=for-the-badge" alt="Windows preview information, not a verified release" /></a>
+  <a href="docs/USER_GUIDE.md"><img src="https://img.shields.io/badge/Guide-Installation-45515A?style=for-the-badge" alt="Read the user guide" /></a>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 </p>
 
 > **[! IMPORTANT !]**
-> **Internal-use release.** The macOS app is not signed with an Apple Developer ID or notarized by Apple. A GitHub download may be blocked or reported as damaged. Read the [installation guide](docs/INTERNAL_INSTALL.md) before opening it. Windows packaging is in preview, not yet a verified release.
+> **Internal-use release.** The macOS app is not signed with an Apple Developer ID or notarized by Apple. A GitHub download may be blocked or reported as damaged. Read the [installation guide](docs/USER_GUIDE.md#install-on-macos) before opening it. Windows packaging is in preview, not yet a verified release.
 
 ## At a Glance
 
@@ -54,13 +54,13 @@ Designed for student club treasurers: record a purchase, follow up on activity f
 2. Open the DMG and drag `Dessert Treasurer.app` to **Applications**.
 3. Open the app from Applications.
 
-If macOS blocks the app, follow the [internal installation guide](docs/INTERNAL_INSTALL.md). Only apply its workaround to a download you trust.
+If macOS blocks the app, follow the [User guide](docs/USER_GUIDE.md#if-macos-blocks-the-app). Only apply its workaround to a download you trust.
 
 ### Windows preview
 
 Windows x64 packaging is being prepared for internal testing. It uses the same source code and backup format as the macOS app. Windows installation, native interactions and PDF output still require real-device acceptance testing; it is not yet a verified Windows release.
 
-Maintainers can build an unsigned installer through the manual **Build Windows Installer** GitHub Actions workflow. See [Windows testing and installation](docs/WINDOWS.md). No Windows SDK or cross-compilation tools are needed on the development Mac.
+Maintainers can build an unsigned installer through the manual **Build Windows Installer** GitHub Actions workflow. See the [Windows build instructions](docs/DEVELOPMENT.md#windows-installer) and [installation guidance](docs/USER_GUIDE.md#windows-preview). No Windows SDK or cross-compilation tools are needed on the development Mac.
 
 ### Set up your club
 
@@ -91,7 +91,7 @@ Your financial records, people, activities, and local attachments are stored on 
 - Restoring a backup replaces current app data, so export the current data first.
 - Deleted records stay in the app's Trash for 30 days before automatic removal. Permanently deleted records and attachments cannot be recovered.
 
-For the exact storage location and recovery guidance, read [Data and backups](docs/DATA.md).
+For storage locations, recovery and moving computers, read the [User guide](docs/USER_GUIDE.md#local-data-and-attachments).
 
 ## Development
 
@@ -163,14 +163,12 @@ See [Architecture](docs/ARCHITECTURE.md) for the source map and build flow. Edit
 
 | Guide | Purpose |
 | --- | --- |
-| [Installation](docs/INTERNAL_INSTALL.md) | Install the internal macOS build and understand the unsigned-app warning. |
-| [Data and backups](docs/DATA.md) | Find stored data, protect attachments, and restore a backup. |
-| [Windows preview](docs/WINDOWS.md) | Build and evaluate the Windows installer before internal deployment. |
-| [Development](docs/DEVELOPMENT.md) | Set up pinned tools and project-local dependencies. |
+| [User guide](docs/USER_GUIDE.md) | Install on macOS or Windows, find stored data, and manage backups and recovery. |
+| [Development](docs/DEVELOPMENT.md) | Set up tools, run tests, build installers, and prepare releases. |
 | [Architecture](docs/ARCHITECTURE.md) | Navigate the frontend, native code, and build flow. |
-| [Changelog](CHANGELOG.md) | Review changes between versions. |
+| [Changelog](docs/CHANGELOG.md) | Review changes between versions. |
 
-For bugs and suggestions, [open an issue](https://github.com/Justice-Chan/Dessert-Treasurer/issues). Do not include real financial records, member details, or backups. Read [Contributing](CONTRIBUTING.md) before opening a pull request; report security or data-safety concerns privately through [Security](SECURITY.md).
+For bugs and suggestions, [open an issue](https://github.com/Justice-Chan/Dessert-Treasurer/issues). Do not include real financial records, member details, or backups. Read [Contributing](docs/CONTRIBUTING.md) before opening a pull request; report security or data-safety concerns privately through [Security](docs/SECURITY.md).
 
 ## License
 
