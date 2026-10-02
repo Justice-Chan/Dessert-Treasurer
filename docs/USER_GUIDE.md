@@ -1,12 +1,12 @@
 # User guide
 
-Installation, everyday setup, local data and backups for Dessert Treasurer. The interface is in Traditional Chinese. This app is intended for internal use; Windows is an unverified preview.
+This guide covers installation, first-time setup, local storage and recovery. Dessert Treasurer uses a Traditional Chinese interface. Both platform builds are intended for internal use; Windows is available as a preview without completed real-device acceptance testing.
 
 ## Install on macOS
 
 Requires macOS 13 or later on Apple Silicon.
 
-1. Download the DMG from the repository's [latest release](https://github.com/Justice-Chan/Dessert-Treasurer/releases/latest).
+1. Download the [macOS 0.2.0 DMG](https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.0/Dessert.Treasurer_0.2.0_aarch64.dmg). Version notes are listed on [Releases](https://github.com/Justice-Chan/Dessert-Treasurer/releases).
 2. Open the DMG and drag `Dessert Treasurer.app` to Applications.
 3. Eject the DMG, then open the app from Applications.
 
@@ -25,13 +25,13 @@ Before updating, save pending edits, export a full JSON backup and close the app
 
 ## Windows preview
 
-The initial target is Windows 11 x64 (Intel/AMD), not ARM64. Installation, native interactions and PDF printing still require real-device testing. A successful build alone does not establish Windows support.
+The preview targets Windows 11 x64 (Intel/AMD), not ARM64. CI has successfully produced an installer; installation, native interactions, cross-platform restore and PDF printing have not completed real-device acceptance testing.
 
-Maintainers produce the installer using [the development guide](DEVELOPMENT.md#windows-installer). Use an installer supplied through a trusted internal channel or explicitly labeled preview release.
+[Download the Windows installer ZIP](https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467/artifacts/11227664404). This Actions download requires GitHub sign-in and expires on **October 16, 2026 (UTC)**. The [build run](https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467) identifies its source commit and checks. If the artifact has expired, a replacement build or release asset must be provided by the maintainer.
 
 ### Verify and install
 
-1. Extract the installer ZIP, if supplied. Locate the `-setup.exe` file and adjacent `.sha256` checksum.
+1. Extract the downloaded ZIP. Locate the `-setup.exe` file and adjacent `.sha256` checksum.
 2. In PowerShell, check the actual installer filename:
 
 ```powershell
@@ -75,7 +75,7 @@ Each computer has its own local data store. There is no automatic synchronizatio
   attachments\
 ```
 
-The app resolves this through Tauri's `app_data_dir()` with identifier `com.justicechan.dessert-treasurer`. Confirm the actual Windows location during preview testing.
+The app uses identifier `com.justicechan.dessert-treasurer` to resolve its data directory. The Windows path is expected but has not yet been confirmed through real-device acceptance testing.
 
 SQLite stores entries, claims, accounts, reconciliations, people, activities and trash records. The attachments folder stores receipt and account QR images. Cloud receipt links open externally rather than storing the linked image locally.
 
@@ -88,7 +88,7 @@ Do not edit these files directly while the app is running. Installing a new app 
 3. To move data, export on the source computer and restore through the app on the destination computer. Do not copy a live SQLite database between platforms.
 4. Export the destination's current data first: restoring replaces its existing contents.
 
-Cross-platform restore must be verified with synthetic data before using the Windows preview with production records.
+Cross-platform restore is not yet verified on a Windows device. Evaluate the preview with sample records and keep production data in the existing installation until validation is complete.
 
 ## Trash and recovery
 

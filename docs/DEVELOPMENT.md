@@ -1,10 +1,10 @@
 # Development guide
 
-Tool setup, verification, packaging and releases for maintainers. For installation warnings, data locations and recovery, use the [User guide](USER_GUIDE.md); for module ownership, use [Architecture](ARCHITECTURE.md).
+This guide documents the supported development environments, test suites, platform packages and release process. Installation and data recovery are covered in the [User guide](USER_GUIDE.md); source responsibilities are described in [Architecture](ARCHITECTURE.md).
 
-## Approach
+## Supported environments
 
-Use a shared tool installation with project-specific versions and dependencies. Develop on macOS; build the Windows installer on a GitHub-hosted Windows runner. Do not install Windows SDKs or cross-compilation toolchains on the Mac.
+The repository pins runtime and dependency versions while using shared Node.js and Rust installations. Native packages are built on their target operating system: macOS locally or in CI, and Windows locally or on a GitHub-hosted Windows runner. Windows SDKs are not required for macOS development.
 
 | Item | Managed by | Location |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Use a shared tool installation with project-specific versions and dependencies. 
 | Native compilation output | Cargo | Project `src-tauri/target/` |
 | Windows SDK / MSVC | Windows runner image or a Windows developer machine | Windows only |
 
-This is version and dependency isolation, not a security sandbox or a complete per-project OS environment. Shared caches avoid duplicate downloads without changing the versions selected by a project's lockfile. Do not commit runtime installations, caches or generated output.
+Lockfiles select project dependencies; shared caches avoid duplicate downloads. This setup does not provide a security sandbox or a separate operating system. Runtime installations, caches and generated output are excluded from version control.
 
 ## macOS setup
 
@@ -30,7 +30,7 @@ cargo --version
 npm ci
 ```
 
-fnm reads `.node-version`. Rustup reads `rust-toolchain.toml` and selects the pinned version; if missing, it downloads that version and the requested rustfmt/clippy components. There is no Python-style environment activation step for Rust. Keep the Cargo bin directory in the shell PATH so Tauri can find `cargo`.
+fnm reads `.node-version`. Rustup reads `rust-toolchain.toml` and selects or installs the pinned toolchain and rustfmt/clippy components. Tauri requires `cargo` on the shell PATH, normally through `$HOME/.cargo/bin`.
 
 Install the test browser only when running UI tests:
 
@@ -74,9 +74,14 @@ npm ci
 npm run build:windows
 ```
 
-The Windows command refuses to run on macOS. The recommended Mac workflow is to push the source and use GitHub Actions, not attempt cross-compilation.
+`build:windows` checks the host operating system and runs only on Windows. Developers using macOS can submit a source revision to the manual GitHub Actions installer workflow.
 
-macOS output is written to `src-tauri/target/release/bundle/macos/` and `src-tauri/target/release/bundle/dmg/`. To build and replace the local app in Applications, save pending edits and run `npm run update:mac`. This closes the app and installs the verified bundle without targeting the separate data folder. Export a backup before updating.
+| Platform | Package output |
+| --- | --- |
+| macOS | `src-tauri/target/release/bundle/macos/` and `src-tauri/target/release/bundle/dmg/` |
+| Windows x64 | `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/` |
+
+For a local macOS installation, `npm run update:mac` builds the app, closes the running instance and replaces the Applications bundle after verification. It does not target the separate data folder. Save pending edits and export a backup before running it.
 
 ## GitHub workflows
 
@@ -87,7 +92,7 @@ macOS output is written to `src-tauri/target/release/bundle/macos/` and `src-tau
 
 ## Updating versions
 
-Change Node or Rust deliberately, then run checks on both platforms. When updating Rust, update `rust-toolchain.toml` and the `toolchain` input in both workflows together. Build tests detect mismatched Rust versions. Commit lockfile changes with the dependency change, and leave unrelated upgrades out of platform-support work.
+Runtime updates require checks on both platforms. Rust updates must change `rust-toolchain.toml` and the `toolchain` input in both workflows together; build tests detect mismatches. Dependency updates include the corresponding lockfile changes and are reviewed separately from unrelated feature changes.
 
 ## Windows installer
 
@@ -97,7 +102,9 @@ Change Node or Rust deliberately, then run checks on both platforms. When updati
 4. Download the `dessert-treasurer-windows-x64-...` artifact from the completed run.
 5. Extract the ZIP; it contains a `-setup.exe` installer and an adjacent SHA-256 checksum file.
 
-The workflow does not publish a Release. Keep unverified builds labeled as previews. For installation and checksum verification, see the [User guide](USER_GUIDE.md#windows-preview).
+The workflow creates build artifacts, not Releases. Artifacts require GitHub sign-in and expire after 14 days. Release assets provide a durable download location and should be used for distributed packages. Download links in the README and User guide must be updated when a replacement artifact or release asset is published.
+
+Windows builds without completed device acceptance remain previews. Installation and checksum verification are documented in the [User guide](USER_GUIDE.md#windows-preview).
 
 ### Windows acceptance checklist
 
@@ -117,7 +124,7 @@ Use a dedicated installation and synthetic records, never the production club da
 - Restart to verify persistence; install a newer build to verify data preservation.
 - Confirm the resolved data location and absence of test records or personal data in the installer.
 
-Record Windows and WebView2 versions, display scaling, installer hash and failures. Automated checks and compilation cannot replace this checklist; do not promote the preview to verified Windows support until it is completed.
+Acceptance records include Windows and WebView2 versions, display scaling, installer hash and any failures. Successful CI checks establish build and automated-test results; verified Windows support additionally requires this device checklist.
 
 ## Prepare a release
 
@@ -134,6 +141,6 @@ Record Windows and WebView2 versions, display scaling, installer hash and failur
 3. Copy the matching Changelog entry and disclose unsigned-app warnings and unverified functionality. Link to the [User guide](USER_GUIDE.md) for installation steps instead of duplicating them.
 4. Test the downloaded package on a separate user account or test device before publishing. If real-device validation is unavailable, keep it clearly labeled as an unverified preview.
 
-The current distribution policy is internal use. macOS builds are ad-hoc signed, not Developer ID signed or notarized; Windows installers are unsigned. Publishing a GitHub Release does not remove operating-system warnings. If distribution policy changes, reassess platform signing and notarization before promising a warning-free installation.
+Packages are currently provided for internal use. macOS builds are ad-hoc signed, not Developer ID signed or notarized; Windows installers are unsigned. GitHub hosting does not remove operating-system warnings. Signing and notarization requirements must be reviewed before broader distribution.
 
-Keep CI enabled on the default branch. Review the repository's license policy before permitting external reuse, and provide a private reporting route through [Security](SECURITY.md).
+CI checks apply to the default branch and pull requests. External reuse requires permission under the repository's license policy; vulnerability handling is described in [Security](SECURITY.md).

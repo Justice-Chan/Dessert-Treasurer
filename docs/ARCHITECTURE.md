@@ -1,6 +1,6 @@
 # Architecture
 
-Dessert Treasurer is a local-first macOS app. The frontend manages the interface and accounting workflows; Tauri's Rust backend provides SQLite storage, attachments, spreadsheet parsing, external links, and native printing.
+Dessert Treasurer is a local-first Tauri desktop application with macOS packaging and a Windows x64 preview. The frontend manages the interface and accounting workflows; the Rust backend provides SQLite storage, attachments, spreadsheet parsing, external links and native printing.
 
 ## Repository layout
 
@@ -42,7 +42,7 @@ src-tauri/
 assets/                  Editable icon source
 scripts/                 Build, signing, installation and test server
 tests/                   Build checks and browser workflow tests
-docs/                    Architecture, data, installation and releases
+docs/                    User, development, architecture and project policies
 .github/                 CI, dependency updates and contribution templates
 ```
 
@@ -53,14 +53,14 @@ frontend/index.html + frontend/styles/
                             -> dist/index.html + dist/styles/
 frontend/scripts.json + frontend/js/
                             -> dist/app.js
-dist/ + src-tauri/           -> macOS .app / .dmg
+dist/ + src-tauri/           -> macOS .app / .dmg or Windows installer
 ```
 
 `npm run build:web` copies the markup and styles and concatenates JavaScript in manifest order. It checks the combined script's syntax before replacing the build output. The Tauri build runs this command automatically.
 
-The source files currently share one classic-script scope, not ES module imports. This intentionally preserves the existing function hoisting, globals and startup behavior while making features easier to locate. A function may call functions declared in another source file. Do not add independent script tags for these files: early state initialization relies on declarations in later files being available in the combined script. `bootstrap.js` stays last and starts the app once.
+The source files share one classic-script scope rather than ES module imports. Function declarations and state are shared across source files in the combined output. Independent script tags are not interchangeable with this build: early state initialization relies on declarations in later files being available. `bootstrap.js` is last in the manifest and starts the app once.
 
-There is no framework migration or data-model change in this directory reorganization. Native storage and commands remain in `lib.rs`; cross-platform URL opening and HTTP downloads live in `platform/mod.rs`. Established libraries handle operating-system differences, so there are no duplicate macOS and Windows implementations. Moving database operations into separate modules should be a focused follow-up with native tests.
+Native storage and command registration live in `lib.rs`. Cross-platform URL opening and bounded HTTPS downloads live in `platform/mod.rs`; platform libraries handle operating-system differences. The shared data model and app identifier are independent of platform packaging overrides.
 
 ## Finding a change
 
@@ -76,20 +76,11 @@ There is no framework migration or data-model change in this directory reorganiz
 | Workflow regression coverage | `tests/app.spec.mjs` |
 | Packaging and local installation | `scripts/`, `docs/DEVELOPMENT.md` |
 
-Some shared concerns still span files: section rendering lives in `ui/render.js`, event wiring in `ui/events.js`, and backup-restore application in the event handler. Follow the function name across files rather than duplicating logic. These are deliberate existing boundaries, not isolated independent modules.
+Section rendering lives in `ui/render.js`, event wiring in `ui/events.js`, and backup-restore application in the event handler. Feature files are organizational boundaries within a shared scope, not independently loaded modules.
 
 ## Verification
 
-```sh
-npm run build:web
-npm run test:build
-cargo test --locked --manifest-path src-tauri/Cargo.toml
-cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-npm run test:ui
-npm run build:mac
-```
-
-Build tests verify the source manifest, script syntax and generated asset integrity. Playwright builds and serves `dist/`, the same frontend packaged in the app, using synthetic browser-only records. Rust tests use temporary stores. Neither should point at the production App data directory.
+Build tests verify the source manifest, script syntax and generated asset integrity. Playwright builds and serves `dist/`, the same frontend packaged in the app, using synthetic browser-only records. Rust tests use temporary stores. Neither test suite accesses production app data. Commands and platform acceptance checks are documented in [Development](DEVELOPMENT.md#verify).
 
 ## Source, generated output and personal data
 

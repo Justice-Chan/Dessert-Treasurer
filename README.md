@@ -10,13 +10,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/releases/latest"><img src="https://img.shields.io/badge/Download-macOS-355E4B?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download the latest macOS release" /></a>
-  <a href="docs/USER_GUIDE.md#windows-preview"><img src="https://img.shields.io/badge/Windows-Preview-806529?style=for-the-badge" alt="Windows preview information, not a verified release" /></a>
+  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.0/Dessert.Treasurer_0.2.0_aarch64.dmg"><img src="https://img.shields.io/badge/Download-macOS-355E4B?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Dessert Treasurer 0.2.0 for macOS" /></a>
+  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467/artifacts/11227664404"><img src="https://img.shields.io/badge/Download-Windows%20x64-806529?style=for-the-badge" alt="Download the Windows x64 preview installer ZIP; GitHub sign-in required" /></a>
   <a href="docs/USER_GUIDE.md"><img src="https://img.shields.io/badge/Guide-Installation-45515A?style=for-the-badge" alt="Read the user guide" /></a>
 </p>
 
 <p align="center">
-  macOS 13+ &middot; Apple Silicon &middot; Traditional Chinese interface<br />
+  macOS 13+ / Apple Silicon &middot; Windows 11 x64 preview &middot; Traditional Chinese interface<br />
   <a href="#features">Features</a> &middot;
   <a href="#getting-started">Getting started</a> &middot;
   <a href="#data-and-backups">Data and backups</a> &middot;
@@ -24,7 +24,9 @@
 </p>
 
 > **[! IMPORTANT !]**
-> **Internal-use release.** The macOS app is not signed with an Apple Developer ID or notarized by Apple. A GitHub download may be blocked or reported as damaged. Read the [installation guide](docs/USER_GUIDE.md#install-on-macos) before opening it. Windows packaging is in preview, not yet a verified release.
+> **Unsigned builds for internal use.** macOS downloads may be blocked or reported as damaged; Windows may show an unknown-publisher warning. See the [User guide](docs/USER_GUIDE.md) for installation instructions. The Windows installer has been built successfully in CI but has not completed real-device acceptance testing.
+
+**Windows download:** the button downloads an Actions artifact ZIP containing the installer and checksum. GitHub sign-in is required. This artifact expires on **October 16, 2026 (UTC)**; see the [build run](https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467) for its status.
 
 ## At a Glance
 
@@ -50,7 +52,7 @@ Designed for student club treasurers: record a purchase, follow up on activity f
 
 ### Install on macOS
 
-1. Download the latest DMG from [Releases](https://github.com/Justice-Chan/Dessert-Treasurer/releases/latest).
+1. Download the DMG using the macOS button above. Version notes are available on [Releases](https://github.com/Justice-Chan/Dessert-Treasurer/releases).
 2. Open the DMG and drag `Dessert Treasurer.app` to **Applications**.
 3. Open the app from Applications.
 
@@ -58,9 +60,11 @@ If macOS blocks the app, follow the [User guide](docs/USER_GUIDE.md#if-macos-blo
 
 ### Windows preview
 
-Windows x64 packaging is being prepared for internal testing. It uses the same source code and backup format as the macOS app. Windows installation, native interactions and PDF output still require real-device acceptance testing; it is not yet a verified Windows release.
+1. Sign in to GitHub and download the Windows ZIP using the button above.
+2. Extract the ZIP and verify the installer against the included SHA-256 checksum.
+3. Run the `-setup.exe` installer and open the app from the Start menu.
 
-Maintainers can build an unsigned installer through the manual **Build Windows Installer** GitHub Actions workflow. See the [Windows build instructions](docs/DEVELOPMENT.md#windows-installer) and [installation guidance](docs/USER_GUIDE.md#windows-preview). No Windows SDK or cross-compilation tools are needed on the development Mac.
+The preview targets Windows 11 x64 (Intel/AMD). It shares the macOS app's source code and full-backup format. Installation, native interactions, cross-platform restore and PDF output have not completed real-device acceptance testing. Read the [Windows installation guidance](docs/USER_GUIDE.md#windows-preview) before using the preview.
 
 ### Set up your club
 
@@ -95,52 +99,9 @@ For storage locations, recovery and moving computers, read the [User guide](docs
 
 ## Development
 
-Built with **Tauri 2, Rust, SQLite, and HTML/CSS/JavaScript**. Both platforms share the same source code; Windows installers are built on a Windows GitHub Actions runner, not through a Windows SDK on the development Mac.
+Built with **Tauri 2, Rust, SQLite, and HTML/CSS/JavaScript**. The shared frontend and native backend are packaged with platform-specific Tauri configuration. CI runs checks on macOS and Windows; a manual workflow produces Windows installers.
 
 Start with the [development environment guide](docs/DEVELOPMENT.md) for tool setup and the [architecture guide](docs/ARCHITECTURE.md) for the source map.
-
-<details>
-<summary><strong>Local development, tests, and macOS builds</strong></summary>
-
-
-### Requirements
-
-- macOS 13 or later
-- Node.js 24 (see `.node-version`)
-- Rust 1.98.1 (see `rust-toolchain.toml`)
-- Xcode Command Line Tools
-
-### Run locally
-
-```sh
-npm ci
-npm run dev
-```
-
-### Verify and build
-
-```sh
-npm run test:build
-cargo test --locked --manifest-path src-tauri/Cargo.toml
-cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-npm run test:ui
-npm run build:mac
-npm run build:dmg
-```
-
-The built app is written to `src-tauri/target/release/bundle/macos/`; the DMG is written to `src-tauri/target/release/bundle/dmg/`.
-
-To build and replace the local app in Applications in one step, save any pending edits in the app, then run:
-
-```sh
-npm run update:mac
-```
-
-This closes the running app and installs the verified new bundle. Reopen it from the Dock after the command finishes. The app's stored data is kept in its separate Application Support folder.
-
-For version pinning, shared tools, project-local dependencies and Windows CI builds, read [Development environment](docs/DEVELOPMENT.md).
-
-</details>
 
 <details>
 <summary><strong>Repository layout</strong></summary>
@@ -172,4 +133,4 @@ For bugs and suggestions, [open an issue](https://github.com/Justice-Chan/Desser
 
 ## License
 
-This project is currently not licensed for public reuse. Choose a license before allowing outside reuse or contributions.
+No open-source license has been granted for this repository. Public source access does not grant permission to reuse or redistribute the code. Contact the maintainer for permission.
