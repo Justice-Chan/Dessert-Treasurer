@@ -31,11 +31,14 @@ frontend/
 src-tauri/
   src/main.rs            Desktop executable entry point
   src/lib.rs             Native commands, storage and native tests
+  src/platform/mod.rs    Cross-platform URL opening and bounded HTTPS downloads
   capabilities/          Tauri permissions
   icons/                 Generated application icons
   Cargo.toml             Rust dependencies
   Cargo.lock             Locked Rust dependency versions
   tauri.conf.json        App identity, window and packaging configuration
+  tauri.macos.conf.json  macOS packaging overrides
+  tauri.windows.conf.json Windows packaging overrides
 assets/                  Editable icon source
 scripts/                 Build, signing, installation and test server
 tests/                   Build checks and browser workflow tests
@@ -57,7 +60,7 @@ dist/ + src-tauri/           -> macOS .app / .dmg
 
 The source files currently share one classic-script scope, not ES module imports. This intentionally preserves the existing function hoisting, globals and startup behavior while making features easier to locate. A function may call functions declared in another source file. Do not add independent script tags for these files: early state initialization relies on declarations in later files being available in the combined script. `bootstrap.js` stays last and starts the app once.
 
-There is no framework migration or data-model change in this directory reorganization. The Rust implementation remains in one production module for now; moving database operations into separate modules should be a focused follow-up with native tests, not part of a frontend file move.
+There is no framework migration or data-model change in this directory reorganization. Native storage and commands remain in `lib.rs`; cross-platform URL opening and HTTP downloads live in `platform/mod.rs`. Established libraries handle operating-system differences, so there are no duplicate macOS and Windows implementations. Moving database operations into separate modules should be a focused follow-up with native tests.
 
 ## Finding a change
 
@@ -80,8 +83,8 @@ Some shared concerns still span files: section rendering lives in `ui/render.js`
 ```sh
 npm run build:web
 npm run test:build
-cargo test --manifest-path src-tauri/Cargo.toml
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run test:ui
 npm run build:mac
 ```

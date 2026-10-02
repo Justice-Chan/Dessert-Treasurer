@@ -1,56 +1,68 @@
-# Dessert Treasurer
+<p align="center">
+  <img src="src-tauri/icons/128x128@2x.png" width="96" height="96" alt="Dessert Treasurer app icon" />
+</p>
 
-<img width="1353" height="823" alt="Dessert Treasurer bookkeeping screen" src="https://github.com/user-attachments/assets/515445da-527a-473a-a2c7-1798c428e08b" />
+<h1 align="center">Dessert Treasurer</h1>
 
-**Dessert Treasurer** is a local-first macOS desktop app for managing a student club's money, reimbursements, accounts, people, and activity fees in one place.
+<p align="center">
+  Club finances, from the first receipt to the monthly close.<br />
+  A local-first desktop app for bookkeeping, reimbursements, and activity fees.
+</p>
 
-It is designed for everyday club administration: enter a transaction, attach a receipt, check the account balance, track who has paid for an activity, and keep a backup before month-end. Your data stays on your Mac unless you choose to export a backup or connect a public spreadsheet.
+<p align="center">
+  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/releases/latest"><img src="https://img.shields.io/badge/Download-macOS-355E4B?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download the latest macOS release" /></a>
+  <a href="docs/WINDOWS.md"><img src="https://img.shields.io/badge/Windows-Preview-806529?style=for-the-badge" alt="Windows preview information, not a verified release" /></a>
+  <a href="docs/INTERNAL_INSTALL.md"><img src="https://img.shields.io/badge/Guide-Installation-45515A?style=for-the-badge" alt="Read the installation guide" /></a>
+</p>
 
-## What It Helps You Manage
+<p align="center">
+  macOS 13+ &middot; Apple Silicon &middot; Traditional Chinese interface<br />
+  <a href="#features">Features</a> &middot;
+  <a href="#getting-started">Getting started</a> &middot;
+  <a href="#data-and-backups">Data and backups</a> &middot;
+  <a href="#development">Development</a>
+</p>
 
-### Bookkeeping
+> **[! IMPORTANT !]**
+> **Internal-use release.** The macOS app is not signed with an Apple Developer ID or notarized by Apple. A GitHub download may be blocked or reported as damaged. Read the [installation guide](docs/INTERNAL_INSTALL.md) before opening it. Windows packaging is in preview, not yet a verified release.
 
-- Record income and expenses with dates, categories, accounts, and notes.
-- Review transactions through search and date filters.
-- Keep an auditable record instead of relying on scattered spreadsheets.
+## At a Glance
 
-### Reimbursements and receipts
+Designed for student club treasurers: record a purchase, follow up on activity fees, check account balances, and prepare the monthly report without juggling separate spreadsheets. Daily bookkeeping works locally; spreadsheet connections are optional.
 
-- Create, review, approve, pay, cancel, or delete reimbursement requests.
-- Attach a receipt image from your Mac or add a cloud-storage link.
-- Open receipt images and cloud links directly from the reimbursement list.
+<p align="center">
+  <img width="1000" alt="Dessert Treasurer bookkeeping screen" src="https://github.com/user-attachments/assets/515445da-527a-473a-a2c7-1798c428e08b" />
+</p>
 
-### Accounts and reconciliation
+## Features
 
-- Maintain cash and bank accounts with opening balances.
-- Record incoming payment accounts and QR codes.
-- Compare the system balance with the actual account balance at month-end.
-- Generate a printable monthly report and save it as a PDF from the macOS print window.
+| Area | What you can do |
+| --- | --- |
+| **Bookkeeping** | Record income and expenses with dates, categories, accounts, and notes. Find records with search and date filters. |
+| **Reimbursements** | Review, approve, and pay claims. Keep receipt images or clickable cloud-storage links alongside each request. |
+| **Accounts and reports** | Manage cash and bank accounts, compare recorded and actual balances, and prepare monthly PDF reports. |
+| **People and activities** | Maintain member details, track attendance and fees, arrange participants by dragging rows or sorting by payment time, and export unpaid lists. |
+| **Spreadsheet imports** | Import Excel, OpenDocument, CSV, or TSV files, or connect a public spreadsheet link with optional startup synchronization. |
+| **Import matching** | Recognize columns in any order with editable synonyms. Match registered people by name or student ID, skip duplicates, and fill missing details. |
+| **Backups and recovery** | Export a full JSON backup, restore records, and recover recently deleted items from Trash. |
 
-### People and activities
+## Getting Started
 
-- Store a person's name, student ID, department, and email address.
-- Create activities with a date and per-person fee.
-- Track attendance, payment status, and payment time for each participant.
-- Sort participants by payment status, payment time, or a manually arranged order.
-- Download a list of unpaid participants when follow-up is needed.
+### Install on macOS
 
-### Spreadsheet imports
-
-- Import people or activity participants from Excel, OpenDocument, CSV, or TSV files.
-- Connect a public Google Sheet or direct spreadsheet-download link and optionally sync it each time the app opens.
-- Recognize columns in any order, including configurable synonyms for names, IDs, email addresses, payment status, and payment date.
-- Skip existing people while filling in missing details from newer imports.
-
-## Install on macOS
-
-1. Download the latest DMG from [Releases](../../releases).
+1. Download the latest DMG from [Releases](https://github.com/Justice-Chan/Dessert-Treasurer/releases/latest).
 2. Open the DMG and drag `Dessert Treasurer.app` to **Applications**.
 3. Open the app from Applications.
 
-The current internal build is not signed with an Apple Developer ID or notarized by Apple. macOS may block a download from GitHub. Follow the [internal installation guide](docs/INTERNAL_INSTALL.md) if macOS reports that the app is damaged.
+If macOS blocks the app, follow the [internal installation guide](docs/INTERNAL_INSTALL.md). Only apply its workaround to a download you trust.
 
-## First-Time Setup
+### Windows preview
+
+Windows x64 packaging is being prepared for internal testing. It uses the same source code and backup format as the macOS app. Windows installation, native interactions and PDF output still require real-device acceptance testing; it is not yet a verified Windows release.
+
+Maintainers can build an unsigned installer through the manual **Build Windows Installer** GitHub Actions workflow. See [Windows testing and installation](docs/WINDOWS.md). No Windows SDK or cross-compilation tools are needed on the development Mac.
+
+### Set up your club
 
 1. Open **Reconciliation** and add the club's cash and bank accounts with their opening balances.
 2. Add income and expenses in **Ledger** as they occur.
@@ -58,7 +70,7 @@ The current internal build is not signed with an Apple Developer ID or notarized
 4. Add members in **People**, then create an activity before recording participation and payments.
 5. At the end of each month, reconcile account balances and export a full backup.
 
-## Everyday Workflow
+### Find the right workspace
 
 | When you need to... | Use this area |
 | --- | --- |
@@ -70,9 +82,9 @@ The current internal build is not signed with an Apple Developer ID or notarized
 | Recover a recently deleted record | **Trash** |
 | Protect or move your records | **Data export** and **Restore backup** |
 
-## Data, Attachments, and Backups
+## Data and Backups
 
-All financial records, people, activities, and local attachments are stored only on the Mac running the app. The app does not use a hosted account or upload your data to a server.
+Your financial records, people, activities, and local attachments are stored on the computer running the app. There is no hosted account or automatic cloud backup. A connected spreadsheet is read from its provider; cloud receipt links open externally.
 
 - Create a **full JSON backup** after each monthly close and before restoring any backup.
 - Keep an extra copy in iCloud Drive, trusted cloud storage, or an external drive.
@@ -83,13 +95,19 @@ For the exact storage location and recovery guidance, read [Data and backups](do
 
 ## Development
 
-This app uses Tauri 2, Rust, SQLite, and a lightweight HTML/CSS/JavaScript interface.
+Built with **Tauri 2, Rust, SQLite, and HTML/CSS/JavaScript**. Both platforms share the same source code; Windows installers are built on a Windows GitHub Actions runner, not through a Windows SDK on the development Mac.
+
+Start with the [development environment guide](docs/DEVELOPMENT.md) for tool setup and the [architecture guide](docs/ARCHITECTURE.md) for the source map.
+
+<details>
+<summary><strong>Local development, tests, and macOS builds</strong></summary>
+
 
 ### Requirements
 
 - macOS 13 or later
 - Node.js 24 (see `.node-version`)
-- Rust stable (see `rust-toolchain.toml`)
+- Rust 1.98.1 (see `rust-toolchain.toml`)
 - Xcode Command Line Tools
 
 ### Run locally
@@ -102,8 +120,9 @@ npm run dev
 ### Verify and build
 
 ```sh
-cargo test --manifest-path src-tauri/Cargo.toml
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+npm run test:build
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run test:ui
 npm run build:mac
 npm run build:dmg
@@ -119,7 +138,12 @@ npm run update:mac
 
 This closes the running app and installs the verified new bundle. Reopen it from the Dock after the command finishes. The app's stored data is kept in its separate Application Support folder.
 
-## Repository Guide
+For version pinning, shared tools, project-local dependencies and Windows CI builds, read [Development environment](docs/DEVELOPMENT.md).
+
+</details>
+
+<details>
+<summary><strong>Repository layout</strong></summary>
 
 ```text
 frontend/     Interface, styles, and JavaScript organized by feature
@@ -133,7 +157,20 @@ dist/         Generated frontend output (not committed)
 
 See [Architecture](docs/ARCHITECTURE.md) for the source map and build flow. Edit files in `frontend/`, not the generated files in `dist/`.
 
-Read [Contributing](CONTRIBUTING.md) before opening a pull request. Report security or data-safety concerns through the private route in [Security](SECURITY.md), rather than a public issue.
+</details>
+
+## Documentation
+
+| Guide | Purpose |
+| --- | --- |
+| [Installation](docs/INTERNAL_INSTALL.md) | Install the internal macOS build and understand the unsigned-app warning. |
+| [Data and backups](docs/DATA.md) | Find stored data, protect attachments, and restore a backup. |
+| [Windows preview](docs/WINDOWS.md) | Build and evaluate the Windows installer before internal deployment. |
+| [Development](docs/DEVELOPMENT.md) | Set up pinned tools and project-local dependencies. |
+| [Architecture](docs/ARCHITECTURE.md) | Navigate the frontend, native code, and build flow. |
+| [Changelog](CHANGELOG.md) | Review changes between versions. |
+
+For bugs and suggestions, [open an issue](https://github.com/Justice-Chan/Dessert-Treasurer/issues). Do not include real financial records, member details, or backups. Read [Contributing](CONTRIBUTING.md) before opening a pull request; report security or data-safety concerns privately through [Security](SECURITY.md).
 
 ## License
 

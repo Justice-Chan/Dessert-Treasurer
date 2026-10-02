@@ -2,7 +2,6 @@ use std::{
     fs,
     io::Cursor,
     path::{Path, PathBuf},
-    process::Command,
     sync::Mutex,
 };
 
@@ -12,6 +11,8 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{Manager, State, WebviewWindow};
+
+mod platform;
 
 const MAX_ATTACHMENT_BYTES: usize = 12 * 1024 * 1024;
 const MAX_MEMBER_IMPORT_BYTES: usize = 5 * 1024 * 1024;
@@ -405,10 +406,7 @@ fn error_text(error: impl std::fmt::Display) -> String {
 }
 
 fn is_external_http_url(value: &str) -> bool {
-    let remainder = value
-        .strip_prefix("https://")
-        .or_else(|| value.strip_prefix("http://"));
-    remainder.is_some_and(|rest| !rest.is_empty() && !value.chars().any(char::is_whitespace))
+    platform::is_external_http_url(value)
 }
 
 fn truncate_spreadsheet_cell(value: impl ToString) -> String {
@@ -579,38 +577,14 @@ fn prepare_member_import_url(value: &str) -> Result<(String, String), String> {
 
 fn fetch_member_spreadsheet_url(url: &str) -> Result<SpreadsheetRows, String> {
     let (download_url, file_name) = prepare_member_import_url(url)?;
-    let output = Command::new("/usr/bin/curl")
-        .args([
-            "--fail",
-            "--location",
-            "--silent",
-            "--show-error",
-            "--proto",
-            "=https",
-            "--proto-redir",
-            "=https",
-            "--connect-timeout",
-            "10",
-            "--max-time",
-            "20",
-            "--max-filesize",
-            "5242880",
-            "--output",
-            "-",
-        ])
-        .arg(&download_url)
-        .output()
-        .map_err(error_text)?;
-    if !output.status.success() {
-        return Err("無法下載公開試算表。請確認連結有效且分享權限允許檢視。".into());
-    }
-    let content = String::from_utf8_lossy(&output.stdout);
+    let bytes = platform::download_spreadsheet(&download_url, MAX_MEMBER_IMPORT_BYTES)?;
+    let content = String::from_utf8_lossy(&bytes);
     if content.trim_start().starts_with("<html")
         || content.trim_start().starts_with("<!DOCTYPE html")
     {
         return Err("連結回傳登入頁面，請將試算表設為知道連結者可檢視。".into());
     }
-    parse_member_spreadsheet_rows(&file_name, output.stdout)
+    parse_member_spreadsheet_rows(&file_name, bytes)
 }
 
 #[tauri::command]
@@ -681,15 +655,7 @@ fn open_external_url(url: String) -> Result<(), String> {
     if !is_external_http_url(&url) {
         return Err("只支援 http 或 https 雲端連結".into());
     }
-    let status = Command::new("open")
-        .arg(&url)
-        .status()
-        .map_err(error_text)?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err("無法使用預設瀏覽器開啟連結".into())
-    }
+    platform::open_external_url(&url)
 }
 
 #[tauri::command]
@@ -701,8 +667,10 @@ fn parse_member_spreadsheet(
 }
 
 #[tauri::command]
-fn import_member_spreadsheet_url(url: String) -> Result<SpreadsheetRows, String> {
-    fetch_member_spreadsheet_url(&url)
+async fn import_member_spreadsheet_url(url: String) -> Result<SpreadsheetRows, String> {
+    tauri::async_runtime::spawn_blocking(move || fetch_member_spreadsheet_url(&url))
+        .await
+        .map_err(error_text)?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

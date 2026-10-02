@@ -8,9 +8,10 @@
     "tauri": "tauri",
     "dev": "npm run tauri dev",
     "build": "npm run tauri build",
-    "build:mac": "npm run tauri build -- --bundles app && node scripts/sign-macos.mjs",
+    "build:mac": "npm run tauri build -- --bundles app -- --locked && node scripts/sign-macos.mjs",
     "update:mac": "npm run build:mac && node scripts/install-macos.mjs",
-    "build:dmg": "npm run tauri build -- --bundles dmg",
+    "build:dmg": "npm run tauri build -- --bundles dmg -- --locked",
+    "build:windows": "node scripts/build-windows.mjs",
     "test:build": "node --test tests/build.mjs",
     "test:ui": "playwright test"
   },

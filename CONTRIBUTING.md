@@ -12,8 +12,8 @@ Thank you for helping improve Dessert Treasurer.
 ```sh
 npm run build:web
 npm run test:build
-cargo test --manifest-path src-tauri/Cargo.toml
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run test:ui
 ```
 

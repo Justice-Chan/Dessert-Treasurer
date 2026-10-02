@@ -9,14 +9,19 @@
 ```sh
 npm ci
 npm run build:web
-cargo test --manifest-path src-tauri/Cargo.toml
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+npm run test:build
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run test:ui
 npm run build:mac
 npm run build:dmg
 ```
 
-4. Manually verify export, restore, and a monthly PDF report using real data.
+4. Manually verify export, restore, and a monthly PDF report using an isolated synthetic test store, not the production database.
+
+## Windows previews
+
+Use the manual **Build Windows Installer** workflow, then download its x64 installer and checksum artifact. It does not create a Release. Complete the [Windows acceptance checklist](WINDOWS.md) before uploading a Windows asset to a Release, and label unsigned test builds and any unverified native functionality clearly. No Windows installer has been validated merely by adding this workflow.
 
 ## GitHub Release
 
