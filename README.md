@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.0/Dessert.Treasurer_0.2.0_aarch64.dmg"><img src="https://img.shields.io/badge/Download-macOS-355E4B?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Dessert Treasurer 0.2.0 for macOS" /></a>
-  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467/artifacts/11227664404"><img src="https://img.shields.io/badge/Download-Windows%20x64-806529?style=for-the-badge&amp;logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NDggNTEyIj48IS0tISBGb250IEF3ZXNvbWUgRnJlZSA2LjcuMiBieSBAZm9udGF3ZXNvbWUgLSBodHRwczovL2ZvbnRhd2Vzb21lLmNvbSBMaWNlbnNlIC0gaHR0cHM6Ly9mb250YXdlc29tZS5jb20vbGljZW5zZS9mcmVlIChJY29uczogQ0MgQlkgNC4wLCBGb250czogU0lMIE9GTCAxLjEsIENvZGU6IE1JVCBMaWNlbnNlKSBDb3B5cmlnaHQgMjAyNCBGb250aWNvbnMsIEluYy4gLS0%2BPHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDkzLjdsMTgzLjYtMjUuM3YxNzcuNEgwVjkzLjd6bTAgMzI0LjZsMTgzLjYgMjUuM1YyNjguNEgwdjE0OS45em0yMDMuOCAyOEw0NDggNDgwVjI2OC40SDIwMy44djE3Ny45em0wLTM4MC42djE4MC4xSDQ0OFYzMkwyMDMuOCA2NS43eiIvPjwvc3ZnPg%3D%3D" alt="Download the Windows x64 preview installer ZIP; GitHub sign-in required" /></a>
+  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.1/Dessert.Treasurer_0.2.1_aarch64.dmg"><img src="https://img.shields.io/badge/Download-macOS-355E4B?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Dessert Treasurer 0.2.1 for macOS" /></a>
+  <a href="https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.1/Dessert.Treasurer_0.2.1_x64-setup.exe"><img src="https://img.shields.io/badge/Download-Windows%20x64-806529?style=for-the-badge&amp;logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NDggNTEyIj48IS0tISBGb250IEF3ZXNvbWUgRnJlZSA2LjcuMiBieSBAZm9udGF3ZXNvbWUgLSBodHRwczovL2ZvbnRhd2Vzb21lLmNvbSBMaWNlbnNlIC0gaHR0cHM6Ly9mb250YXdlc29tZS5jb20vbGljZW5zZS9mcmVlIChJY29uczogQ0MgQlkgNC4wLCBGb250czogU0lMIE9GTCAxLjEsIENvZGU6IE1JVCBMaWNlbnNlKSBDb3B5cmlnaHQgMjAyNCBGb250aWNvbnMsIEluYy4gLS0%2BPHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDkzLjdsMTgzLjYtMjUuM3YxNzcuNEgwVjkzLjd6bTAgMzI0LjZsMTgzLjYgMjUuM1YyNjguNEgwdjE0OS45em0yMDMuOCAyOEw0NDggNDgwVjI2OC40SDIwMy44djE3Ny45em0wLTM4MC42djE4MC4xSDQ0OFYzMkwyMDMuOCA2NS43eiIvPjwvc3ZnPg%3D%3D" alt="Download Dessert Treasurer 0.2.1 Windows x64 preview installer" /></a>
   <a href="docs/USER_GUIDE.md"><img src="https://img.shields.io/badge/Guide-Installation-45515A?style=for-the-badge" alt="Read the user guide" /></a>
 </p>
 
@@ -26,7 +26,7 @@
 > **[! IMPORTANT !]**
 > **Unsigned builds for internal use.** macOS downloads may be blocked or reported as damaged; Windows may show an unknown-publisher warning. See the [User guide](docs/USER_GUIDE.md) for installation instructions. The Windows installer has been built successfully in CI but has not completed real-device acceptance testing.
 
-**Windows download:** the button downloads an Actions artifact ZIP containing the installer and checksum. GitHub sign-in is required. This artifact expires on **October 16, 2026 (UTC)**; see the [build run](https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467) for its status.
+**Version 0.2.1:** both buttons download installers from the same [Pre-release](https://github.com/Justice-Chan/Dessert-Treasurer/releases/tag/v0.2.1). The Windows [SHA-256 checksum file](https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.1/Dessert.Treasurer_0.2.1_x64-setup.exe.sha256) and platform installation notes are available there.
 
 ## At a Glance
 
@@ -60,8 +60,8 @@ If macOS blocks the app, follow the [User guide](docs/USER_GUIDE.md#if-macos-blo
 
 ### Windows preview
 
-1. Sign in to GitHub and download the Windows ZIP using the button above.
-2. Extract the ZIP and verify the installer against the included SHA-256 checksum.
+1. Download the Windows installer using the button above.
+2. Download its checksum file from the Pre-release and verify the installer before running it.
 3. Run the `-setup.exe` installer and open the app from the Start menu.
 
 The preview targets Windows 11 x64 (Intel/AMD). It shares the macOS app's source code and full-backup format. Installation, native interactions, cross-platform restore and PDF output have not completed real-device acceptance testing. Read the [Windows installation guidance](docs/USER_GUIDE.md#windows-preview) before using the preview.

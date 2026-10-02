@@ -6,7 +6,7 @@ This guide covers installation, first-time setup, local storage and recovery. De
 
 Requires macOS 13 or later on Apple Silicon.
 
-1. Download the [macOS 0.2.0 DMG](https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.0/Dessert.Treasurer_0.2.0_aarch64.dmg). Version notes are listed on [Releases](https://github.com/Justice-Chan/Dessert-Treasurer/releases).
+1. Download the [macOS 0.2.1 DMG](https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.1/Dessert.Treasurer_0.2.1_aarch64.dmg). Installation notes and the DMG checksum are listed on the [0.2.1 Pre-release](https://github.com/Justice-Chan/Dessert-Treasurer/releases/tag/v0.2.1).
 2. Open the DMG and drag `Dessert Treasurer.app` to Applications.
 3. Eject the DMG, then open the app from Applications.
 
@@ -27,15 +27,15 @@ Before updating, save pending edits, export a full JSON backup and close the app
 
 The preview targets Windows 11 x64 (Intel/AMD), not ARM64. CI has successfully produced an installer; installation, native interactions, cross-platform restore and PDF printing have not completed real-device acceptance testing.
 
-[Download the Windows installer ZIP](https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467/artifacts/11227664404). This Actions download requires GitHub sign-in and expires on **October 16, 2026 (UTC)**. The [build run](https://github.com/Justice-Chan/Dessert-Treasurer/actions/runs/37010901467) identifies its source commit and checks. If the artifact has expired, a replacement build or release asset must be provided by the maintainer.
+[Download the Windows 0.2.1 installer](https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.1/Dessert.Treasurer_0.2.1_x64-setup.exe) and its [SHA-256 checksum file](https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.1/Dessert.Treasurer_0.2.1_x64-setup.exe.sha256) from the [0.2.1 Pre-release](https://github.com/Justice-Chan/Dessert-Treasurer/releases/tag/v0.2.1).
 
 ### Verify and install
 
-1. Extract the downloaded ZIP. Locate the `-setup.exe` file and adjacent `.sha256` checksum.
-2. In PowerShell, check the actual installer filename:
+1. Download the `-setup.exe` installer and matching `.sha256` checksum into the same folder.
+2. Open PowerShell in that folder and check the installer:
 
 ```powershell
-Get-FileHash ".\Dessert Treasurer_0.2.0_x64-setup.exe" -Algorithm SHA256
+Get-FileHash ".\Dessert.Treasurer_0.2.1_x64-setup.exe" -Algorithm SHA256
 ```
 
 3. Compare the hash with the checksum supplied through the trusted channel. Matching hashes establish file integrity, not publisher identity or code signing.
