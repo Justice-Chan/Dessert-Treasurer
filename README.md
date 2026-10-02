@@ -23,7 +23,7 @@
   <a href="#development">Development</a>
 </p>
 
-> **[!IMPORTANT]**<br>
+> **[! IMPORTANT !]**<br>
 > **Unsigned builds:** The app is not signed with an Apple Developer ID and has not been notarized by Apple. macOS downloads may be blocked or reported as damaged; Windows may show an unknown-publisher warning since the installer is unsigned. See the [User guide](docs/USER_GUIDE.md) for installation instructions.<br>
 > **Version 0.2.1:** Both buttons download installers from the same [Pre-release](https://github.com/Justice-Chan/Dessert-Treasurer/releases/tag/v0.2.1). The Windows [SHA-256 checksum file](https://github.com/Justice-Chan/Dessert-Treasurer/releases/download/v0.2.1/Dessert.Treasurer_0.2.1_x64-setup.exe.sha256) and platform installation notes are available there. 
 
