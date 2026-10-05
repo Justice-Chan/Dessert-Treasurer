@@ -8,15 +8,6 @@ function formatDateValue(value) {
   return result;
 }
 
-function formatPaymentTimeValue(value) {
-  const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  let result = `${digits.slice(0, 2)}-${digits.slice(2, 4)}`;
-  if (digits.length > 4) result += ` ${digits.slice(4, 6)}`;
-  if (digits.length > 6) result += `:${digits.slice(6, 8)}`;
-  return result;
-}
-
 function isValidDateValue(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
   if (!match) return false;
@@ -133,4 +124,3 @@ function setupDateControls() {
     });
   });
 }
-

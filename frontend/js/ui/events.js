@@ -91,7 +91,7 @@ function bindEvents() {
       message: "將放棄目前的自訂名稱，恢復 App 原本的可辨識欄位名稱。",
       confirmLabel: "確認還原",
       action: () => {
-        state.importSynonyms = { mode: "legacy", people: { name: [], studentId: [], department: [], email: [] }, activity: { attendance: [], payment: [], paidAt: [] } };
+        state.importSynonyms = { mode: "legacy", people: { name: [], studentId: [], department: [], email: [] }, activity: { attendance: [], payment: [], paidAt: [], transferLastFive: [] } };
         if (!saveState()) return;
         renderImportSynonymSettings();
         toast("匯入同義詞已還原預設。");
@@ -311,12 +311,15 @@ function bindEvents() {
   ["personSearch", "activitySearch", "activityPersonSearch"].forEach((id) => $("#" + id).addEventListener("input", renderPeople));
   $("#activityPersonFilter").addEventListener("change", renderPeople);
   $("#activityPersonRows").addEventListener("input", (event) => {
-    const paymentTime = event.target.closest("[data-payment-time]");
-    if (paymentTime) paymentTime.value = formatPaymentTimeValue(paymentTime.value);
+    const transferLastFive = event.target.closest("[data-transfer-last-five]");
+    if (transferLastFive) {
+      const digits = transferLastFive.value.normalize("NFKC").replace(/\D/g, "").slice(0, 5);
+      if (transferLastFive.value !== digits) transferLastFive.value = digits;
+    }
   });
   $("#activityPersonRows").addEventListener("change", (event) => {
-    const paymentTime = event.target.closest("[data-payment-time]");
-    if (paymentTime) setActivityPaymentTime(paymentTime.dataset.activityId, paymentTime.dataset.personId, paymentTime.value);
+    const transferLastFive = event.target.closest("[data-transfer-last-five]");
+    if (transferLastFive) setActivityTransferLastFive(transferLastFive.dataset.activityId, transferLastFive.dataset.personId, transferLastFive.value);
   });
   const clearRosterPointerDrag = () => {
     rosterPointerDrag = null;
@@ -763,4 +766,3 @@ function bindEvents() {
     listScrollResizeFrame = requestAnimationFrame(syncScrollableLists);
   });
 }
-

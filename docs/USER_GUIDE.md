@@ -55,6 +55,16 @@ Before updating, export a full JSON backup and close the app. Use the new instal
 4. Register members in **People**, then create activities to track attendance and fees.
 5. Reconcile balances, save the monthly report and export a full backup at month-end.
 
+## Activity payments and spreadsheet imports
+
+Activity rosters show a per-activity **Transfer account last five digits** field instead of a payment-time input. Values are stored as text so leading zeros are preserved. The field is available before a participant is marked paid and is included in full JSON backups.
+
+Paid participants are listed first, ordered by the payment time imported from the spreadsheet. Manually marking a participant paid records the current local time for ordering when no payment time exists; this is a bookkeeping timestamp, not confirmation of the actual bank transfer time. Paid records without a known time follow timed payments. Equal or missing times use the existing roster order. Payment times remain stored but are not shown in the roster.
+
+Settings includes editable header aliases for the last-five-digits field. Imports without that column preserve existing values; numeric spreadsheet values shorter than five digits are left-padded with zeros. Missing payment-date columns do not clear an existing paid participant's timestamp.
+
+Public spreadsheet connections are read-only. Updating payment status in the app does not write to Google Sheets. Write-back requires a separate authenticated Google Sheets integration with editing permission and an explicit mapping to the sheet's dropdown values.
+
 ## Local data and attachments
 
 Each computer has its own local data store. There is no automatic synchronization between Macs and Windows computers or automatic cloud backup. Public spreadsheet connections import roster information; they do not synchronize the entire database.

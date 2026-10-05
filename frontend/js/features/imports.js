@@ -49,7 +49,7 @@ function personImportPreview(rows, { allowEmptyLink = false } = {}) {
   let duplicates = 0;
   let invalid = 0;
   rows.slice(header.rowIndex + 1).forEach((row) => {
-    const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] || "").trim();
+    const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] ?? "").trim();
     const name = value("name");
     const studentId = normalizeStudentId(value("studentId"));
     if (!name && !studentId) return;
@@ -160,7 +160,8 @@ const activityImportHeaders = {
   ...personImportHeaders,
   attendance: ["參加狀態", "參與狀態", "出席狀態", "參加", "出席", "attendance", "attendancestatus", "participation", "participationstatus"],
   payment: ["匯款狀態", "繳費狀態", "繳款狀態", "付款狀態", "對帳狀態", "匯款", "繳費", "繳款", "付款", "payment", "paymentstatus", "paid", "paidstatus"],
-  paidAt: ["匯款日期", "繳費日期", "繳款日期", "付款日期", "匯款時間", "繳費時間", "繳款時間", "付款時間", "paymentdate", "paymenttime", "paidat"]
+  paidAt: ["匯款日期", "繳費日期", "繳款日期", "付款日期", "匯款時間", "繳費時間", "繳款時間", "付款時間", "paymentdate", "paymenttime", "paidat"],
+  transferLastFive: ["匯款後五碼", "匯款後5碼", "帳號後五碼", "帳號後5碼", "匯款帳號後五碼", "匯款帳號末五碼", "轉帳後五碼", "末五碼", "transferlastfive", "accountlastfive"]
 };
 
 function importHeaders(scope) {
@@ -180,7 +181,8 @@ function importHeaders(scope) {
     ...people,
     attendance: aliasesFor(activityImportHeaders.attendance, state.importSynonyms.activity.attendance || []),
     payment: aliasesFor(activityImportHeaders.payment, state.importSynonyms.activity.payment || []),
-    paidAt: aliasesFor(activityImportHeaders.paidAt, state.importSynonyms.activity.paidAt || [])
+    paidAt: aliasesFor(activityImportHeaders.paidAt, state.importSynonyms.activity.paidAt || []),
+    transferLastFive: aliasesFor(activityImportHeaders.transferLastFive, state.importSynonyms.activity.transferLastFive ?? activityImportHeaders.transferLastFive)
   };
 }
 
@@ -199,7 +201,7 @@ function renderImportSynonymSettings() {
     ["synonymPersonName", "people", "name"], ["synonymPersonStudentId", "people", "studentId"],
     ["synonymPersonDepartment", "people", "department"], ["synonymPersonEmail", "people", "email"],
     ["synonymActivityAttendance", "activity", "attendance"], ["synonymActivityPayment", "activity", "payment"],
-    ["synonymActivityPaidAt", "activity", "paidAt"]
+    ["synonymActivityPaidAt", "activity", "paidAt"], ["synonymActivityTransferLastFive", "activity", "transferLastFive"]
   ];
   fields.forEach(([id, scope, field]) => { $("#" + id).value = importHeaders(scope)[field].join("、"); });
 }
@@ -214,7 +216,8 @@ function saveImportSynonyms(event) {
     },
     activity: {
       attendance: splitImportSynonyms($("#synonymActivityAttendance").value), payment: splitImportSynonyms($("#synonymActivityPayment").value),
-      paidAt: splitImportSynonyms($("#synonymActivityPaidAt").value)
+      paidAt: splitImportSynonyms($("#synonymActivityPaidAt").value),
+      transferLastFive: splitImportSynonyms($("#synonymActivityTransferLastFive").value)
     }
   };
   if (!nextSynonyms.people.name.length || !nextSynonyms.people.studentId.length) {
@@ -293,7 +296,7 @@ function activityImportPreview(rows, activity, options = {}) {
   let duplicateRows = 0;
   let invalidRows = 0;
   rows.slice(header.rowIndex + 1).forEach((row) => {
-    const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] || "").trim();
+    const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] ?? "").trim();
     const name = value("name");
     const studentId = normalizeStudentId(value("studentId"));
     if (!name && !studentId) return;
@@ -304,15 +307,19 @@ function activityImportPreview(rows, activity, options = {}) {
     if (importedPeople.has(personKey)) { duplicateRows += 1; return; }
     importedPeople.add(personKey);
     const status = importedAttendanceStatus(value("attendance"));
-    const paidAt = normalizeImportedPaymentTime(value("paidAt"));
+    let paidAt = normalizeImportedPaymentTime(value("paidAt"));
     const importedPaid = importedPaymentStatus(value("payment"));
     const paid = status === "attending" && (importedPaid === true || (header.columns.payment === undefined && Boolean(paidAt)));
+    if (paid && header.columns.paidAt === undefined && existing) paidAt = activityRecord(activity, existing.id)?.paidAt || "";
+    const rawSuffix = value("transferLastFive").normalize("NFKC");
+    const transferLastFive = /^\d{1,5}$/.test(rawSuffix) ? rawSuffix.padStart(5, "0") : rawSuffix ? undefined : "";
     attendance.push({
       personId: existing?.id || "",
       candidateStudentId: candidate?.studentId || "",
       status,
       paid,
-      paidAt: paid ? paidAt : ""
+      paidAt: paid ? paidAt : "",
+      ...(header.columns.transferLastFive !== undefined && transferLastFive !== undefined ? { transferLastFive } : {})
     });
   });
   return {
@@ -340,13 +347,13 @@ function clearActivityImport() {
 function showActivityImportPreview(importData) {
   pendingActivityImport = importData;
   $("#activityImportLinkDialog").hidden = true;
-  const labels = { name: "姓名", studentId: "學號", department: "系別", email: "電子郵件", attendance: "參加狀態", payment: "繳費狀態", paidAt: "繳費日期" };
+  const labels = { name: "姓名", studentId: "學號", department: "系別", email: "電子郵件", attendance: "參加狀態", payment: "繳費狀態", paidAt: "繳費日期", transferLastFive: "匯款後五碼" };
   const recognized = Object.keys(importData.header.columns).map((field) => labels[field]).filter(Boolean).join("、");
   const existingRecords = new Map((state.activities.find((item) => item.id === importData.activityId)?.attendance || []).map((record) => [record.personId, record]));
   const updates = importData.attendance.filter((record) => {
     const personId = record.personId;
     const current = personId && existingRecords.get(personId);
-    return !current || current.status !== record.status || current.paid !== record.paid || current.paidAt !== record.paidAt;
+    return !current || current.status !== record.status || current.paid !== record.paid || current.paidAt !== record.paidAt || (record.transferLastFive !== undefined && (current.transferLastFive || "") !== record.transferLastFive);
   }).length;
   const peopleChanges = importData.peopleImport.candidates.length + importData.peopleImport.supplements.length;
   const connectsLink = Boolean(importData.sourceUrl && importData.enableLink);
@@ -406,9 +413,11 @@ function applyActivityImport(activity, importData) {
     const personId = record.personId || personByStudentId.get(normalizeSearchValue(record.candidateStudentId))?.id;
     if (!personId) return;
     const current = activityRecord(activity, personId);
-    if (current && current.status === record.status && current.paid === record.paid && current.paidAt === record.paidAt) return;
-    if (current) Object.assign(current, { personId, status: record.status, paid: record.paid, paidAt: record.paidAt });
-    else activity.attendance.push({ personId, status: record.status, paid: record.paid, paidAt: record.paidAt });
+    const transferLastFive = record.transferLastFive ?? current?.transferLastFive ?? "";
+    if (current && current.status === record.status && current.paid === record.paid && current.paidAt === record.paidAt && (current.transferLastFive || "") === transferLastFive) return;
+    const values = { personId, status: record.status, paid: record.paid, paidAt: record.paidAt, transferLastFive };
+    if (current) Object.assign(current, values);
+    else activity.attendance.push(values);
     updated += 1;
   });
   return { ...peopleChanges, updated };
@@ -501,4 +510,3 @@ function confirmPersonImport() {
     : `已新增 ${changes.added} 位，補齊 ${changes.supplemented} 位人員資料。`
   );
 }
-

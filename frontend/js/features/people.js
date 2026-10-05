@@ -126,7 +126,7 @@ function setActivityAttendance(activityId, personId, status) {
     record.paid = status === "attending" ? Boolean(record.paid) : false;
     record.paidAt = status === "attending" && record.paid ? normalizePaymentTime(record.paidAt) : "";
   } else {
-    activity.attendance.push({ personId, status, paid: false, paidAt: "" });
+    activity.attendance.push({ personId, status, paid: false, paidAt: "", transferLastFive: "" });
   }
   if (!saveState()) return;
   toast(status === "attending" ? "已登記參加，預設為未繳。" : "已登記未參加。");
@@ -136,22 +136,28 @@ function setActivityPayment(activityId, personId, paid) {
   const activity = state.activities.find((item) => item.id === activityId);
   const record = activityRecord(activity, personId);
   if (!record || record.status !== "attending") return;
+  if (record.paid === paid) return;
   record.paid = paid;
-  record.paidAt = paid ? normalizePaymentTime(record.paidAt) : "";
+  const now = new Date();
+  record.paidAt = paid
+    ? normalizePaymentTime(record.paidAt) || `${dateKey(now).slice(5)} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+    : "";
   if (!saveState()) return;
   toast(paid ? "已標記為已繳。" : "已標記為未繳。");
 }
 
-function setActivityPaymentTime(activityId, personId, paidAt) {
+function setActivityTransferLastFive(activityId, personId, value) {
   const activity = state.activities.find((item) => item.id === activityId);
   const record = activityRecord(activity, personId);
-  const normalized = normalizePaymentTime(paidAt);
-  if (!record || record.status !== "attending" || !record.paid) return;
-  if (paidAt && !normalized) return toast("繳款時間請輸入 MM-DD HH:mm，例如 09-20 14:35。");
-  record.paidAt = normalized;
+  if (!record || record.status !== "attending") return;
+  const normalized = normalizeTransferLastFive(value);
+  if (value && !normalized) {
+    renderPeople();
+    return toast("匯款後五碼請輸入完整的五位數字。", "error");
+  }
+  record.transferLastFive = normalized;
   if (!saveState()) return;
-  renderPeople();
-  toast("繳款時間已更新。");
+  toast("匯款後五碼已更新。");
 }
 
 function exportActivityUnpaid() {
@@ -166,4 +172,3 @@ function exportActivityUnpaid() {
   download(`甜點社-${activity.name}-未繳名單-${activity.date}.csv`, "\ufeff" + csv(rows), "text/csv;charset=utf-8");
   toast(`未繳名單已開始下載，共 ${unpaid.length} 人。`);
 }
-

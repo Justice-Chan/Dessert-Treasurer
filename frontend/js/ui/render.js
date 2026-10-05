@@ -679,6 +679,9 @@ function renderPeople() {
       return record?.status !== "attending";
     })
     .sort((a, b) => {
+      const aPaid = a.record?.status === "attending" && a.record.paid;
+      const bPaid = b.record?.status === "attending" && b.record.paid;
+      if (Boolean(aPaid) !== Boolean(bPaid)) return aPaid ? -1 : 1;
       const aPaidAt = a.record?.status === "attending" && a.record.paid ? a.record.paidAt : "";
       const bPaidAt = b.record?.status === "attending" && b.record.paid ? b.record.paidAt : "";
       if (aPaidAt && bPaidAt) return aPaidAt.localeCompare(bPaidAt) || rosterOrder.get(a.person.id) - rosterOrder.get(b.person.id);
@@ -692,7 +695,7 @@ function renderPeople() {
       <td>${escapeHtml(person.studentId)}</td>
       <td>${escapeHtml(person.department || "-")}</td>
       <td><div class="status-control" role="group" aria-label="${escapeHtml(person.name)}參加狀態"><button type="button" data-set-attendance="attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status === "attending"}">參加</button><button type="button" data-set-attendance="not_attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status !== "attending"}">未參加</button></div></td>
-      <td>${record?.status === "attending" && record.paid ? `<input type="text" inputmode="numeric" maxlength="11" placeholder="MM-DD HH:mm" value="${escapeHtml(record.paidAt || "")}" data-payment-time data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}繳款時間">` : `<span class="subtle">-</span>`}</td>
+      <td>${record?.status === "attending" ? `<input type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="五位數字" value="${escapeHtml(record.transferLastFive || "")}" data-transfer-last-five data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}匯款後五碼">` : `<span class="subtle">-</span>`}</td>
       <td>${record?.status === "attending" ? `<div class="status-control payment" role="group" aria-label="${escapeHtml(person.name)}繳費狀態"><button type="button" data-set-payment="unpaid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${!record.paid}">未繳</button><button type="button" data-set-payment="paid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record.paid}">已繳</button></div>` : `<span class="subtle">-</span>`}</td>
     </tr>
   `).join("") : `<tr><td colspan="6"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`;
@@ -739,4 +742,3 @@ function categoryCards(group) {
     </div>
   `).join("");
 }
-

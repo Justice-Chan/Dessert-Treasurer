@@ -197,6 +197,7 @@ function validateImportedState(data) {
     const attendanceIds = new Set();
     (activity.attendance || []).forEach((item) => {
       if (!item || !safeId(item.personId) || !importedPersonIds.has(item.personId) || attendanceIds.has(item.personId) || !["attending", "not_attending"].includes(item.status) || typeof item.paid !== "boolean" || !safeText(item.paidAt || "", 32) || (item.paidAt && !normalizePaymentTime(item.paidAt))) throw new Error("invalid activity attendance");
+      if (item.transferLastFive !== undefined && (typeof item.transferLastFive !== "string" || (item.transferLastFive && !/^\d{5}$/.test(item.transferLastFive)))) throw new Error("invalid transfer account suffix");
       attendanceIds.add(item.personId);
     });
     const rosterIds = new Set();
@@ -307,4 +308,3 @@ function parseImportedContent(filename, text) {
 
   throw new Error("unsupported csv");
 }
-

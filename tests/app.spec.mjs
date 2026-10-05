@@ -221,3 +221,99 @@ test("imports can match registered people by either name or student ID", async (
   expect(result.nameOnlyDuplicates).toBe(1);
   expect(result.attendance).toEqual([{ personId: "person-1", candidateStudentId: "", status: "attending", paid: true, paidAt: "" }]);
 });
+
+test("activity payments hide times, keep account suffixes and sort paid people first", async ({ page }, testInfo) => {
+  await openSection(page, "人員");
+  await page.evaluate(() => {
+    state.people = ["late", "early", "unknown", "unpaid"].map((id) => ({ id, name: id, studentId: id.toUpperCase(), department: "", email: "" }));
+    state.activities = [{
+      id: "payment-activity", name: "Payment ordering", date: "2099-09-20", fee: 100, note: "",
+      rosterOrder: ["unpaid", "late", "unknown", "early"],
+      attendance: [
+        { personId: "late", status: "attending", paid: true, paidAt: "09-20 15:00", transferLastFive: "01234" },
+        { personId: "early", status: "attending", paid: true, paidAt: "09-20 09:30", transferLastFive: "00001" },
+        { personId: "unknown", status: "attending", paid: true, paidAt: "", transferLastFive: "" },
+        { personId: "unpaid", status: "attending", paid: false, paidAt: "", transferLastFive: "" }
+      ]
+    }];
+    saveState();
+    selectActivity(state.activities[0], "attending");
+  });
+  const rows = page.locator("#activityPersonRows [data-roster-person-id]");
+  const order = () => rows.evaluateAll((items) => items.map((item) => item.dataset.rosterPersonId));
+  expect(await order()).toEqual(["early", "late", "unknown", "unpaid"]);
+  await expect(page.locator("[data-payment-time]")).toHaveCount(0);
+  await expect(page.locator(".activity-people-table thead")).toContainText("匯款後五碼");
+  const suffix = page.locator('[data-transfer-last-five][data-person-id="unpaid"]');
+  await suffix.fill("00123");
+  await suffix.press("Tab");
+  await expect(suffix).toHaveValue("00123");
+  await suffix.fill("12");
+  await suffix.press("Tab");
+  await expect(page.locator("#toast")).toContainText("完整的五位數字");
+  await expect(suffix).toHaveValue("00123");
+  await page.locator('[data-set-payment="paid"][data-person-id="unpaid"]').click();
+  const firstPaymentTime = await page.evaluate(() => activityRecord(state.activities[0], "unpaid").paidAt);
+  expect(firstPaymentTime).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}$/);
+  await page.locator('[data-set-payment="paid"][data-person-id="unpaid"]').click();
+  expect(await page.evaluate(() => activityRecord(state.activities[0], "unpaid").paidAt)).toBe(firstPaymentTime);
+  await page.reload();
+  await openSection(page, "人員");
+  await page.locator('[data-select-activity="payment-activity"]').click();
+  await expect(suffix).toHaveValue("00123");
+  await expect(page.locator('[data-transfer-last-five][data-person-id="late"]')).toHaveValue("01234");
+  expect(await page.evaluate(() => activityRecord(state.activities[0], "early").paidAt)).toBe("09-20 09:30");
+  await page.locator("#activityRoster").screenshot({ path: testInfo.outputPath("activity-payments-desktop.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#activityRoster").screenshot({ path: testInfo.outputPath("activity-payments-mobile.png") });
+});
+
+test("activity suffix aliases migrate, import and survive incomplete spreadsheets", async ({ page }) => {
+  await openSection(page, "設定");
+  const field = page.locator("#synonymActivityTransferLastFive");
+  await expect(field).toHaveValue(/匯款後五碼/);
+  await field.fill("付款辨識碼");
+  await page.getByRole("button", { name: "儲存設定" }).click();
+  await page.reload();
+  await openSection(page, "設定");
+  await expect(field).toHaveValue("付款辨識碼");
+  const result = await page.evaluate(() => {
+    state.people = [{ id: "person-1", name: "Test", studentId: "A001", department: "", email: "" }];
+    const activity = { id: "activity-1", name: "Test", date: "2099-09-20", fee: 100, note: "", attendance: [] };
+    state.activities = [activity];
+    applyActivityImport(activity, activityImportPreview([
+      ["學號", "繳費狀態", "繳費日期", "付款辨識碼"], ["a001", "已繳", "2099-09-20 12:45", "00123"]
+    ], activity));
+    const original = { ...activity.attendance[0] };
+    applyActivityImport(activity, activityImportPreview([["學號", "繳費狀態"], ["a001", "已繳"]], activity));
+    const preserved = { ...activity.attendance[0] };
+    applyActivityImport(activity, activityImportPreview([["學號", "繳費狀態", "付款辨識碼"], ["a001", "已繳", 12]], activity));
+    const numericSuffix = activity.attendance[0].transferLastFive;
+    applyActivityImport(activity, activityImportPreview([["學號", "繳費狀態", "付款辨識碼"], ["a001", "已繳", "123456"]], activity));
+    const invalidSuffixPreserved = activity.attendance[0].transferLastFive;
+    applyActivityImport(activity, activityImportPreview([["學號", "繳費狀態", "付款辨識碼"], ["a001", "已繳", 0]], activity));
+    const zeroSuffix = activity.attendance[0].transferLastFive;
+    const backup = JSON.parse(JSON.stringify(state));
+    validateImportedState(backup);
+    const restoredSuffix = normalizeState(backup).activities[0].attendance[0].transferLastFive;
+    backup.activities[0].attendance[0].transferLastFive = "123456";
+    let invalidBackupRejected = false;
+    try { validateImportedState(backup); } catch { invalidBackupRejected = true; }
+    const oldSynonyms = JSON.parse(JSON.stringify(state.importSynonyms));
+    delete oldSynonyms.activity.transferLastFive;
+    state = normalizeState({ ...state, importSynonyms: oldSynonyms });
+    const migratedAliases = importHeaders("activity").transferLastFive;
+    state.importSynonyms.activity.transferLastFive = [];
+    return { original, preserved, numericSuffix, invalidSuffixPreserved, zeroSuffix, restoredSuffix, invalidBackupRejected, migratedAliases, clearedAliases: importHeaders("activity").transferLastFive };
+  });
+  expect(result.original.transferLastFive).toBe("00123");
+  expect(result.original.paidAt).toBe("09-20 12:45");
+  expect(result.preserved).toEqual(result.original);
+  expect(result.numericSuffix).toBe("00012");
+  expect(result.invalidSuffixPreserved).toBe("00012");
+  expect(result.zeroSuffix).toBe("00000");
+  expect(result.restoredSuffix).toBe("00000");
+  expect(result.invalidBackupRejected).toBe(true);
+  expect(result.migratedAliases).toContain("匯款後五碼");
+  expect(result.clearedAliases).toEqual([]);
+});

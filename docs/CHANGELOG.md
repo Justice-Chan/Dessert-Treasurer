@@ -2,6 +2,12 @@
 
 All notable user-facing changes are recorded here.
 
+## Unreleased
+
+- Replaced the activity roster's visible payment-time field with editable transfer-account last five digits; payment times remain stored for automatic paid-participant ordering.
+- Added configurable spreadsheet headers for transfer-account suffixes and included the values in full backups.
+- Preserved existing account suffixes and payment timestamps when their columns are absent from an activity import.
+
 ## 0.2.1 (Unreleased)
 
 - Added Windows x64 installer configuration and a manual CI build workflow for internal previews; Windows device acceptance testing is still required.

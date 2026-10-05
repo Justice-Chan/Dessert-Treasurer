@@ -79,6 +79,10 @@ const uid = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
 const accountDigits = (value) => String(value || "").replace(/\D/g, "").slice(0, 14);
 const normalizeStudentId = (value) => String(value || "").trim().toLocaleUpperCase("en-US").slice(0, 30);
+const normalizeTransferLastFive = (value) => {
+  const digits = String(value ?? "").normalize("NFKC").trim();
+  return /^\d{5}$/.test(digits) ? digits : "";
+};
 const normalizeEmail = (value) => {
   const email = String(value || "").trim().toLocaleLowerCase("en-US").slice(0, 160);
   return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
@@ -224,7 +228,8 @@ function normalizeState(saved = {}) {
         personId: item.personId,
         status: item.status,
         paid: item.status === "attending" && Boolean(item.paid),
-        paidAt: item.status === "attending" && Boolean(item.paid) ? normalizePaymentTime(item.paidAt) : ""
+        paidAt: item.status === "attending" && Boolean(item.paid) ? normalizePaymentTime(item.paidAt) : "",
+        transferLastFive: normalizeTransferLastFive(item.transferLastFive)
       })) : [];
     const importLinkUrl = normalizeMemberImportLink(activity.importLink?.url);
     return {
@@ -263,7 +268,10 @@ function normalizeState(saved = {}) {
     activity: {
       attendance: normalizeSynonymList(saved.importSynonyms?.activity?.attendance),
       payment: normalizeSynonymList(saved.importSynonyms?.activity?.payment),
-      paidAt: normalizeSynonymList(saved.importSynonyms?.activity?.paidAt)
+      paidAt: normalizeSynonymList(saved.importSynonyms?.activity?.paidAt),
+      ...(Object.hasOwn(saved.importSynonyms?.activity || {}, "transferLastFive")
+        ? { transferLastFive: normalizeSynonymList(saved.importSynonyms.activity.transferLastFive) }
+        : {})
     }
   };
 
@@ -328,4 +336,3 @@ let pendingPersonImport = null;
 let pendingActivityImport = null;
 let memberImportSyncing = false;
 let activityImportSyncing = new Set();
-
