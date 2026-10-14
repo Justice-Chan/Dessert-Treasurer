@@ -164,7 +164,10 @@
           </form>
 
           <div class="panel">
-            <h2>收支紀錄</h2>
+            <div class="ledger-heading">
+              <h2>收支紀錄</h2>
+              <strong id="ledgerSearchTotal" class="ledger-search-total" hidden aria-live="polite"></strong>
+            </div>
             <div class="filters with-dates">
               <input id="ledgerSearch" placeholder="搜尋項目、備註、分類">
               <select id="ledgerType">

@@ -392,6 +392,17 @@ function renderLedger() {
     .filter((entry) => !query || [entry.title, entry.note, entry.parent, entry.child, entry.method, accountName(entry.accountId)].join(" ").toLowerCase().includes(query))
     .sort((a, b) => b.date.localeCompare(a.date));
 
+  const searchTotal = $("#ledgerSearchTotal");
+  if (query) {
+    const total = entries.reduce((sum, entry) => sum + signedAmount(entry), 0);
+    searchTotal.hidden = false;
+    searchTotal.className = `ledger-search-total ${total > 0 ? "income" : total < 0 ? "expense" : ""}`;
+    searchTotal.textContent = `${total > 0 ? "+" : total < 0 ? "-" : ""}${fmt.format(Math.abs(total))}`;
+  } else {
+    searchTotal.hidden = true;
+    searchTotal.textContent = "";
+  }
+
   $("#ledgerRows").innerHTML = entries.length ? entries.map((entry) => `
     <tr class="selectable-row" data-select-entry="${entry.id}" tabindex="0" aria-label="選取 ${escapeHtml(entry.title || entry.child || "未命名紀錄")}" aria-selected="${$("#entryId").value === entry.id}">
       <td>${escapeHtml(entry.date)}</td>

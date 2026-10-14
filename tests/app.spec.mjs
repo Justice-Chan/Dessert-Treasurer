@@ -35,6 +35,25 @@ test("can create and select a ledger record", async ({ page }) => {
   await expect(page.locator("#entryAmount")).toHaveValue("500");
 });
 
+test("ledger search shows the net total of matching records", async ({ page }) => {
+  await openSection(page, "記帳");
+  await addEntry(page, { parent: "社費與會費", child: "單次活動費", amount: 300, note: "杜拜巧克力餅收入" });
+  await page.locator("#entryCancel").click();
+  await addEntry(page, { type: "expense", parent: "食材與耗材", child: "糖與巧克力", amount: 100, note: "杜拜巧克力餅材料" });
+
+  const total = page.locator("#ledgerSearchTotal");
+  await expect(total).toBeHidden();
+  await page.locator("#ledgerSearch").fill("杜拜巧克力餅");
+  await expect(total).toHaveText("+$200");
+  await expect(total).toHaveClass(/income/);
+
+  await page.locator("#ledgerType").selectOption("expense");
+  await expect(total).toHaveText("-$100");
+  await expect(total).toHaveClass(/expense/);
+  await page.locator("#ledgerSearch").fill("");
+  await expect(total).toBeHidden();
+});
+
 test("approved claim payment creates and can revoke its linked expense", async ({ page }) => {
   await openSection(page, "報銷");
   await page.locator("#claimDate").fill(date);

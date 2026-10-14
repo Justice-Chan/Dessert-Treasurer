@@ -157,6 +157,15 @@ h2 { font-size: 18px; margin-bottom: 14px; }
 h3 { font-size: 15px; margin-bottom: 10px; }
 .subtle { color: var(--muted); font-size: 14px; margin-bottom: 0; }
 
+.ledger-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ledger-heading h2 { margin-bottom: 14px; }
+.ledger-search-total { font-size: 16px; white-space: nowrap; }
+
 .cloud-link {
   color: var(--accent);
   font-weight: 650;
