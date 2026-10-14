@@ -445,6 +445,16 @@ function renderClaims() {
     .filter((claim) => !query || [claim.person, claim.title, claim.receipt, claim.note, claim.parent, claim.child].join(" ").toLowerCase().includes(query))
     .sort((a, b) => b.date.localeCompare(a.date));
 
+  const searchTotal = $("#claimSearchTotal");
+  if (query) {
+    const total = claims.reduce((sum, claim) => sum + Number(claim.amount), 0);
+    searchTotal.hidden = false;
+    searchTotal.textContent = `-${fmt.format(total)}`;
+  } else {
+    searchTotal.hidden = true;
+    searchTotal.textContent = "";
+  }
+
   $("#claimRows").innerHTML = claims.length ? claims.map((claim) => `
     <tr class="selectable-row" data-select-claim="${claim.id}" tabindex="0" aria-label="選取 ${escapeHtml(claim.person)}的報銷申請" aria-selected="${$("#claimId").value === claim.id}">
       <td data-label="日期">${escapeHtml(claim.date)}</td>

@@ -79,6 +79,29 @@ test("approved claim payment creates and can revoke its linked expense", async (
   await expect(page.locator("#ledgerRows")).not.toContainText("報銷：場地費");
 });
 
+test("claim search shows the total of matching reimbursements", async ({ page }) => {
+  await openSection(page, "報銷");
+  await page.evaluate(() => {
+    state.claims = [
+      { id: "claim-match-1", date: "2099-09-20", person: "甲", title: "杜拜巧克力餅材料", parent: "活動與課程", child: "材料費", amount: 300, status: "pending", paymentDate: "", paymentAccountId: "", receipt: "", attachments: [], note: "" },
+      { id: "claim-match-2", date: "2099-09-20", person: "乙", title: "杜拜巧克力餅包材", parent: "活動與課程", child: "材料費", amount: 200, status: "approved", paymentDate: "", paymentAccountId: "", receipt: "", attachments: [], note: "" },
+      { id: "claim-other", date: "2099-09-20", person: "丙", title: "其他採購", parent: "行政庶務", child: "文具", amount: 100, status: "pending", paymentDate: "", paymentAccountId: "", receipt: "", attachments: [], note: "" }
+    ];
+    renderClaims();
+  });
+
+  const total = page.locator("#claimSearchTotal");
+  await expect(total).toBeHidden();
+  await page.locator("#claimSearch").fill("杜拜巧克力餅");
+  await expect(total).toHaveText("-$500");
+  await expect(total).toHaveClass(/expense/);
+
+  await page.locator("#claimStatusFilter").selectOption("approved");
+  await expect(total).toHaveText("-$200");
+  await page.locator("#claimSearch").fill("");
+  await expect(total).toBeHidden();
+});
+
 test("trash restores selected records only after confirmation", async ({ page }) => {
   await openSection(page, "記帳");
   await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 300 });
