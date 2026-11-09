@@ -1,12 +1,33 @@
 const personImportHeaders = {
-  name: ["姓名", "名字", "name", "membername", "學生姓名"],
+  name: ["姓名", "名字", "name", "membername", "學生姓名", "系級姓名", "系級與姓名", "系級及姓名", "科系姓名", "系所姓名", "系別姓名", "姓名系級"],
   studentId: ["學號", "學生學號", "學生編號", "studentid", "studentnumber", "studentno"],
   department: ["系別", "系所", "科系", "學系", "系級", "系別年級", "班級", "department", "major", "departmentgrade"],
   email: ["電子郵件", "電子郵件地址", "電子郵箱", "email", "emailaddress", "emailbox", "mail", "e-mail"]
 };
 
 function normalizeImportHeader(value) {
-  return String(value || "").normalize("NFKC").toLocaleLowerCase("zh-TW").replace(/[\s\-_()（）【】\[\]{}]/g, "");
+  return String(value || "").normalize("NFKC").toLocaleLowerCase("zh-TW").replace(/[\s\-_()（）【】\[\]{}+\/&、]/g, "");
+}
+
+// Name cells may carry a department/grade label, e.g. "外文119 黃小明" or "黃小明 / 外文119".
+function parseImportedName(value) {
+  const text = String(value || "").normalize("NFKC").replace(/\s+/g, " ").trim();
+  const separator = "[\\s\\-_/|,，、.．:：()（）\\[\\]]*";
+  const labelFirst = text.match(new RegExp(`^(\\S*?\\d+(?:年級|級|年|[甲乙丙丁A-Za-z])?)${separator}([^\\d]+)$`));
+  if (labelFirst && labelFirst[2].trim()) return { name: labelFirst[2].replace(/[()（）\[\]]/g, "").trim(), department: labelFirst[1].replace(/[()（）\[\]]/g, "").trim() };
+  const nameFirst = text.match(new RegExp(`^([^\\d]+?)[\\s\\-_/|,，、:：(（\\[]+(\\S*\\d+(?:年級|級|年|[甲乙丙丁A-Za-z])?)[)）\\]]?$`));
+  if (nameFirst && nameFirst[1].trim()) return { name: nameFirst[1].trim(), department: nameFirst[2].trim() };
+  return { name: text, department: "" };
+}
+
+function findImportedPerson(byName, rawName) {
+  if (!rawName) return null;
+  const keys = [rawName, parseImportedName(rawName).name, ...String(rawName).normalize("NFKC").split(/[\s\-_/|,，、:：]+/)];
+  for (const key of keys) {
+    const person = key && byName.get(normalizeSearchValue(key));
+    if (person) return person;
+  }
+  return null;
 }
 
 function findPersonImportHeader(rows) {
@@ -50,14 +71,16 @@ function personImportPreview(rows, { allowEmptyLink = false } = {}) {
   let invalid = 0;
   rows.slice(header.rowIndex + 1).forEach((row) => {
     const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] ?? "").trim();
-    const name = value("name");
+    const rawName = value("name");
+    const parsedName = parseImportedName(rawName);
+    const name = parsedName.name;
     const studentId = normalizeStudentId(value("studentId"));
     if (!name && !studentId) return;
     const nameKey = normalizeSearchValue(name);
     const studentIdKey = normalizeSearchValue(studentId);
-    const department = value("department").slice(0, 100);
+    const department = (value("department") || parsedName.department).slice(0, 100);
     const email = normalizeEmail(value("email"));
-    const existing = (studentId && peopleByStudentId.get(studentIdKey)) || (name && peopleByName.get(nameKey));
+    const existing = (studentId && peopleByStudentId.get(studentIdKey)) || findImportedPerson(peopleByName, rawName);
     if (existing) {
       const supplement = supplementsById.get(existing.id) || { id: existing.id, department: "", email: "" };
       let changed = false;
@@ -300,8 +323,8 @@ function activityImportPreview(rows, activity, options = {}) {
     const name = value("name");
     const studentId = normalizeStudentId(value("studentId"));
     if (!name && !studentId) return;
-    const existing = (studentId && existingByStudentId.get(normalizeSearchValue(studentId))) || (name && existingByName.get(normalizeSearchValue(name)));
-    const candidate = (studentId && candidateByStudentId.get(normalizeSearchValue(studentId))) || (name && candidateByName.get(normalizeSearchValue(name)));
+    const existing = (studentId && existingByStudentId.get(normalizeSearchValue(studentId))) || findImportedPerson(existingByName, name);
+    const candidate = (studentId && candidateByStudentId.get(normalizeSearchValue(studentId))) || findImportedPerson(candidateByName, name);
     if (!existing && !candidate) { invalidRows += 1; return; }
     const personKey = existing ? `person:${existing.id}` : `candidate:${normalizeSearchValue(candidate.studentId)}`;
     if (importedPeople.has(personKey)) { duplicateRows += 1; return; }

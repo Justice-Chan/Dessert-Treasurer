@@ -143,6 +143,8 @@ function setActivityPayment(activityId, personId, paid) {
     ? normalizePaymentTime(record.paidAt) || `${dateKey(now).slice(5)} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
     : "";
   if (!saveState()) return;
+  // Unpaid people sort first, so the next person to follow up is back at the top.
+  requestAnimationFrame(() => { $("#activityPersonList").scrollTop = 0; });
   toast(paid ? "已標記為已繳。" : "已標記為未繳。");
 }
 

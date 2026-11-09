@@ -1235,7 +1235,36 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
 }
 .person-link-status[hidden] { display: none; }
 .person-link-status p { margin: 3px 0 0; }
-.person-link-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.action-menu { position: relative; flex: 0 0 auto; }
+.action-menu-trigger { display: inline-flex; align-items: center; gap: 6px; }
+.action-menu-trigger svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s ease; }
+.action-menu-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
+.action-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 100%;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.action-menu-list[hidden] { display: none; }
+.action-menu-list button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+}
+.action-menu-list button:hover:not(:disabled), .action-menu-list button:focus-visible { background: var(--field); outline: none; }
+.action-menu-list button.danger { color: var(--bad); }
+.action-menu-list button.danger:hover:not(:disabled) { background: #fff8f6; }
+.action-menu-list button:disabled { color: var(--muted); cursor: default; }
 .person-import-link-heading {
   display: flex;
   align-items: center;

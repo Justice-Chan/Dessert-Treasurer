@@ -264,7 +264,41 @@ test("imports can match registered people by either name or student ID", async (
   expect(result.attendance).toEqual([{ personId: "person-1", candidateStudentId: "", status: "attending", paid: true, paidAt: "" }]);
 });
 
-test("activity payments hide times, keep account suffixes and sort paid people first", async ({ page }, testInfo) => {
+test("imports match names that include department and grade labels", async ({ page }) => {
+  await openSection(page, "人員");
+  const result = await page.evaluate(() => {
+    state.people = [
+      { id: "person-1", name: "黃小明", studentId: "B11111111", department: "", email: "" },
+      { id: "person-2", name: "李大華", studentId: "B22222222", department: "化學系", email: "" },
+      { id: "person-3", name: "陳小美", studentId: "B33333333", department: "醫技系", email: "" }
+    ];
+    const people = personImportPreview([["系級姓名", "學號"], ["外文119 黃小明", ""], ["資訊116 張小強", "B44444444"]]);
+    const activity = activityImportPreview(
+      [["姓名", "繳費狀態"], ["外文119 黃小明", "已繳"], ["化學119李大華", "已繳"], ["陳小美 / 醫技118", "未繳"], ["林小雨", "已繳"]],
+      { id: "activity-1", attendance: [] }
+    );
+    return {
+      parsed: ["外文119 黃小明", "化學119李大華", "陳小美 / 醫技118", "吳小天"].map(parseImportedName),
+      supplements: people.supplements,
+      candidates: people.candidates,
+      attendance: activity.attendance.map((record) => [record.personId, record.paid]),
+      invalidRows: activity.invalidRows
+    };
+  });
+
+  expect(result.parsed).toEqual([
+    { name: "黃小明", department: "外文119" },
+    { name: "李大華", department: "化學119" },
+    { name: "陳小美", department: "醫技118" },
+    { name: "吳小天", department: "" }
+  ]);
+  expect(result.supplements).toEqual([{ id: "person-1", department: "外文119", email: "" }]);
+  expect(result.candidates).toEqual([{ name: "張小強", studentId: "B44444444", department: "資訊116", email: "" }]);
+  expect(result.attendance).toEqual([["person-1", true], ["person-2", true], ["person-3", false]]);
+  expect(result.invalidRows).toBe(1);
+});
+
+test("activity payments hide times, keep account suffixes and sort unpaid people first", async ({ page }, testInfo) => {
   await openSection(page, "人員");
   await page.evaluate(() => {
     state.people = ["late", "early", "unknown", "unpaid"].map((id) => ({ id, name: id, studentId: id.toUpperCase(), department: "", email: "" }));
@@ -283,7 +317,7 @@ test("activity payments hide times, keep account suffixes and sort paid people f
   });
   const rows = page.locator("#activityPersonRows [data-roster-person-id]");
   const order = () => rows.evaluateAll((items) => items.map((item) => item.dataset.rosterPersonId));
-  expect(await order()).toEqual(["early", "late", "unknown", "unpaid"]);
+  expect(await order()).toEqual(["unpaid", "early", "late", "unknown"]);
   await expect(page.locator("[data-payment-time]")).toHaveCount(0);
   await expect(page.locator(".activity-people-table thead")).toContainText("匯款後五碼");
   const suffix = page.locator('[data-transfer-last-five][data-person-id="unpaid"]');

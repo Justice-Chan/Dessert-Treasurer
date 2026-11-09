@@ -14,7 +14,49 @@ function bindAsyncSubmit(form, handler) {
   });
 }
 
+function closeActionMenus(except) {
+  $$("[data-action-menu]").forEach((menu) => {
+    if (menu === except) return;
+    menu.querySelector(".action-menu-list").hidden = true;
+    menu.querySelector(".action-menu-trigger").setAttribute("aria-expanded", "false");
+  });
+}
+
+function bindActionMenus() {
+  $$("[data-action-menu]").forEach((menu) => {
+    const trigger = menu.querySelector(".action-menu-trigger");
+    const list = menu.querySelector(".action-menu-list");
+    const items = () => [...list.querySelectorAll('[role="menuitem"]:not(:disabled)')];
+    trigger.addEventListener("click", () => {
+      const open = list.hidden;
+      closeActionMenus(menu);
+      list.hidden = !open;
+      trigger.setAttribute("aria-expanded", String(open));
+      if (open) items()[0]?.focus();
+    });
+    list.addEventListener("click", (event) => {
+      if (event.target.closest('[role="menuitem"]')) closeActionMenus();
+    });
+    menu.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !list.hidden) {
+        event.stopPropagation();
+        closeActionMenus();
+        trigger.focus();
+      } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && !list.hidden) {
+        event.preventDefault();
+        const options = items();
+        const index = options.indexOf(document.activeElement);
+        options[(index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length]?.focus();
+      }
+    });
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-action-menu]")) closeActionMenus();
+  });
+}
+
 function bindEvents() {
+  bindActionMenus();
   $$(".nav-button").forEach((button) => {
     button.addEventListener("click", () => {
       const section = button.dataset.section;

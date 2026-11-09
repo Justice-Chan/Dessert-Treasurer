@@ -41,8 +41,13 @@
           <p class="subtle" id="pageSubtitle">依月份查看收支、報銷流程與最近 30 天紀錄。</p>
         </div>
         <div class="actions">
-          <button type="button" id="seedBtn">載入範例</button>
-          <button type="button" id="clearBtn" class="danger">清空資料</button>
+          <div class="action-menu" data-action-menu>
+            <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">資料管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="action-menu-list" role="menu" hidden>
+              <button type="button" role="menuitem" id="seedBtn">載入範例</button>
+              <button type="button" role="menuitem" id="clearBtn" class="danger">清空資料</button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -516,9 +521,12 @@
               </div>
               <div class="person-link-status" id="personLinkStatus" hidden>
                 <div><strong>名單連線</strong><p class="subtle" id="personLinkStatusText"></p></div>
-                <div class="person-link-actions">
-                  <button type="button" class="danger" id="disconnectPersonLink">取消連線</button>
-                  <button type="button" id="syncPersonLink">立即同步</button>
+                <div class="action-menu" data-action-menu>
+                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">連線管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                  <div class="action-menu-list" role="menu" hidden>
+                    <button type="button" role="menuitem" id="syncPersonLink">立即同步</button>
+                    <button type="button" role="menuitem" class="danger" id="disconnectPersonLink">取消連線</button>
+                  </div>
                 </div>
               </div>
             </form>
@@ -595,9 +603,14 @@
                   <p class="subtle" id="activityRosterDetails"></p>
                 </div>
                 <div class="activity-roster-actions">
-                  <button type="button" id="exportActivityUnpaid">下載未繳名單</button>
                   <input id="activityImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
-                  <button type="button" class="primary" id="openActivityImport">匯入試算表</button>
+                  <div class="action-menu" data-action-menu>
+                    <button type="button" class="primary action-menu-trigger" aria-haspopup="menu" aria-expanded="false">名單操作 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <div class="action-menu-list" role="menu" hidden>
+                      <button type="button" role="menuitem" id="openActivityImport">匯入試算表</button>
+                      <button type="button" role="menuitem" id="exportActivityUnpaid">下載未繳名單</button>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="status-summary" id="activityStatusSummary"></div>
@@ -610,9 +623,12 @@
               </div>
               <div class="person-link-status" id="activityLinkStatus" hidden>
                 <div><strong>活動名單連線</strong><p class="subtle" id="activityLinkStatusText"></p></div>
-                <div class="person-link-actions">
-                  <button type="button" class="danger" id="disconnectActivityLink">取消連線</button>
-                  <button type="button" id="syncActivityLink">立即同步</button>
+                <div class="action-menu" data-action-menu>
+                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">連線管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                  <div class="action-menu-list" role="menu" hidden>
+                    <button type="button" role="menuitem" id="syncActivityLink">立即同步</button>
+                    <button type="button" role="menuitem" class="danger" id="disconnectActivityLink">取消連線</button>
+                  </div>
                 </div>
               </div>
               <div class="people-tools">

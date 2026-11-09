@@ -126,18 +126,21 @@ function syncScrollableList(wrapId, visibleRows) {
   const body = table?.tBodies[0];
   if (!wrap || !table || !body) return;
 
-  wrap.classList.remove("list-scroll-active");
-  wrap.style.maxHeight = "";
-  if (!wrap.offsetParent) return;
-
   const rows = [...body.rows].filter((row) => row.cells.length && !row.querySelector("[colspan]"));
-  if (rows.length <= visibleRows) return;
+  if (!wrap.offsetParent || rows.length <= visibleRows) {
+    wrap.classList.remove("list-scroll-active");
+    wrap.style.maxHeight = "";
+    return;
+  }
 
+  // Measure without lifting the height limit so re-renders keep the list's scroll position.
+  const scrollTop = wrap.scrollTop;
   const headerHeight = table.tHead?.getBoundingClientRect().height || 0;
   const rowsHeight = rows.slice(0, visibleRows)
     .reduce((total, row) => total + row.getBoundingClientRect().height, 0);
   wrap.style.maxHeight = `${Math.ceil(headerHeight + rowsHeight + 2)}px`;
   wrap.classList.add("list-scroll-active");
+  wrap.scrollTop = scrollTop;
 }
 
 function syncScrollableLists() {
@@ -702,9 +705,9 @@ function renderPeople() {
     .sort((a, b) => {
       const aPaid = a.record?.status === "attending" && a.record.paid;
       const bPaid = b.record?.status === "attending" && b.record.paid;
-      if (Boolean(aPaid) !== Boolean(bPaid)) return aPaid ? -1 : 1;
-      const aPaidAt = a.record?.status === "attending" && a.record.paid ? a.record.paidAt : "";
-      const bPaidAt = b.record?.status === "attending" && b.record.paid ? b.record.paidAt : "";
+      if (Boolean(aPaid) !== Boolean(bPaid)) return aPaid ? 1 : -1;
+      const aPaidAt = aPaid ? a.record.paidAt : "";
+      const bPaidAt = bPaid ? b.record.paidAt : "";
       if (aPaidAt && bPaidAt) return aPaidAt.localeCompare(bPaidAt) || rosterOrder.get(a.person.id) - rosterOrder.get(b.person.id);
       if (aPaidAt) return -1;
       if (bPaidAt) return 1;
