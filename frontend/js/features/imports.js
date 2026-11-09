@@ -20,28 +20,42 @@ function parseImportedName(value) {
   return { name: text, department: "" };
 }
 
-function findImportedPerson(byName, rawName) {
-  if (!rawName) return null;
-  const keys = [rawName, parseImportedName(rawName).name, ...String(rawName).normalize("NFKC").split(/[\s\-_/|,，、:：]+/)];
-  for (const key of keys) {
-    const person = key && byName.get(normalizeSearchValue(key));
-    if (person) return person;
-  }
-  return null;
+// Matches by student ID first, then by name, including names that carry a department/grade label.
+function createImportPersonMatcher(people) {
+  const byStudentId = new Map(people.map((person) => [normalizeSearchValue(person.studentId), person]));
+  const byName = new Map(people.map((person) => [normalizeSearchValue(person.name), person]));
+  return (studentId, rawName) => {
+    if (studentId) {
+      const person = byStudentId.get(normalizeSearchValue(studentId));
+      if (person) return person;
+    }
+    if (!rawName) return null;
+    const keys = [rawName, parseImportedName(rawName).name, ...String(rawName).normalize("NFKC").split(/[\s\-_/|,，、:：]+/)];
+    for (const key of keys) {
+      const person = key && byName.get(normalizeSearchValue(key));
+      if (person) return person;
+    }
+    return null;
+  };
 }
 
-function findPersonImportHeader(rows) {
+function findImportHeader(rows, scope) {
+  const fields = Object.entries(importHeaders(scope)).map(([field, aliases]) => [field, new Set(aliases.map(normalizeImportHeader))]);
   for (let rowIndex = 0; rowIndex < Math.min(rows.length, 12); rowIndex += 1) {
     const columns = {};
     rows[rowIndex].forEach((value, index) => {
       const header = normalizeImportHeader(value);
-      Object.entries(importHeaders("people")).forEach(([field, aliases]) => {
-        if (columns[field] === undefined && aliases.map(normalizeImportHeader).includes(header)) columns[field] = index;
+      fields.forEach(([field, aliases]) => {
+        if (columns[field] === undefined && aliases.has(header)) columns[field] = index;
       });
     });
     if (columns.name !== undefined || columns.studentId !== undefined) return { rowIndex, columns };
   }
   return null;
+}
+
+function importRowReader(header) {
+  return (row) => (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] ?? "").trim();
 }
 
 function emptyPersonImportPreview() {
@@ -56,13 +70,13 @@ function emptyPersonImportPreview() {
 }
 
 function personImportPreview(rows, { allowEmptyLink = false } = {}) {
-  const header = findPersonImportHeader(rows);
+  const header = findImportHeader(rows, "people");
   if (!header) {
     if (allowEmptyLink && rows.length <= 1) return emptyPersonImportPreview();
     throw new Error("找不到「姓名」或「學號」欄位，請確認試算表包含其中一項標題列。");
   }
-  const peopleByStudentId = new Map(state.people.map((person) => [normalizeSearchValue(person.studentId), person]));
-  const peopleByName = new Map(state.people.map((person) => [normalizeSearchValue(person.name), person]));
+  const findPerson = createImportPersonMatcher(state.people);
+  const readRow = importRowReader(header);
   const importedStudentIds = new Set();
   const importedNames = new Set();
   const candidates = [];
@@ -70,7 +84,7 @@ function personImportPreview(rows, { allowEmptyLink = false } = {}) {
   let duplicates = 0;
   let invalid = 0;
   rows.slice(header.rowIndex + 1).forEach((row) => {
-    const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] ?? "").trim();
+    const value = readRow(row);
     const rawName = value("name");
     const parsedName = parseImportedName(rawName);
     const name = parsedName.name;
@@ -80,7 +94,7 @@ function personImportPreview(rows, { allowEmptyLink = false } = {}) {
     const studentIdKey = normalizeSearchValue(studentId);
     const department = (value("department") || parsedName.department).slice(0, 100);
     const email = normalizeEmail(value("email"));
-    const existing = (studentId && peopleByStudentId.get(studentIdKey)) || findImportedPerson(peopleByName, rawName);
+    const existing = findPerson(studentId, rawName);
     if (existing) {
       const supplement = supplementsById.get(existing.id) || { id: existing.id, department: "", email: "" };
       let changed = false;
@@ -136,36 +150,43 @@ function showPersonImportPreview(importData) {
   $("#personImportPreview").hidden = false;
 }
 
-async function readPersonImportFile(file) {
-  if (!file) return;
+async function readImportFile(file, showPreview, clearImport) {
   if (file.size > 5 * 1024 * 1024) return toast("試算表不可超過 5 MB。", "error");
   if (!tauriStorageEnabled) return toast("試算表匯入僅支援桌面 App。", "error");
   try {
     const fileData = Array.from(new Uint8Array(await file.arrayBuffer()));
     const result = await nativeStorageCall("parseMemberSpreadsheet", { fileName: file.name, fileData });
-    showPersonImportPreview({ ...personImportPreview(result.rows || []), rows: result.rows || [], sourceUrl: "", enableLink: false });
+    showPreview(result.rows || []);
   } catch (error) {
-    clearPersonImport();
+    clearImport();
     toast(error?.message || "試算表讀取失敗。", "error");
   }
 }
 
-async function readPersonImportUrl() {
-  const url = $("#personImportUrl").value.trim();
-  if (!url) return toast("請貼上公開試算表連結。", "error");
+async function readImportUrl(url, button, showPreview) {
   if (!tauriStorageEnabled) return toast("試算表匯入僅支援桌面 App。", "error");
-  const button = $("#importPersonUrl");
   button.disabled = true;
   button.textContent = "讀取中";
   try {
     const result = await nativeStorageCall("importMemberSpreadsheetUrl", { url });
-    showPersonImportPreview({ ...personImportPreview(result.rows || [], { allowEmptyLink: true }), rows: result.rows || [], sourceUrl: url, enableLink: $("#enablePersonLink").checked });
+    showPreview(result.rows || []);
   } catch (error) {
     toast(error?.message || "無法讀取公開試算表連結。", "error");
   } finally {
     button.disabled = false;
     button.textContent = "讀取";
   }
+}
+
+async function readPersonImportFile(file) {
+  if (!file) return;
+  await readImportFile(file, (rows) => showPersonImportPreview({ ...personImportPreview(rows), rows, sourceUrl: "", enableLink: false }), clearPersonImport);
+}
+
+async function readPersonImportUrl() {
+  const url = $("#personImportUrl").value.trim();
+  if (!url) return toast("請貼上公開試算表連結。", "error");
+  await readImportUrl(url, $("#importPersonUrl"), (rows) => showPersonImportPreview({ ...personImportPreview(rows, { allowEmptyLink: true }), rows, sourceUrl: url, enableLink: $("#enablePersonLink").checked }));
 }
 
 function applyPersonImport(importData) {
@@ -252,20 +273,6 @@ function saveImportSynonyms(event) {
   toast("匯入欄位同義詞已儲存。");
 }
 
-function findActivityImportHeader(rows) {
-  for (let rowIndex = 0; rowIndex < Math.min(rows.length, 12); rowIndex += 1) {
-    const columns = {};
-    rows[rowIndex].forEach((value, index) => {
-      const header = normalizeImportHeader(value);
-      Object.entries(importHeaders("activity")).forEach(([field, aliases]) => {
-        if (columns[field] === undefined && aliases.map(normalizeImportHeader).includes(header)) columns[field] = index;
-      });
-    });
-    if (columns.name !== undefined || columns.studentId !== undefined) return { rowIndex, columns };
-  }
-  return null;
-}
-
 function importedAttendanceStatus(value) {
   const normalized = normalizeSearchValue(value).replace(/[\s・,，;；:：()（）]/g, "");
   if (!normalized) return "attending";
@@ -297,7 +304,7 @@ function normalizeImportedPaymentTime(value) {
 
 function activityImportPreview(rows, activity, options = {}) {
   const peopleImport = personImportPreview(rows, options);
-  const header = findActivityImportHeader(rows);
+  const header = findImportHeader(rows, "activity");
   if (!header && peopleImport.awaitingResponses) {
     return {
       header: peopleImport.header,
@@ -310,21 +317,20 @@ function activityImportPreview(rows, activity, options = {}) {
     };
   }
   if (!header) throw new Error("找不到「姓名」或「學號」欄位，請確認試算表包含其中一項標題列。");
-  const existingByStudentId = new Map(state.people.map((person) => [normalizeSearchValue(person.studentId), person]));
-  const existingByName = new Map(state.people.map((person) => [normalizeSearchValue(person.name), person]));
-  const candidateByStudentId = new Map(peopleImport.candidates.map((person) => [normalizeSearchValue(person.studentId), person]));
-  const candidateByName = new Map(peopleImport.candidates.map((person) => [normalizeSearchValue(person.name), person]));
+  const findExisting = createImportPersonMatcher(state.people);
+  const findCandidate = createImportPersonMatcher(peopleImport.candidates);
+  const readRow = importRowReader(header);
   const importedPeople = new Set();
   const attendance = [];
   let duplicateRows = 0;
   let invalidRows = 0;
   rows.slice(header.rowIndex + 1).forEach((row) => {
-    const value = (field) => header.columns[field] === undefined ? "" : String(row[header.columns[field]] ?? "").trim();
+    const value = readRow(row);
     const name = value("name");
     const studentId = normalizeStudentId(value("studentId"));
     if (!name && !studentId) return;
-    const existing = (studentId && existingByStudentId.get(normalizeSearchValue(studentId))) || findImportedPerson(existingByName, name);
-    const candidate = (studentId && candidateByStudentId.get(normalizeSearchValue(studentId))) || findImportedPerson(candidateByName, name);
+    const existing = findExisting(studentId, name);
+    const candidate = findCandidate(studentId, name);
     if (!existing && !candidate) { invalidRows += 1; return; }
     const personKey = existing ? `person:${existing.id}` : `candidate:${normalizeSearchValue(candidate.studentId)}`;
     if (importedPeople.has(personKey)) { duplicateRows += 1; return; }
@@ -397,35 +403,14 @@ function showActivityImportPreview(importData) {
 async function readActivityImportFile(file) {
   const activity = state.activities.find((item) => item.id === $("#activityId").value);
   if (!file || !activity) return;
-  if (file.size > 5 * 1024 * 1024) return toast("試算表不可超過 5 MB。", "error");
-  if (!tauriStorageEnabled) return toast("試算表匯入僅支援桌面 App。", "error");
-  try {
-    const fileData = Array.from(new Uint8Array(await file.arrayBuffer()));
-    const result = await nativeStorageCall("parseMemberSpreadsheet", { fileName: file.name, fileData });
-    showActivityImportPreview({ ...activityImportPreview(result.rows || [], activity), rows: result.rows || [], sourceUrl: "", enableLink: false });
-  } catch (error) {
-    clearActivityImport();
-    toast(error?.message || "試算表讀取失敗。", "error");
-  }
+  await readImportFile(file, (rows) => showActivityImportPreview({ ...activityImportPreview(rows, activity), rows, sourceUrl: "", enableLink: false }), clearActivityImport);
 }
 
 async function readActivityImportUrl() {
   const activity = state.activities.find((item) => item.id === $("#activityId").value);
   const url = $("#activityImportUrl").value.trim();
   if (!activity || !url) return toast("請貼上公開試算表連結。", "error");
-  if (!tauriStorageEnabled) return toast("試算表匯入僅支援桌面 App。", "error");
-  const button = $("#importActivityUrl");
-  button.disabled = true;
-  button.textContent = "讀取中";
-  try {
-    const result = await nativeStorageCall("importMemberSpreadsheetUrl", { url });
-    showActivityImportPreview({ ...activityImportPreview(result.rows || [], activity, { allowEmptyLink: true }), rows: result.rows || [], sourceUrl: url, enableLink: $("#enableActivityLink").checked });
-  } catch (error) {
-    toast(error?.message || "無法讀取公開試算表連結。", "error");
-  } finally {
-    button.disabled = false;
-    button.textContent = "讀取";
-  }
+  await readImportUrl(url, $("#importActivityUrl"), (rows) => showActivityImportPreview({ ...activityImportPreview(rows, activity, { allowEmptyLink: true }), rows, sourceUrl: url, enableLink: $("#enableActivityLink").checked }));
 }
 
 function applyActivityImport(activity, importData) {
