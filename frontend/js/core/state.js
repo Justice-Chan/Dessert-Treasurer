@@ -329,6 +329,7 @@ let calendarMonth = new Date();
 let calendarMode = "days";
 let monthlyReportPrintActive = false;
 let nativeSaveQueue = Promise.resolve();
+let nativeSavePending = null;
 let selectedTrashIds = new Set();
 let trashPurgeTimer = null;
 let rosterPointerDrag = null;

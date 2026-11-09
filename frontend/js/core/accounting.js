@@ -107,12 +107,26 @@ function saveState() {
   return true;
 }
 
+// Saves made while a write is in flight collapse into one follow-up write of the latest state.
 function enqueueNativeSave(value, failureMessage) {
-  const snapshot = typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value));
-  nativeSaveQueue = nativeSaveQueue
-    .catch(() => {})
-    .then(() => nativeStorageCall("saveState", { state: snapshot }))
-    .catch(() => toast(failureMessage));
+  const writeScheduled = Boolean(nativeSavePending);
+  nativeSavePending = { value, failureMessage };
+  if (!writeScheduled) {
+    nativeSaveQueue = nativeSaveQueue
+      .catch(() => {})
+      .then(writePendingNativeSave);
+  }
   return nativeSaveQueue;
+}
+
+async function writePendingNativeSave() {
+  const { value, failureMessage } = nativeSavePending;
+  nativeSavePending = null;
+  const snapshot = typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+  try {
+    await nativeStorageCall("saveState", { state: snapshot });
+  } catch {
+    toast(failureMessage);
+  }
 }
 
