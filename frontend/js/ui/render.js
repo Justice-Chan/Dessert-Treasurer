@@ -540,21 +540,49 @@ function activityRecord(activity, personId) {
   return activity?.attendance.find((item) => item.personId === personId);
 }
 
-function defaultActivityRosterOrder(activity) {
+const personNameCollator = new Intl.Collator("zh-Hant");
+
+// One pass over every activity, so roster renders look records and totals up instead of rescanning attendance per person.
+function buildAttendanceIndex() {
+  const recordsByActivity = new Map();
+  const statsByPerson = new Map();
+  state.activities.forEach((activity) => {
+    const records = new Map();
+    activity.attendance.forEach((record) => {
+      if (!records.has(record.personId)) records.set(record.personId, record);
+    });
+    recordsByActivity.set(activity, records);
+    records.forEach((record, personId) => {
+      if (record.status !== "attending") return;
+      const stats = statsByPerson.get(personId) || { attending: 0, paid: 0, unpaid: 0 };
+      stats.attending += 1;
+      if (record.paid) stats.paid += 1;
+      else stats.unpaid += 1;
+      statsByPerson.set(personId, stats);
+    });
+  });
+  return {
+    record: (activity, personId) => recordsByActivity.has(activity) ? recordsByActivity.get(activity).get(personId) : activityRecord(activity, personId),
+    stats: (personId) => statsByPerson.get(personId) || { attending: 0, paid: 0, unpaid: 0 }
+  };
+}
+
+function defaultActivityRosterOrder(activity, index = buildAttendanceIndex()) {
   return state.people
-    .map((person) => ({ person, record: activityRecord(activity, person.id), stats: personActivityStats(person.id) }))
+    .map((person) => ({ person, record: index.record(activity, person.id), stats: index.stats(person.id) }))
     .sort((a, b) => {
       const rank = ({ record }) => record?.status !== "attending" ? 2 : record.paid ? 1 : 0;
-      return rank(a) - rank(b) || b.stats.unpaid - a.stats.unpaid || a.person.name.localeCompare(b.person.name, "zh-Hant");
+      return rank(a) - rank(b) || b.stats.unpaid - a.stats.unpaid || personNameCollator.compare(a.person.name, b.person.name);
     })
     .map(({ person }) => person.id);
 }
 
-function activityRosterOrder(activity) {
+function activityRosterOrder(activity, index) {
   const personIds = new Set(state.people.map((person) => person.id));
   const savedOrder = Array.isArray(activity.rosterOrder) ? activity.rosterOrder.filter((personId) => personIds.has(personId)) : [];
-  const fallback = defaultActivityRosterOrder(activity);
-  return [...savedOrder, ...fallback.filter((personId) => !savedOrder.includes(personId))];
+  const saved = new Set(savedOrder);
+  const fallback = defaultActivityRosterOrder(activity, index);
+  return [...savedOrder, ...fallback.filter((personId) => !saved.has(personId))];
 }
 
 function reorderActivityRoster(activityId, personId, targetPersonId, placeAfter = false) {
@@ -573,17 +601,6 @@ function reorderActivityRoster(activityId, personId, targetPersonId, placeAfter 
   toast("活動人員排序已儲存。");
 }
 
-function personActivityStats(personId) {
-  return state.activities.reduce((stats, activity) => {
-    const record = activityRecord(activity, personId);
-    if (record?.status !== "attending") return stats;
-    stats.attending += 1;
-    if (record.paid) stats.paid += 1;
-    else stats.unpaid += 1;
-    return stats;
-  }, { attending: 0, paid: 0, unpaid: 0 });
-}
-
 function activityStats(activity) {
   const stats = activity.attendance.reduce((stats, record) => {
     if (record.status === "attending") {
@@ -598,10 +615,11 @@ function activityStats(activity) {
 }
 
 function activityUnpaidPeople(activity) {
+  const index = buildAttendanceIndex();
   return state.people
-    .map((person) => ({ person, record: activityRecord(activity, person.id), stats: personActivityStats(person.id) }))
+    .map((person) => ({ person, record: index.record(activity, person.id), stats: index.stats(person.id) }))
     .filter(({ record }) => record?.status === "attending" && !record.paid)
-    .sort((a, b) => b.stats.unpaid - a.stats.unpaid || a.person.name.localeCompare(b.person.name, "zh-Hant"));
+    .sort((a, b) => b.stats.unpaid - a.stats.unpaid || personNameCollator.compare(a.person.name, b.person.name));
 }
 
 function renderMemberImportLink() {
@@ -633,11 +651,12 @@ function renderActivityImportLink(activity) {
 
 function renderPeople() {
   renderMemberImportLink();
+  const attendanceIndex = buildAttendanceIndex();
   const personQuery = $("#personSearch").value;
   const visiblePeople = state.people
     .filter((person) => matchesSearch([person.name, person.studentId, person.department, person.email], personQuery))
-    .map((person) => ({ person, stats: personActivityStats(person.id) }))
-    .sort((a, b) => b.stats.unpaid - a.stats.unpaid || Number(b.stats.attending > 0) - Number(a.stats.attending > 0) || a.person.name.localeCompare(b.person.name, "zh-Hant"));
+    .map((person) => ({ person, stats: attendanceIndex.stats(person.id) }))
+    .sort((a, b) => b.stats.unpaid - a.stats.unpaid || Number(b.stats.attending > 0) - Number(a.stats.attending > 0) || personNameCollator.compare(a.person.name, b.person.name));
   $("#personCount").textContent = `(${visiblePeople.length}/${state.people.length})`;
   $("#personRows").innerHTML = visiblePeople.length ? visiblePeople.map(({ person, stats }) => `
     <tr class="selectable-row" data-select-person="${person.id}" tabindex="0" aria-label="選取 ${escapeHtml(person.name)}" aria-selected="${$("#personId").value === person.id}">
@@ -692,9 +711,9 @@ function renderPeople() {
 
   const rosterQuery = $("#activityPersonSearch").value;
   const rosterFilter = $("#activityPersonFilter").value;
-  const rosterOrder = new Map(activityRosterOrder(activity).map((personId, index) => [personId, index]));
+  const rosterOrder = new Map(activityRosterOrder(activity, attendanceIndex).map((personId, index) => [personId, index]));
   const roster = state.people
-    .map((person) => ({ person, record: activityRecord(activity, person.id), globalStats: personActivityStats(person.id) }))
+    .map((person) => ({ person, record: attendanceIndex.record(activity, person.id) }))
     .filter(({ person }) => matchesSearch([person.name, person.studentId, person.department, person.email], rosterQuery))
     .filter(({ record }) => {
       if (rosterFilter === "unpaid") return record?.status === "attending" && !record.paid;
