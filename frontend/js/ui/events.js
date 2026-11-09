@@ -133,7 +133,7 @@ function bindEvents() {
       message: "將放棄目前的自訂名稱，恢復 App 原本的可辨識欄位名稱。",
       confirmLabel: "確認還原",
       action: () => {
-        state.importSynonyms = { mode: "legacy", people: { name: [], studentId: [], department: [], email: [] }, activity: { attendance: [], payment: [], paidAt: [], transferLastFive: [] } };
+        state.importSynonyms = emptyImportSynonyms();
         if (!saveState()) return;
         renderImportSynonymSettings();
         toast("匯入同義詞已還原預設。");

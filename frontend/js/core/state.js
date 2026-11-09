@@ -57,6 +57,23 @@ const sectionMeta = {
   settings: ["設定", "管理匯入試算表時可辨識的欄位同義詞。"]
 };
 
+// Built-in spreadsheet header aliases. Settings store only the aliases added to or removed from these lists,
+// so aliases added here in later versions reach everyone who has not removed them.
+const importHeaderDefaults = {
+  people: {
+    name: ["姓名", "名字", "name", "membername", "學生姓名", "系級姓名", "系級與姓名", "系級及姓名", "科系姓名", "系所姓名", "系別姓名", "姓名系級"],
+    studentId: ["學號", "學生學號", "學生編號", "studentid", "studentnumber", "studentno"],
+    department: ["系別", "系所", "科系", "學系", "系級", "系別年級", "班級", "department", "major", "departmentgrade"],
+    email: ["電子郵件", "電子郵件地址", "電子郵箱", "email", "emailaddress", "emailbox", "mail", "e-mail"]
+  },
+  activity: {
+    attendance: ["參加狀態", "參與狀態", "出席狀態", "參加", "出席", "attendance", "attendancestatus", "participation", "participationstatus"],
+    payment: ["匯款狀態", "繳費狀態", "繳款狀態", "付款狀態", "對帳狀態", "匯款", "繳費", "繳款", "付款", "payment", "paymentstatus", "paid", "paidstatus"],
+    paidAt: ["匯款日期", "繳費日期", "繳款日期", "付款日期", "匯款時間", "繳費時間", "繳款時間", "付款時間", "paymentdate", "paymenttime", "paidat"],
+    transferLastFive: ["匯款後五碼", "匯款後5碼", "帳號後五碼", "帳號後5碼", "匯款帳號後五碼", "匯款帳號末五碼", "轉帳後五碼", "末五碼", "transferlastfive", "accountlastfive"]
+  }
+};
+
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const fmt = new Intl.NumberFormat("zh-TW", { style: "currency", currency: "TWD", maximumFractionDigits: 0 });
@@ -257,23 +274,18 @@ function normalizeState(saved = {}) {
   const normalizeSynonymList = (value) => Array.isArray(value)
     ? [...new Set(value.map((item) => String(item || "").trim().slice(0, 100)).filter((item) => item && normalizeImportHeader(item)))].slice(0, 30)
     : [];
-  const importSynonyms = {
-    mode: saved.importSynonyms?.mode === "editable" ? "editable" : "legacy",
-    people: {
-      name: normalizeSynonymList(saved.importSynonyms?.people?.name),
-      studentId: normalizeSynonymList(saved.importSynonyms?.people?.studentId),
-      department: normalizeSynonymList(saved.importSynonyms?.people?.department),
-      email: normalizeSynonymList(saved.importSynonyms?.people?.email)
-    },
-    activity: {
-      attendance: normalizeSynonymList(saved.importSynonyms?.activity?.attendance),
-      payment: normalizeSynonymList(saved.importSynonyms?.activity?.payment),
-      paidAt: normalizeSynonymList(saved.importSynonyms?.activity?.paidAt),
-      ...(Object.hasOwn(saved.importSynonyms?.activity || {}, "transferLastFive")
-        ? { transferLastFive: normalizeSynonymList(saved.importSynonyms.activity.transferLastFive) }
-        : {})
+  // Older saves kept one full list per field: "editable" lists replaced the defaults, "legacy" lists extended them.
+  const normalizeSynonymField = (scope, field) => {
+    const savedField = saved.importSynonyms?.[scope]?.[field];
+    if (Array.isArray(savedField)) {
+      return splitImportSynonymChanges(normalizeSynonymList(savedField), importHeaderDefaults[scope][field], saved.importSynonyms.mode === "editable");
     }
+    return { added: normalizeSynonymList(savedField?.added), removed: normalizeSynonymList(savedField?.removed) };
   };
+  const importSynonyms = Object.fromEntries(Object.entries(importHeaderDefaults).map(([scope, fields]) => [
+    scope,
+    Object.fromEntries(Object.keys(fields).map((field) => [field, normalizeSynonymField(scope, field)]))
+  ]));
 
   return {
     entries,
@@ -288,6 +300,22 @@ function normalizeState(saved = {}) {
     reconciliations: Array.isArray(saved.reconciliations) ? saved.reconciliations : [],
     lastBackupAt: typeof saved.lastBackupAt === "string" ? saved.lastBackupAt : "",
     lockedMonths: Array.isArray(saved.lockedMonths) ? [...new Set(saved.lockedMonths)] : []
+  };
+}
+
+function emptyImportSynonyms() {
+  return Object.fromEntries(Object.entries(importHeaderDefaults).map(([scope, fields]) => [
+    scope,
+    Object.fromEntries(Object.keys(fields).map((field) => [field, { added: [], removed: [] }]))
+  ]));
+}
+
+function splitImportSynonymChanges(aliases, defaults, replacesDefaults) {
+  const aliasKeys = new Set(aliases.map(normalizeImportHeader));
+  const defaultKeys = new Set(defaults.map(normalizeImportHeader));
+  return {
+    added: aliases.filter((alias) => !defaultKeys.has(normalizeImportHeader(alias))),
+    removed: replacesDefaults ? defaults.filter((alias) => !aliasKeys.has(normalizeImportHeader(alias))) : []
   };
 }
 

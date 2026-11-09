@@ -221,6 +221,35 @@ test("import synonym settings require name and student ID headers", async ({ pag
   await expect(page.locator("#toast")).toContainText("姓名與學號各至少保留一個");
 });
 
+test("older import synonym saves migrate to added and removed aliases", async ({ page }) => {
+  await openSection(page, "設定");
+  const result = await page.evaluate(() => {
+    const legacy = normalizeState({ importSynonyms: { mode: "legacy", people: { name: ["社員姓名"] }, activity: {} } }).importSynonyms;
+    const editable = normalizeState({ importSynonyms: { mode: "editable", people: { name: ["姓名", "社員姓名"], studentId: ["學號"] }, activity: { payment: [] } } }).importSynonyms;
+    state.importSynonyms = editable;
+    const headers = importHeaders("activity");
+    return {
+      legacyName: legacy.people.name,
+      editableName: editable.people.name,
+      editableEmail: editable.people.email,
+      names: headers.name,
+      studentIds: headers.studentId,
+      payment: headers.payment,
+      transferLastFive: headers.transferLastFive
+    };
+  });
+
+  expect(result.legacyName).toEqual({ added: ["社員姓名"], removed: [] });
+  expect(result.editableName.added).toEqual(["社員姓名"]);
+  expect(result.editableName.removed).toContain("名字");
+  expect(result.editableName.removed).not.toContain("姓名");
+  expect(result.editableEmail).toEqual({ added: [], removed: [] });
+  expect(result.names).toEqual(["姓名", "社員姓名"]);
+  expect(result.studentIds).toEqual(["學號"]);
+  expect(result.payment).toEqual([]);
+  expect(result.transferLastFive).toContain("匯款後五碼");
+});
+
 test("empty form links can be connected before the first response", async ({ page }) => {
   await openSection(page, "人員");
   const previews = await page.evaluate(() => {
@@ -379,7 +408,7 @@ test("activity suffix aliases migrate, import and survive incomplete spreadsheet
     delete oldSynonyms.activity.transferLastFive;
     state = normalizeState({ ...state, importSynonyms: oldSynonyms });
     const migratedAliases = importHeaders("activity").transferLastFive;
-    state.importSynonyms.activity.transferLastFive = [];
+    state.importSynonyms.activity.transferLastFive = { added: [], removed: [...importHeaderDefaults.activity.transferLastFive] };
     return { original, preserved, numericSuffix, invalidSuffixPreserved, zeroSuffix, restoredSuffix, invalidBackupRejected, migratedAliases, clearedAliases: importHeaders("activity").transferLastFive };
   });
   expect(result.original.transferLastFive).toBe("00123");

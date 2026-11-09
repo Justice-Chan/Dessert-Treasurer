@@ -1,10 +1,3 @@
-const personImportHeaders = {
-  name: ["姓名", "名字", "name", "membername", "學生姓名", "系級姓名", "系級與姓名", "系級及姓名", "科系姓名", "系所姓名", "系別姓名", "姓名系級"],
-  studentId: ["學號", "學生學號", "學生編號", "studentid", "studentnumber", "studentno"],
-  department: ["系別", "系所", "科系", "學系", "系級", "系別年級", "班級", "department", "major", "departmentgrade"],
-  email: ["電子郵件", "電子郵件地址", "電子郵箱", "email", "emailaddress", "emailbox", "mail", "e-mail"]
-};
-
 function normalizeImportHeader(value) {
   return String(value || "").normalize("NFKC").toLocaleLowerCase("zh-TW").replace(/[\s\-_()（）【】\[\]{}+\/&、]/g, "");
 }
@@ -200,34 +193,20 @@ function applyPersonImport(importData) {
   return { added: importData.candidates.length, supplemented: importData.supplements.length };
 }
 
-const activityImportHeaders = {
-  ...personImportHeaders,
-  attendance: ["參加狀態", "參與狀態", "出席狀態", "參加", "出席", "attendance", "attendancestatus", "participation", "participationstatus"],
-  payment: ["匯款狀態", "繳費狀態", "繳款狀態", "付款狀態", "對帳狀態", "匯款", "繳費", "繳款", "付款", "payment", "paymentstatus", "paid", "paidstatus"],
-  paidAt: ["匯款日期", "繳費日期", "繳款日期", "付款日期", "匯款時間", "繳費時間", "繳款時間", "付款時間", "paymentdate", "paymenttime", "paidat"],
-  transferLastFive: ["匯款後五碼", "匯款後5碼", "帳號後五碼", "帳號後5碼", "匯款帳號後五碼", "匯款帳號末五碼", "轉帳後五碼", "末五碼", "transferlastfive", "accountlastfive"]
-};
-
 function importHeaders(scope) {
-  const aliasesFor = (defaults, configured) => {
+  const scopes = scope === "people" ? ["people"] : ["people", "activity"];
+  return Object.fromEntries(scopes.flatMap((fieldScope) => Object.entries(importHeaderDefaults[fieldScope]).map(([field, defaults]) => {
+    const { added = [], removed = [] } = state.importSynonyms[fieldScope]?.[field] || {};
+    const removedKeys = new Set(removed.map(normalizeImportHeader));
     const seen = new Set();
-    const values = state.importSynonyms.mode === "editable" ? configured : [...defaults, ...configured];
-    return values.filter((alias) => {
+    const aliases = [...defaults.filter((alias) => !removedKeys.has(normalizeImportHeader(alias))), ...added].filter((alias) => {
       const normalized = normalizeImportHeader(alias);
       if (!normalized || seen.has(normalized)) return false;
       seen.add(normalized);
       return true;
     });
-  };
-  const people = Object.fromEntries(Object.entries(personImportHeaders).map(([field, defaults]) => [field, aliasesFor(defaults, state.importSynonyms.people[field] || [])]));
-  if (scope === "people") return people;
-  return {
-    ...people,
-    attendance: aliasesFor(activityImportHeaders.attendance, state.importSynonyms.activity.attendance || []),
-    payment: aliasesFor(activityImportHeaders.payment, state.importSynonyms.activity.payment || []),
-    paidAt: aliasesFor(activityImportHeaders.paidAt, state.importSynonyms.activity.paidAt || []),
-    transferLastFive: aliasesFor(activityImportHeaders.transferLastFive, state.importSynonyms.activity.transferLastFive ?? activityImportHeaders.transferLastFive)
-  };
+    return [field, aliases];
+  })));
 }
 
 function splitImportSynonyms(value) {
@@ -252,8 +231,7 @@ function renderImportSynonymSettings() {
 
 function saveImportSynonyms(event) {
   event.preventDefault();
-  const nextSynonyms = {
-    mode: "editable",
+  const lists = {
     people: {
       name: splitImportSynonyms($("#synonymPersonName").value), studentId: splitImportSynonyms($("#synonymPersonStudentId").value),
       department: splitImportSynonyms($("#synonymPersonDepartment").value), email: splitImportSynonyms($("#synonymPersonEmail").value)
@@ -264,11 +242,14 @@ function saveImportSynonyms(event) {
       transferLastFive: splitImportSynonyms($("#synonymActivityTransferLastFive").value)
     }
   };
-  if (!nextSynonyms.people.name.length || !nextSynonyms.people.studentId.length) {
+  if (!lists.people.name.length || !lists.people.studentId.length) {
     toast("姓名與學號各至少保留一個可辨識的欄位名稱。", "error");
     return;
   }
-  state.importSynonyms = nextSynonyms;
+  state.importSynonyms = Object.fromEntries(Object.entries(lists).map(([scope, fields]) => [
+    scope,
+    Object.fromEntries(Object.entries(fields).map(([field, aliases]) => [field, splitImportSynonymChanges(aliases, importHeaderDefaults[scope][field], true)]))
+  ]));
   if (!saveState()) return;
   toast("匯入欄位同義詞已儲存。");
 }
