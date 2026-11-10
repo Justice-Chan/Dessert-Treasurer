@@ -117,7 +117,7 @@ Use a dedicated installation and synthetic records, never the production club da
 - Import local spreadsheets and public links; confirm startup synchronization can be cancelled.
 - Open cloud receipts in the default browser; copy email addresses and account numbers.
 - Attach and preview images; verify full backup and restore includes them.
-- Check activity roster dragging and editable payment times.
+- Check activity roster dragging, account-suffix editing, unpaid-first ordering and the roster and data menus.
 - Export and restore a full JSON backup into an isolated store, including a synthetic macOS backup.
 - Check Trash selection, confirmations, restore and permanent deletion.
 - Save monthly PDFs with long tables, multi-line notes, page breaks and right borders. Inspect the saved PDF, not just its preview.
