@@ -327,6 +327,47 @@ test("imports match names that include department and grade labels", async ({ pa
   expect(result.invalidRows).toBe(1);
 });
 
+test("imports name unmatched rows and refuse to guess between people who share a name", async ({ page }) => {
+  await openSection(page, "人員");
+  const result = await page.evaluate(() => {
+    state.people = [
+      { id: "twin-1", name: "王小明", studentId: "B11111111", department: "外文系", email: "" },
+      { id: "twin-2", name: "王小明", studentId: "B22222222", department: "化學119", email: "" },
+      { id: "solo", name: "李大華", studentId: "B33333333", department: "", email: "" }
+    ];
+    const activity = { id: "activity-1", name: "Test", date: "2099-09-20", fee: 100, note: "", attendance: [] };
+    state.activities = [activity];
+    const preview = activityImportPreview([
+      ["姓名", "學號", "繳費狀態"],
+      ["外文119 王小明", "", "已繳"],
+      ["王小明", "B22222222", "已繳"],
+      ["王小明", "", "已繳"],
+      ["李大華", "", "未繳"],
+      ["林小雨", "", "已繳"]
+    ], activity);
+    showActivityImportPreview(preview);
+    const people = personImportPreview([["姓名", "系別"], ["王小明", "化學系"], ["王小明", "資工系"]]);
+    return {
+      matched: preview.attendance.map((record) => record.personId),
+      invalidRows: preview.invalidRows,
+      unmatched: preview.unmatched,
+      listed: [...document.querySelectorAll("#activityImportUnmatched li")].map((item) => item.textContent),
+      peopleInvalid: people.invalid,
+      peopleUnmatched: people.unmatched.map((row) => row.reason)
+    };
+  });
+
+  expect(result.matched).toEqual(["twin-1", "twin-2", "solo"]);
+  expect(result.invalidRows).toBe(2);
+  expect(result.unmatched).toEqual([
+    { label: "王小明", reason: "有多位同名人員，請加上學號或系別" },
+    { label: "林小雨", reason: "尚未登記，且缺少學號" }
+  ]);
+  expect(result.listed).toEqual(["王小明 — 有多位同名人員，請加上學號或系別", "林小雨 — 尚未登記，且缺少學號"]);
+  expect(result.peopleInvalid).toBe(1);
+  expect(result.peopleUnmatched).toEqual(["有多位同名人員，請加上學號或系別"]);
+});
+
 test("activity payments hide times, keep account suffixes and sort unpaid people first", async ({ page }, testInfo) => {
   await openSection(page, "人員");
   await page.evaluate(() => {

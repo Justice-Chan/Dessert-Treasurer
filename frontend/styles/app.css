@@ -1224,6 +1224,21 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
 }
 
 .person-import-preview[hidden] { display: none; }
+.import-unmatched {
+  display: grid;
+  gap: 4px;
+  max-height: 168px;
+  margin: 0;
+  padding: 8px 12px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: var(--field);
+  font-size: 14px;
+}
+.import-unmatched[hidden] { display: none; }
+.import-unmatched span { color: var(--muted); }
 .person-link-status {
   display: flex;
   align-items: center;

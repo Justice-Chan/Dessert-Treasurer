@@ -13,22 +13,39 @@ function parseImportedName(value) {
   return { name: text, department: "" };
 }
 
+function importDepartmentStem(value) {
+  return normalizeSearchValue(value).replace(/\s/g, "").replace(/\d.*$/, "").replace(/(學系|系所|系|所)$/, "");
+}
+
 // Matches by student ID first, then by name, including names that carry a department/grade label.
+// People who share a name are told apart by department; a name that still fits several people is reported as ambiguous.
 function createImportPersonMatcher(people) {
   const byStudentId = new Map(people.map((person) => [normalizeSearchValue(person.studentId), person]));
-  const byName = new Map(people.map((person) => [normalizeSearchValue(person.name), person]));
-  return (studentId, rawName) => {
+  const byName = new Map();
+  people.forEach((person) => {
+    const key = normalizeSearchValue(person.name);
+    byName.set(key, [...(byName.get(key) || []), person]);
+  });
+  return (studentId, rawName, department = "") => {
     if (studentId) {
       const person = byStudentId.get(normalizeSearchValue(studentId));
-      if (person) return person;
+      if (person) return { person, ambiguous: false };
     }
-    if (!rawName) return null;
-    const keys = [rawName, parseImportedName(rawName).name, ...String(rawName).normalize("NFKC").split(/[\s\-_/|,，、:：]+/)];
+    if (!rawName) return { person: null, ambiguous: false };
+    const parsed = parseImportedName(rawName);
+    const keys = [rawName, parsed.name, ...String(rawName).normalize("NFKC").split(/[\s\-_/|,，、:：]+/)];
     for (const key of keys) {
-      const person = key && byName.get(normalizeSearchValue(key));
-      if (person) return person;
+      const sameName = key && byName.get(normalizeSearchValue(key));
+      if (!sameName) continue;
+      if (sameName.length === 1) return { person: sameName[0], ambiguous: false };
+      const stem = importDepartmentStem(department || parsed.department);
+      const sameDepartment = stem ? sameName.filter((person) => {
+        const personStem = importDepartmentStem(person.department);
+        return personStem && (personStem.startsWith(stem) || stem.startsWith(personStem));
+      }) : [];
+      return sameDepartment.length === 1 ? { person: sameDepartment[0], ambiguous: false } : { person: null, ambiguous: true };
     }
-    return null;
+    return { person: null, ambiguous: false };
   };
 }
 
@@ -58,6 +75,7 @@ function emptyPersonImportPreview() {
     supplements: [],
     duplicates: 0,
     invalid: 0,
+    unmatched: [],
     awaitingResponses: true
   };
 }
@@ -74,6 +92,7 @@ function personImportPreview(rows, { allowEmptyLink = false } = {}) {
   const importedNames = new Set();
   const candidates = [];
   const supplementsById = new Map();
+  const unmatched = [];
   let duplicates = 0;
   let invalid = 0;
   rows.slice(header.rowIndex + 1).forEach((row) => {
@@ -87,7 +106,12 @@ function personImportPreview(rows, { allowEmptyLink = false } = {}) {
     const studentIdKey = normalizeSearchValue(studentId);
     const department = (value("department") || parsedName.department).slice(0, 100);
     const email = normalizeEmail(value("email"));
-    const existing = findPerson(studentId, rawName);
+    const { person: existing, ambiguous } = findPerson(studentId, rawName, value("department"));
+    if (ambiguous) {
+      invalid += 1;
+      unmatched.push({ label: rawName, reason: "有多位同名人員，請加上學號或系別" });
+      return;
+    }
     if (existing) {
       const supplement = supplementsById.get(existing.id) || { id: existing.id, department: "", email: "" };
       let changed = false;
@@ -97,7 +121,11 @@ function personImportPreview(rows, { allowEmptyLink = false } = {}) {
       else duplicates += 1;
       return;
     }
-    if (!name || !studentId) { invalid += 1; return; }
+    if (!name || !studentId) {
+      invalid += 1;
+      unmatched.push({ label: rawName || studentId, reason: name ? "尚未登記，且缺少學號" : "尚未登記，且缺少姓名" });
+      return;
+    }
     if (importedNames.has(nameKey) || importedStudentIds.has(studentIdKey)) {
       duplicates += 1;
       return;
@@ -111,7 +139,16 @@ function personImportPreview(rows, { allowEmptyLink = false } = {}) {
       email
     });
   });
-  return { header, candidates, supplements: [...supplementsById.values()], duplicates, invalid, awaitingResponses: false };
+  return { header, candidates, supplements: [...supplementsById.values()], duplicates, invalid, unmatched, awaitingResponses: false };
+}
+
+// Names the rows an import cannot place, so a spreadsheet can be corrected without guessing which ones they were.
+function renderImportUnmatched(listId, unmatched = []) {
+  const list = $("#" + listId);
+  const shown = unmatched.slice(0, 50);
+  list.hidden = !shown.length;
+  list.innerHTML = shown.map(({ label, reason }) => `<li>${escapeHtml(label)} <span>— ${escapeHtml(reason)}</span></li>`).join("")
+    + (unmatched.length > shown.length ? `<li><span>另有 ${unmatched.length - shown.length} 列未列出</span></li>` : "");
 }
 
 function clearPersonImport() {
@@ -122,6 +159,7 @@ function clearPersonImport() {
   $("#personImportLinkDialog").hidden = true;
   $("#personImportPreview").hidden = true;
   $("#personImportSummary").textContent = "";
+  renderImportUnmatched("personImportUnmatched");
 }
 
 function showPersonImportPreview(importData) {
@@ -129,6 +167,7 @@ function showPersonImportPreview(importData) {
   $("#personImportLinkDialog").hidden = true;
   const recognized = Object.keys(importData.header.columns).map((field) => ({ name: "姓名", studentId: "學號", department: "系別", email: "電子郵件" }[field])).join("、");
   const connectsLink = Boolean(importData.sourceUrl && importData.enableLink);
+  renderImportUnmatched("personImportUnmatched", importData.unmatched);
   if (importData.awaitingResponses) {
     $("#personImportSummary").textContent = `連結可正常讀取，目前尚未收到表單回覆。${connectsLink ? "確認後會先啟用連線，之後開啟 App 時自動同步。" : ""}`;
     $("#confirmPersonImport").textContent = connectsLink ? "啟用連線" : "尚未有可匯入的人員";
@@ -293,6 +332,7 @@ function activityImportPreview(rows, activity, options = {}) {
       attendance: [],
       duplicateRows: 0,
       invalidRows: 0,
+      unmatched: [],
       activityId: activity.id,
       awaitingResponses: true
     };
@@ -303,6 +343,7 @@ function activityImportPreview(rows, activity, options = {}) {
   const readRow = importRowReader(header);
   const importedPeople = new Set();
   const attendance = [];
+  const unmatched = [];
   let duplicateRows = 0;
   let invalidRows = 0;
   rows.slice(header.rowIndex + 1).forEach((row) => {
@@ -310,9 +351,13 @@ function activityImportPreview(rows, activity, options = {}) {
     const name = value("name");
     const studentId = normalizeStudentId(value("studentId"));
     if (!name && !studentId) return;
-    const existing = findExisting(studentId, name);
-    const candidate = findCandidate(studentId, name);
-    if (!existing && !candidate) { invalidRows += 1; return; }
+    const { person: existing, ambiguous } = findExisting(studentId, name, value("department"));
+    const candidate = ambiguous ? null : findCandidate(studentId, name).person;
+    if (!existing && !candidate) {
+      invalidRows += 1;
+      unmatched.push({ label: name || studentId, reason: ambiguous ? "有多位同名人員，請加上學號或系別" : studentId && name ? "找不到此人" : name ? "尚未登記，且缺少學號" : "找不到這個學號" });
+      return;
+    }
     const personKey = existing ? `person:${existing.id}` : `candidate:${normalizeSearchValue(candidate.studentId)}`;
     if (importedPeople.has(personKey)) { duplicateRows += 1; return; }
     importedPeople.add(personKey);
@@ -338,6 +383,7 @@ function activityImportPreview(rows, activity, options = {}) {
     attendance,
     duplicateRows,
     invalidRows,
+    unmatched,
     activityId: activity.id,
     awaitingResponses: false
   };
@@ -352,6 +398,7 @@ function clearActivityImport() {
   $("#activityImportLinkDialog").hidden = true;
   $("#activityImportPreview").hidden = true;
   $("#activityImportSummary").textContent = "";
+  renderImportUnmatched("activityImportUnmatched");
 }
 
 function showActivityImportPreview(importData) {
@@ -367,6 +414,7 @@ function showActivityImportPreview(importData) {
   }).length;
   const peopleChanges = importData.peopleImport.candidates.length + importData.peopleImport.supplements.length;
   const connectsLink = Boolean(importData.sourceUrl && importData.enableLink);
+  renderImportUnmatched("activityImportUnmatched", importData.unmatched);
   if (importData.awaitingResponses) {
     $("#activityImportSummary").textContent = `連結可正常讀取，目前尚未收到表單回覆。${connectsLink ? "確認後會先啟用活動名單連線，之後開啟 App 時自動同步。" : ""}`;
     $("#confirmActivityImport").textContent = connectsLink ? "啟用連線" : "尚未有可匯入的資料";
