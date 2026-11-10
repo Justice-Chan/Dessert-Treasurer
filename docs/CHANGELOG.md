@@ -7,12 +7,12 @@ All notable user-facing changes are recorded here.
 - Replaced the activity roster's visible payment-time field with editable transfer-account last five digits; payment times remain stored for automatic paid-participant ordering.
 - Added configurable spreadsheet headers for transfer-account suffixes and included the values in full backups.
 - Preserved existing account suffixes and payment timestamps when their columns are absent from an activity import.
-- Matched imported names that include a department and grade label, such as "外文119 黃小明", and used the label to fill a missing department.
-- Grouped the header data actions, activity roster import/export actions and spreadsheet-link actions into dropdown menus.
-- Listed unpaid participants first in activity rosters; the roster returns to the top after a payment change and otherwise keeps its scroll position.
-- Import previews list each row that could not be matched and the reason. Rows naming one of several people who share a name are matched by department or skipped instead of being recorded against one of them.
+- Imports match names that carry a department and grade label, such as "外文119 黃小明".
+- Import previews list each skipped row and the reason; a name shared by several people is no longer matched by guesswork.
+- Activity rosters list unpaid participants first.
+- Grouped data, roster and spreadsheet-link actions into dropdown menus.
 - Tables keep focus and scroll position when an unrelated change is saved.
-- Import header settings now keep only added and removed aliases, so new built-in aliases apply after an update unless they were removed in Settings.
+- New built-in import header aliases apply after an update unless removed in Settings.
 
 ## 0.2.1 (Unreleased)
 

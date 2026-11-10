@@ -59,13 +59,11 @@ Before updating, export a full JSON backup and close the app. Use the new instal
 
 Activity rosters show a per-activity **Transfer account last five digits** field instead of a payment-time input. Values are stored as text so leading zeros are preserved. The field is available before a participant is marked paid and is included in full JSON backups.
 
-Unpaid participants are listed first in the order set by dragging rows. Paid participants follow, ordered by the payment time imported from the spreadsheet. Manually marking a participant paid records the current local time for ordering when no payment time exists; this is a bookkeeping timestamp, not confirmation of the actual bank transfer time. Paid records without a known time follow timed payments. Equal or missing times use the existing roster order. Payment times remain stored but are not shown in the roster. After a payment change the roster returns to the top, where the next unpaid participant is.
+Unpaid participants are listed first in the order set by dragging rows; paid participants follow in payment-time order. Marking a participant paid by hand records the current local time for ordering only, not the actual transfer time. Payment times are stored but not shown.
 
-Roster actions are grouped in two menus: **名單操作** imports a spreadsheet or downloads the unpaid list, and **連線管理** synchronizes or disconnects a connected spreadsheet. The **資料管理** menu at the top of the window loads sample data or clears all data.
+Imports match people by student ID, then by name. A name cell may carry a department and grade label, such as `外文119 黃小明`; the label fills an empty department. A name shared by several registered people is matched only when the department singles one out. The preview lists every skipped row and the reason.
 
-Imports match registered people by student ID first, then by name. A name cell may include a department and grade label, such as `外文119 黃小明` or `黃小明 / 外文119`; the label is ignored for matching and fills an empty department. When several registered people share a name, the row is matched only if its department singles one of them out. The import preview lists every row it could not place and why, for example a shared name with no student ID or an unregistered person without a student ID. Those rows are skipped; correct the spreadsheet or add the person, then import again.
-
-Settings includes editable header aliases for every import column, including the last-five-digits field. The app stores only the aliases you add or remove, so built-in aliases introduced by an update apply automatically unless you removed them. Imports without that column preserve existing values; numeric spreadsheet values shorter than five digits are left-padded with zeros. Missing payment-date columns do not clear an existing paid participant's timestamp.
+Header aliases for each import column are editable in Settings. Imports without the last-five-digits or payment-date column keep the existing values; shorter numeric suffixes are left-padded with zeros.
 
 Public spreadsheet connections are read-only. Updating payment status in the app does not write to Google Sheets. Write-back requires a separate authenticated Google Sheets integration with editing permission and an explicit mapping to the sheet's dropdown values.
 
