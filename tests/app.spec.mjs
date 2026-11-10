@@ -373,6 +373,39 @@ test("activity payments hide times, keep account suffixes and sort unpaid people
   await page.locator("#activityRoster").screenshot({ path: testInfo.outputPath("activity-payments-mobile.png") });
 });
 
+test("re-renders leave unchanged tables in place", async ({ page }) => {
+  await openSection(page, "人員");
+  const result = await page.evaluate(() => {
+    state.people = ["a", "b"].map((id) => ({ id, name: id, studentId: id.toUpperCase(), department: "", email: "" }));
+    state.activities = [{
+      id: "activity-1", name: "Stable rows", date: "2099-09-20", fee: 100, note: "", rosterOrder: [],
+      attendance: state.people.map((person) => ({ personId: person.id, status: "attending", paid: false, paidAt: "", transferLastFive: "" }))
+    }];
+    saveState();
+    selectActivity(state.activities[0], "attending");
+    const firstRow = (id) => document.querySelector(`#${id} tr`);
+    const before = { people: firstRow("personRows"), activities: firstRow("activityRows"), roster: firstRow("activityPersonRows") };
+    before.people.focus();
+    setActivityTransferLastFive("activity-1", "a", "12345");
+    const afterSuffix = {
+      peopleKept: firstRow("personRows") === before.people,
+      activitiesKept: firstRow("activityRows") === before.activities,
+      focusKept: document.activeElement === before.people,
+      rosterValue: document.querySelector('[data-transfer-last-five][data-person-id="a"]').value
+    };
+    setActivityPayment("activity-1", "a", true);
+    return {
+      afterSuffix,
+      peopleRebuilt: firstRow("personRows") !== before.people,
+      paidCount: document.querySelector("#activityRows .income").textContent
+    };
+  });
+
+  expect(result.afterSuffix).toEqual({ peopleKept: true, activitiesKept: true, focusKept: true, rosterValue: "12345" });
+  expect(result.peopleRebuilt).toBe(true);
+  expect(result.paidCount).toBe("1");
+});
+
 test("activity suffix aliases migrate, import and survive incomplete spreadsheets", async ({ page }) => {
   await openSection(page, "設定");
   const field = page.locator("#synonymActivityTransferLastFive");

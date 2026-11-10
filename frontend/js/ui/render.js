@@ -6,6 +6,21 @@ function toast(message) {
   toast.timer = setTimeout(() => node.classList.remove("show"), 2200);
 }
 
+const renderedHtml = new WeakMap();
+
+// Leaves the DOM alone when a re-render produces the same markup, so focus and scroll survive unrelated saves.
+function setRenderedHtml(node, html) {
+  if (renderedHtml.get(node) === html) {
+    // Unchanged markup still has to discard values typed into its inputs, as a rebuild would.
+    node.querySelectorAll("input").forEach((input) => {
+      if (input.value !== input.defaultValue) input.value = input.defaultValue;
+    });
+    return;
+  }
+  renderedHtml.set(node, html);
+  node.innerHTML = html;
+}
+
 function setSelectOptions(select, options, selected) {
   select.innerHTML = options.map((option) => `<option value="${escapeHtml(option)}"${option === selected ? " selected" : ""}>${escapeHtml(option)}</option>`).join("");
 }
@@ -233,23 +248,23 @@ function renderOverview() {
     .filter((entry) => isActiveEntry(entry) && entry.date && entry.date >= recentStartKey && entry.date <= monthEndKey)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 6);
-  $("#recentRows").innerHTML = recent.length ? recent.map((entry) => `
+  setRenderedHtml($("#recentRows"), recent.length ? recent.map((entry) => `
     <tr>
       <td>${escapeHtml(entry.date)}</td>
       <td>${escapeHtml(entry.title || entry.child || "未命名紀錄")}</td>
       <td>${escapeHtml(entry.parent)} / ${escapeHtml(entry.child)}</td>
       <td class="num ${amountClass(entry.type)}">${entry.type === "income" ? "+" : "-"}${fmt.format(Number(entry.amount))}</td>
     </tr>
-  `).join("") : `<tr><td colspan="4"><div class="empty">這 30 天沒有收支紀錄。</div></td></tr>`;
+  `).join("") : `<tr><td colspan="4"><div class="empty">這 30 天沒有收支紀錄。</div></td></tr>`);
 }
 
 function renderMonthSelector() {
   $("#monthYearLabel").textContent = `${displayedYear} 年`;
-  $("#monthList").innerHTML = Array.from({ length: 12 }, (_, index) => {
+  setRenderedHtml($("#monthList"), Array.from({ length: 12 }, (_, index) => {
     const month = String(index + 1).padStart(2, "0");
     const value = `${displayedYear}-${month}`;
     return `<button type="button" class="month-button" data-month="${value}" aria-pressed="${value === selectedMonth}">${index + 1}月</button>`;
-  }).join("");
+  }).join(""));
 }
 
 function piePath(startRatio, endRatio) {
@@ -315,12 +330,12 @@ function renderFinancialDistribution(income, expense, claims, otherExpense) {
       <strong>${fmt.format(otherExpense)}</strong>
     </div>
   `;
-  $("#financialDistribution").innerHTML = `
+  setRenderedHtml($("#financialDistribution"), `
     <div class="donut-wrap" role="img" aria-label="收入 ${fmt.format(income)}，支出 ${fmt.format(expense)}；支出包含未退回報銷 ${fmt.format(claims)}與其他 ${fmt.format(otherExpense)}">
       <svg viewBox="0 0 120 120" aria-hidden="true">${slices}</svg>
     </div>
     <div class="legend">${legend}</div>
-  `;
+  `);
 }
 
 function renderExpenseDistribution(claims, otherExpenseGroups) {
@@ -365,12 +380,12 @@ function renderExpenseDistribution(claims, otherExpenseGroups) {
   `).join("");
   const legend = total ? reimbursementRow + otherSummaryRow + otherRows : `<div class="empty">本月還沒有支出紀錄。</div>`;
   const categoryLabel = otherValues.map((item) => `${item.label} ${percentage(item.value, total)}`).join("，");
-  $("#expenseDistribution").innerHTML = `
+  setRenderedHtml($("#expenseDistribution"), `
     <div class="donut-wrap" role="img" aria-label="${escapeHtml(`本月支出中，報銷 ${percentage(claims, total)}，其他 ${percentage(otherExpense, total)}${categoryLabel ? `；其他包含 ${categoryLabel}` : ""}`)}">
       <svg viewBox="0 0 120 120" aria-hidden="true">${slices}</svg>
     </div>
     <div class="legend">${legend}</div>
-  `;
+  `);
 }
 
 function renderLedger() {
@@ -380,7 +395,7 @@ function renderLedger() {
   const dateFrom = isValidDateValue($("#ledgerDateFrom").value) ? $("#ledgerDateFrom").value : "";
   const dateTo = isValidDateValue($("#ledgerDateTo").value) ? $("#ledgerDateTo").value : "";
   if (dateFrom && dateTo && dateFrom > dateTo) {
-    $("#ledgerRows").innerHTML = `<tr><td colspan="6"><div class="empty">起始日期不能晚於結束日期。</div></td></tr>`;
+    setRenderedHtml($("#ledgerRows"), `<tr><td colspan="6"><div class="empty">起始日期不能晚於結束日期。</div></td></tr>`);
     requestAnimationFrame(() => syncScrollableList("ledgerList", 8));
     return;
   }
@@ -406,7 +421,7 @@ function renderLedger() {
     searchTotal.textContent = "";
   }
 
-  $("#ledgerRows").innerHTML = entries.length ? entries.map((entry) => `
+  setRenderedHtml($("#ledgerRows"), entries.length ? entries.map((entry) => `
     <tr class="selectable-row" data-select-entry="${entry.id}" tabindex="0" aria-label="選取 ${escapeHtml(entry.title || entry.child || "未命名紀錄")}" aria-selected="${$("#entryId").value === entry.id}">
       <td>${escapeHtml(entry.date)}</td>
       <td>${entry.type === "income" ? "收入" : "支出"}</td>
@@ -417,7 +432,7 @@ function renderLedger() {
         ? `<span class="managed-entry-note">請至報銷頁管理</span>`
         : `<div class="inline-actions"><button class="danger" data-delete-entry="${entry.id}">刪除</button></div>`}
     </tr>
-  `).join("") : `<tr><td colspan="6"><div class="empty">${state.entries.length ? "沒有符合條件的收支紀錄。" : "尚未新增收支紀錄。"}</div></td></tr>`;
+  `).join("") : `<tr><td colspan="6"><div class="empty">${state.entries.length ? "沒有符合條件的收支紀錄。" : "尚未新增收支紀錄。"}</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("ledgerList", 8));
 }
 
@@ -436,7 +451,7 @@ function renderClaims() {
   const dateFrom = isValidDateValue($("#claimDateFrom").value) ? $("#claimDateFrom").value : "";
   const dateTo = isValidDateValue($("#claimDateTo").value) ? $("#claimDateTo").value : "";
   if (dateFrom && dateTo && dateFrom > dateTo) {
-    $("#claimRows").innerHTML = `<tr class="claim-empty-row"><td colspan="6"><div class="empty">起始日期不能晚於結束日期。</div></td></tr>`;
+    setRenderedHtml($("#claimRows"), `<tr class="claim-empty-row"><td colspan="6"><div class="empty">起始日期不能晚於結束日期。</div></td></tr>`);
     requestAnimationFrame(() => syncScrollableList("claimList", 8));
     return;
   }
@@ -458,7 +473,7 @@ function renderClaims() {
     searchTotal.textContent = "";
   }
 
-  $("#claimRows").innerHTML = claims.length ? claims.map((claim) => `
+  setRenderedHtml($("#claimRows"), claims.length ? claims.map((claim) => `
     <tr class="selectable-row" data-select-claim="${claim.id}" tabindex="0" aria-label="選取 ${escapeHtml(claim.person)}的報銷申請" aria-selected="${$("#claimId").value === claim.id}">
       <td data-label="日期">${escapeHtml(claim.date)}</td>
       <td data-label="申請人">${escapeHtml(claim.person)}</td>
@@ -467,12 +482,12 @@ function renderClaims() {
       <td class="num" data-label="金額">${fmt.format(Number(claim.amount))}</td>
       <td class="claim-status-cell" data-label="狀態"><div class="claim-status-line"><span class="pill ${claim.status}">${statusText[claim.status]}</span>${claimActionButtons(claim)}</div>${claim.status === "paid" ? `<span class="subtle claim-payment-meta">${escapeHtml(claim.paymentDate || "")} · ${escapeHtml(accountName(claim.paymentAccountId))}</span>` : ""}</td>
     </tr>
-  `).join("") : `<tr class="claim-empty-row"><td colspan="6"><div class="empty">${state.claims.length ? "沒有符合條件的報銷申請。" : "尚未新增報銷申請。"}</div></td></tr>`;
+  `).join("") : `<tr class="claim-empty-row"><td colspan="6"><div class="empty">${state.claims.length ? "沒有符合條件的報銷申請。" : "尚未新增報銷申請。"}</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("claimList", 8));
 }
 
 function renderAccounts() {
-  $("#accountRows").innerHTML = state.accounts.filter((account) => !account.deletedAt).map((account) => `
+  setRenderedHtml($("#accountRows"), state.accounts.filter((account) => !account.deletedAt).map((account) => `
     <tr class="selectable-row" data-select-account="${account.id}" tabindex="0" aria-label="選取 ${escapeHtml(account.name)}" aria-selected="${$("#accountId").value === account.id}">
       <td>${escapeHtml(account.name)}</td>
       <td>${accountTypeText[account.type] || "其他"}</td>
@@ -482,9 +497,9 @@ function renderAccounts() {
       <td class="account-qr-column">${account.qrCodeDataUrl ? `<div class="inline-actions nowrap-actions"><button data-view-account-qr="${account.id}">預覽</button><button class="danger" data-revoke-account-qr="${account.id}">撤銷</button></div>` : "-"}</td>
       <td class="row-delete-cell"><button class="danger" data-delete-account="${account.id}" aria-label="刪除 ${escapeHtml(account.name)}">刪除</button></td>
     </tr>
-  `).join("");
+  `).join(""));
 
-  $("#payeeRows").innerHTML = state.payees.length ? state.payees.map((payee) => `
+  setRenderedHtml($("#payeeRows"), state.payees.length ? state.payees.map((payee) => `
     <tr class="selectable-row" data-select-payee="${payee.id}" tabindex="0" aria-label="選取 ${escapeHtml(payee.name)}" aria-selected="${$("#payeeId").value === payee.id}">
       <td>${escapeHtml(payee.name)}</td>
       <td>${escapeHtml(payee.bank || "-")}</td>
@@ -492,10 +507,10 @@ function renderAccounts() {
       <td class="account-qr-column">${payee.qrCodeDataUrl ? `<div class="inline-actions nowrap-actions"><button data-view-payee-qr="${payee.id}">預覽</button><button class="danger" data-revoke-payee-qr="${payee.id}">撤銷</button></div>` : "-"}</td>
       <td class="row-delete-cell"><button class="danger" data-delete-payee="${payee.id}" aria-label="刪除 ${escapeHtml(payee.name)}">刪除</button></td>
     </tr>
-  `).join("") : `<tr><td colspan="5"><div class="empty">尚未新增收款帳戶。</div></td></tr>`;
+  `).join("") : `<tr><td colspan="5"><div class="empty">尚未新增收款帳戶。</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("payeeList", 5));
 
-  $("#reconciliationRows").innerHTML = state.reconciliations.length ? [...state.reconciliations]
+  setRenderedHtml($("#reconciliationRows"), state.reconciliations.length ? [...state.reconciliations]
     .sort((a, b) => b.month.localeCompare(a.month))
     .map((item) => {
       const current = currentReconciliationValues(item);
@@ -509,7 +524,7 @@ function renderAccounts() {
           <td>${escapeHtml(item.note || "")}</td>
         </tr>
       `;
-    }).join("") : `<tr><td colspan="6"><div class="empty">尚未建立月結紀錄。</div></td></tr>`;
+    }).join("") : `<tr><td colspan="6"><div class="empty">尚未建立月結紀錄。</div></td></tr>`);
 
   renderReconciliationSummary();
 }
@@ -658,7 +673,7 @@ function renderPeople() {
     .map((person) => ({ person, stats: attendanceIndex.stats(person.id) }))
     .sort((a, b) => b.stats.unpaid - a.stats.unpaid || Number(b.stats.attending > 0) - Number(a.stats.attending > 0) || personNameCollator.compare(a.person.name, b.person.name));
   $("#personCount").textContent = `(${visiblePeople.length}/${state.people.length})`;
-  $("#personRows").innerHTML = visiblePeople.length ? visiblePeople.map(({ person, stats }) => `
+  setRenderedHtml($("#personRows"), visiblePeople.length ? visiblePeople.map(({ person, stats }) => `
     <tr class="selectable-row" data-select-person="${person.id}" tabindex="0" aria-label="選取 ${escapeHtml(person.name)}" aria-selected="${$("#personId").value === person.id}">
       <td>${escapeHtml(person.name)}</td>
       <td>${escapeHtml(person.studentId)}</td>
@@ -666,7 +681,7 @@ function renderPeople() {
       <td>${stats.unpaid ? `<span class="unpaid-count">未繳 ${stats.unpaid} 次</span>` : stats.attending ? `<span class="pill paid">已繳</span>` : `<span class="subtle">尚無參加</span>`}</td>
       <td><button type="button" data-copy-person-email="${escapeHtml(person.email || "")}" ${person.email ? "" : "disabled"} aria-label="複製 ${escapeHtml(person.name)} 的電子郵件">複製</button></td>
     </tr>
-  `).join("") : `<tr><td colspan="5"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "尚未新增人員。"}</div></td></tr>`;
+  `).join("") : `<tr><td colspan="5"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "尚未新增人員。"}</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("personList", 8));
 
   const activityQuery = $("#activitySearch").value.trim().toLowerCase();
@@ -674,7 +689,7 @@ function renderPeople() {
     .filter((activity) => !activityQuery || [activity.name, activity.date, activity.note].join(" ").toLowerCase().includes(activityQuery))
     .sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name, "zh-Hant"));
   $("#activityCount").textContent = `(${visibleActivities.length}/${state.activities.length})`;
-  $("#activityRows").innerHTML = visibleActivities.length ? visibleActivities.map((activity) => {
+  setRenderedHtml($("#activityRows"), visibleActivities.length ? visibleActivities.map((activity) => {
     const stats = activityStats(activity);
     return `
       <tr class="selectable-row" data-select-activity="${activity.id}" tabindex="0" aria-label="選取 ${escapeHtml(activity.name)}" aria-selected="${$("#activityId").value === activity.id}">
@@ -687,7 +702,7 @@ function renderPeople() {
         <td class="row-delete-cell"><button type="button" class="danger" data-delete-activity="${activity.id}" aria-label="刪除 ${escapeHtml(activity.name)}">刪除</button></td>
       </tr>
     `;
-  }).join("") : `<tr><td colspan="7"><div class="empty">${state.activities.length ? "沒有符合條件的活動。" : "尚未新增活動。"}</div></td></tr>`;
+  }).join("") : `<tr><td colspan="7"><div class="empty">${state.activities.length ? "沒有符合條件的活動。" : "尚未新增活動。"}</div></td></tr>`);
 
   const activity = state.activities.find((item) => item.id === $("#activityId").value);
   $("#activityRoster").hidden = !activity;
@@ -700,13 +715,13 @@ function renderPeople() {
   $("#activityRosterTitle").textContent = activity.name;
   $("#activityRosterDetails").textContent = [activity.date, `每人 ${fmt.format(activity.fee)}`, activity.note].filter(Boolean).join(" · ");
   $("#activityRosterDetails").hidden = false;
-  $("#activityStatusSummary").innerHTML = `
+  setRenderedHtml($("#activityStatusSummary"), `
     <span class="pill">參加 ${stats.attending}</span>
     <span class="pill paid">已繳 ${stats.paid}</span>
     <span class="pill pending">未繳 ${stats.unpaid}</span>
     <span class="pill pending">待收 ${fmt.format(activity.fee * stats.unpaid)}</span>
     <span class="pill">未參加 ${stats.notAttending}</span>
-  `;
+  `);
   $("#exportActivityUnpaid").disabled = stats.unpaid === 0;
 
   const rosterQuery = $("#activityPersonSearch").value;
@@ -732,7 +747,7 @@ function renderPeople() {
       if (bPaidAt) return 1;
       return rosterOrder.get(a.person.id) - rosterOrder.get(b.person.id);
     });
-  $("#activityPersonRows").innerHTML = roster.length ? roster.map(({ person, record }) => `
+  setRenderedHtml($("#activityPersonRows"), roster.length ? roster.map(({ person, record }) => `
     <tr class="activity-roster-row" data-roster-activity-id="${activity.id}" data-roster-person-id="${person.id}" tabindex="0" aria-label="拖曳排序 ${escapeHtml(person.name)}">
       <td><span class="drag-handle" title="拖曳排序" aria-hidden="true">::</span>${escapeHtml(person.name)}</td>
       <td>${escapeHtml(person.studentId)}</td>
@@ -741,13 +756,13 @@ function renderPeople() {
       <td>${record?.status === "attending" ? `<input type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="五位數字" value="${escapeHtml(record.transferLastFive || "")}" data-transfer-last-five data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}匯款後五碼">` : `<span class="subtle">-</span>`}</td>
       <td>${record?.status === "attending" ? `<div class="status-control payment" role="group" aria-label="${escapeHtml(person.name)}繳費狀態"><button type="button" data-set-payment="unpaid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${!record.paid}">未繳</button><button type="button" data-set-payment="paid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record.paid}">已繳</button></div>` : `<span class="subtle">-</span>`}</td>
     </tr>
-  `).join("") : `<tr><td colspan="6"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`;
+  `).join("") : `<tr><td colspan="6"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("activityPersonList", 8));
 }
 
 function renderCategories() {
-  $("#incomeCategories").innerHTML = categoryCards(categories.income);
-  $("#expenseCategories").innerHTML = categoryCards(categories.expense);
+  setRenderedHtml($("#incomeCategories"), categoryCards(categories.income));
+  setRenderedHtml($("#expenseCategories"), categoryCards(categories.expense));
 }
 
 function renderTrash() {
@@ -757,7 +772,7 @@ function renderTrash() {
   const selectedCount = selectedTrashIds.size;
   $("#restoreSelectedTrash").disabled = !selectedCount;
   $("#purgeSelectedTrash").disabled = !selectedCount;
-  $("#trashRows").innerHTML = items.length ? items.map((item) => {
+  setRenderedHtml($("#trashRows"), items.length ? items.map((item) => {
     const record = item.record || {};
     const expiresAt = new Date(item.deletedAt).getTime() + retentionDays * dayMs;
     const daysLeft = Math.max(0, Math.ceil((expiresAt - now) / dayMs));
@@ -773,7 +788,7 @@ function renderTrash() {
         <td>${daysLeft} 天</td>
       </tr>
     `;
-  }).join("") : `<tr><td colspan="5"><div class="empty">垃圾桶目前是空的。</div></td></tr>`;
+  }).join("") : `<tr><td colspan="5"><div class="empty">垃圾桶目前是空的。</div></td></tr>`);
   scheduleTrashPurge();
 }
 
