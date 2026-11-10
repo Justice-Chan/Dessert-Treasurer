@@ -9,8 +9,8 @@ All notable user-facing changes are recorded here.
 - Preserved existing account suffixes and payment timestamps when their columns are absent from an activity import.
 - Imports match names that carry a department and grade label, such as "外文119 黃小明".
 - Import previews list each skipped row and the reason; a name shared by several people is no longer matched by guesswork.
-- Activity rosters list unpaid participants first.
-- Grouped data, roster and spreadsheet-link actions into dropdown menus.
+- Activity rosters list unpaid participants first and return to the top after a payment change.
+- Grouped actions into dropdown menus: 資料管理 (sample data, clear data), 名單操作 (import, unpaid list) and 連線管理 (sync, disconnect).
 - Tables keep focus and scroll position when an unrelated change is saved.
 - New built-in import header aliases apply after an update unless removed in Settings.
 

@@ -59,7 +59,9 @@ Before updating, export a full JSON backup and close the app. Use the new instal
 
 Activity rosters show a per-activity **Transfer account last five digits** field instead of a payment-time input. Values are stored as text so leading zeros are preserved. The field is available before a participant is marked paid and is included in full JSON backups.
 
-Unpaid participants are listed first in the order set by dragging rows; paid participants follow in payment-time order. Marking a participant paid by hand records the current local time for ordering only, not the actual transfer time. Payment times are stored but not shown.
+Unpaid participants are listed first in the order set by dragging rows; paid participants follow in payment-time order. Marking a participant paid by hand records the current local time for ordering only, not the actual transfer time. Payment times are stored but not shown. After a payment change the roster returns to the top.
+
+Roster actions are in two menus: **名單操作** (import a spreadsheet, download the unpaid list) and **連線管理** (synchronize or disconnect a connected spreadsheet). **資料管理** at the top of the window loads sample data or clears all data.
 
 Imports match people by student ID, then by name. A name cell may carry a department and grade label, such as `外文119 黃小明`; the label fills an empty department. A name shared by several registered people is matched only when the department singles one out. The preview lists every skipped row and the reason.
 
