@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>甜點社報帳</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <h1>甜點社報帳</h1>
+
+    <section id="signedOut">
+      <p>請用已登記的 Google 帳號登入。</p>
+      <div id="signInButton"></div>
+    </section>
+
+    <section id="signedIn" hidden>
+      <dl>
+        <dt>帳號</dt><dd id="userEmail"></dd>
+        <dt>姓名</dt><dd id="userName"></dd>
+        <dt>角色</dt><dd id="userRole"></dd>
+      </dl>
+      <div class="actions">
+        <button type="button" class="primary" id="writeTest">寫入測試列</button>
+        <button type="button" id="signOut">登出</button>
+      </div>
+    </section>
+
+    <p id="message" role="status" aria-live="polite"></p>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer onload="startSignIn()"></script>
+</body>
+</html>
