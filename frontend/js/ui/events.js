@@ -790,7 +790,7 @@ function bindEvents() {
     }
   }
   window.addEventListener("storage", (event) => {
-    if (nativeStorageEnabled) return;
+    if (tauriStorageEnabled) return;
     if (event.key !== storageKey || !event.newValue) return;
     try {
       state = normalizeState(JSON.parse(event.newValue));

@@ -74,7 +74,7 @@ function purgeExpiredTrash() {
     return keep;
   });
   if (state.trash.length === before) return;
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     enqueueNativeSave(state, "自動清理後無法寫入本機資料檔。");
     if (expiredClaimIds.length) deleteReceiptsForClaims(expiredClaimIds).catch(() => {});
     return;
@@ -88,7 +88,7 @@ function purgeExpiredTrash() {
 }
 
 function saveState() {
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     enqueueNativeSave(state, "儲存失敗，無法寫入本機資料夾。請先下載完整備份。");
     render();
     return true;

@@ -1,8 +1,6 @@
 const storageKey = "dessertTreasurer.v1";
 const tauriInvoke = window.__TAURI__?.core?.invoke;
-const webKitTreasury = window.webkit?.messageHandlers?.treasury;
 const tauriStorageEnabled = typeof tauriInvoke === "function";
-const nativeStorageEnabled = tauriStorageEnabled || Boolean(webKitTreasury);
 const tauriCommandNames = {
   loadState: "load_state",
   saveState: "save_state",
@@ -18,9 +16,8 @@ const tauriCommandNames = {
   importMemberSpreadsheetUrl: "import_member_spreadsheet_url"
 };
 const nativeStorageCall = (action, payload = {}) => {
-  if (!nativeStorageEnabled) return Promise.reject(new Error("native storage unavailable"));
-  if (tauriStorageEnabled) return tauriInvoke(tauriCommandNames[action] || action, payload);
-  return webKitTreasury.postMessage({ action, ...payload });
+  if (!tauriStorageEnabled) return Promise.reject(new Error("native storage unavailable"));
+  return tauriInvoke(tauriCommandNames[action] || action, payload);
 };
 const categories = {
   income: {
@@ -321,9 +318,6 @@ function splitImportSynonymChanges(aliases, defaults, replacesDefaults) {
 
 function loadState() {
   try {
-    if (!tauriStorageEnabled && nativeStorageEnabled && window.__nativeInitialState && typeof window.__nativeInitialState === "object") {
-      return normalizeState(window.__nativeInitialState);
-    }
     const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
     return normalizeState(saved);
   } catch {

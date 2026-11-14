@@ -59,7 +59,7 @@ async function storeReceiptFiles(claimId, files) {
       createdAt: new Date().toISOString(),
       blob: file
   }));
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     const nativeRecords = await Promise.all(records.map(async ({ blob, ...metadata }) => ({
       ...metadata,
       dataUrl: await blobToDataUrl(blob)
@@ -72,7 +72,7 @@ async function storeReceiptFiles(claimId, files) {
 }
 
 async function getReceipt(id) {
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     const record = await nativeStorageCall("getReceipt", { id });
     if (!record?.dataUrl) return undefined;
     const { dataUrl, ...metadata } = record;
@@ -87,7 +87,7 @@ async function getReceipt(id) {
 }
 
 async function getAllReceipts() {
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     const records = await nativeStorageCall("getAllReceipts");
     return (records || []).map(({ dataUrl, ...metadata }) => ({ ...metadata, blob: dataUrlToBlob(dataUrl) }));
   }
@@ -100,7 +100,7 @@ async function getAllReceipts() {
 }
 
 async function deleteReceipt(id) {
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     await nativeStorageCall("deleteReceipts", { ids: [id] });
     return;
   }
@@ -109,7 +109,7 @@ async function deleteReceipt(id) {
 
 async function deleteReceipts(ids) {
   if (!ids.length) return;
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     await nativeStorageCall("deleteReceipts", { ids });
     return;
   }
@@ -124,7 +124,7 @@ async function deleteReceiptsForClaims(claimIds) {
 }
 
 async function clearReceipts() {
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     await nativeStorageCall("clearReceipts");
     return;
   }
@@ -159,7 +159,7 @@ async function exportReceipts(claimIds) {
 }
 
 async function importReceipts(receipts = [], replacedClaimIds = null) {
-  if (nativeStorageEnabled) {
+  if (tauriStorageEnabled) {
     await nativeStorageCall("importReceipts", { receipts, replacedClaimIds });
     return;
   }
