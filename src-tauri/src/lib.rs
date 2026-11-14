@@ -14,6 +14,9 @@ use tauri::{Manager, State, WebviewWindow};
 
 mod platform;
 
+// Saves the webview has sent or queued need a moment to reach storage before the window closes.
+// Quitting from the menu or Dock ends the app without a close request, so it is not covered.
+const CLOSE_SAVE_GRACE: std::time::Duration = std::time::Duration::from_millis(250);
 const MAX_ATTACHMENT_BYTES: usize = 12 * 1024 * 1024;
 const MAX_MEMBER_IMPORT_BYTES: usize = 5 * 1024 * 1024;
 const MAX_MEMBER_IMPORT_ROWS: usize = 10_000;
@@ -696,6 +699,16 @@ pub fn run() {
             parse_member_spreadsheet,
             import_member_spreadsheet_url
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let window = window.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(CLOSE_SAVE_GRACE);
+                    let _ = window.destroy();
+                });
+            }
+        })
         .run(tauri::generate_context!())
         .expect("無法啟動甜點社總務");
 }

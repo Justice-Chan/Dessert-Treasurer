@@ -12,6 +12,8 @@ All notable user-facing changes are recorded here.
 - Activity rosters list unpaid participants first and return to the top after a payment change.
 - Grouped actions into dropdown menus: 資料管理 (sample data, clear data), 名單操作 (import, unpaid list) and 連線管理 (sync, disconnect).
 - Tables keep focus and scroll position when an unrelated change is saved.
+- Imports split grades written without digits, such as "資工二 黃小明", into department and name.
+- Closing the window waits briefly so the last change is saved.
 - New built-in import header aliases apply after an update unless removed in Settings.
 
 ## 0.2.1 (Unreleased)
