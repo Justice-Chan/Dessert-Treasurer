@@ -8,3 +8,7 @@ playwright-report/
 .DS_Store
 *.log
 .claude/
+
+# Apps Script (clasp) credentials and local project binding
+.clasp.json
+.clasprc.json
