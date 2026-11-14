@@ -637,31 +637,25 @@ function activityUnpaidPeople(activity) {
     .sort((a, b) => b.stats.unpaid - a.stats.unpaid || personNameCollator.compare(a.person.name, b.person.name));
 }
 
-function renderMemberImportLink() {
-  const link = state.memberImportLink;
-  $("#personLinkStatus").hidden = !link;
+function renderImportLinkStatus(prefix, link, syncing) {
+  const capitalized = prefix[0].toUpperCase() + prefix.slice(1);
+  $(`#${prefix}LinkStatus`).hidden = !link;
   if (!link) return;
   const syncedAt = new Date(link.lastSyncedAt).getTime();
-  $("#personLinkStatusText").textContent = Number.isFinite(syncedAt)
+  $(`#${prefix}LinkStatusText`).textContent = Number.isFinite(syncedAt)
     ? `上次同步：${new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(syncedAt)}`
     : "尚未同步";
-  $("#personLinkStatusText").title = link.url;
-  $("#syncPersonLink").disabled = memberImportSyncing;
-  $("#syncPersonLink").textContent = memberImportSyncing ? "同步中" : "立即同步";
+  $(`#${prefix}LinkStatusText`).title = link.url;
+  $(`#sync${capitalized}Link`).disabled = syncing;
+  $(`#sync${capitalized}Link`).textContent = syncing ? "同步中" : "立即同步";
+}
+
+function renderMemberImportLink() {
+  renderImportLinkStatus("person", state.memberImportLink, memberImportSyncing);
 }
 
 function renderActivityImportLink(activity) {
-  const link = activity?.importLink;
-  $("#activityLinkStatus").hidden = !link;
-  if (!link) return;
-  const syncedAt = new Date(link.lastSyncedAt).getTime();
-  $("#activityLinkStatusText").textContent = Number.isFinite(syncedAt)
-    ? `上次同步：${new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(syncedAt)}`
-    : "尚未同步";
-  $("#activityLinkStatusText").title = link.url;
-  const syncing = activityImportSyncing.has(activity.id);
-  $("#syncActivityLink").disabled = syncing;
-  $("#syncActivityLink").textContent = syncing ? "同步中" : "立即同步";
+  renderImportLinkStatus("activity", activity?.importLink, Boolean(activity) && activityImportSyncing.has(activity.id));
 }
 
 function renderPeople() {
