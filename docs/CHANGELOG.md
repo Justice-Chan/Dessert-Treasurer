@@ -2,6 +2,11 @@
 
 All notable user-facing changes are recorded here.
 
+## Unreleased
+
+- macOS packages, including the DMG, are ad-hoc signed during bundling.
+- The window uses the app's background colour while loading instead of flashing dark.
+
 ## 0.2.2
 
 - Replaced the activity roster's visible payment-time field with editable transfer-account last five digits; payment times remain stored for automatic paid-participant ordering.
