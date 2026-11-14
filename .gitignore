@@ -12,3 +12,4 @@ playwright-report/
 # Apps Script (clasp) credentials and local project binding
 .clasp.json
 .clasprc.json
+client_secret*.json
