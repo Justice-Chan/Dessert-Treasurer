@@ -307,7 +307,7 @@ test("imports match names that include department and grade labels", async ({ pa
       { id: "activity-1", attendance: [] }
     );
     return {
-      parsed: ["外文119 黃小明", "化學119李大華", "陳小美 / 醫技118", "吳小天"].map(parseImportedName),
+      parsed: ["外文119 黃小明", "化學119李大華", "陳小美 / 醫技118", "吳小天", "資工二 黃小明", "外文系碩一 李大華", "丁一 陳小美"].map(parseImportedName),
       supplements: people.supplements,
       candidates: people.candidates,
       attendance: activity.attendance.map((record) => [record.personId, record.paid]),
@@ -319,7 +319,10 @@ test("imports match names that include department and grade labels", async ({ pa
     { name: "黃小明", department: "外文119" },
     { name: "李大華", department: "化學119" },
     { name: "陳小美", department: "醫技118" },
-    { name: "吳小天", department: "" }
+    { name: "吳小天", department: "" },
+    { name: "黃小明", department: "資工二" },
+    { name: "李大華", department: "外文系碩一" },
+    { name: "丁一 陳小美", department: "" }
   ]);
   expect(result.supplements).toEqual([{ id: "person-1", department: "外文119", email: "" }]);
   expect(result.candidates).toEqual([{ name: "張小強", studentId: "B44444444", department: "資訊116", email: "" }]);

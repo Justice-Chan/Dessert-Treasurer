@@ -10,6 +10,9 @@ function parseImportedName(value) {
   if (labelFirst && labelFirst[2].trim()) return { name: labelFirst[2].replace(/[()（）\[\]]/g, "").trim(), department: labelFirst[1].replace(/[()（）\[\]]/g, "").trim() };
   const nameFirst = text.match(new RegExp(`^([^\\d]+?)[\\s\\-_/|,，、:：(（\\[]+(\\S*\\d+(?:年級|級|年|[甲乙丙丁A-Za-z])?)[)）\\]]?$`));
   if (nameFirst && nameFirst[1].trim()) return { name: nameFirst[1].trim(), department: nameFirst[2].trim() };
+  // Grades written without digits, e.g. "資工二 黃小明" or "外文系碩一 黃小明"; a space is required so names stay intact.
+  const wordGrade = text.match(/^(\S{2,}?(?:碩|博)?[一二三四五六](?:年級|年|級)?[甲乙丙丁]?班?) (\S.*)$/);
+  if (wordGrade) return { name: wordGrade[2].trim(), department: wordGrade[1] };
   return { name: text, department: "" };
 }
 
