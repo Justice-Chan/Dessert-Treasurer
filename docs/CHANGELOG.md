@@ -2,7 +2,7 @@
 
 All notable user-facing changes are recorded here.
 
-## Unreleased
+## 0.2.2
 
 - Replaced the activity roster's visible payment-time field with editable transfer-account last five digits; payment times remain stored for automatic paid-participant ordering.
 - Added configurable spreadsheet headers for transfer-account suffixes and included the values in full backups.
