@@ -40,6 +40,18 @@ function blockCake(layers) {
   return cake;
 }
 
+// Landing page art: flat discs in the dark, the block cake in the light.
+function renderLandingArt(container, theme) {
+  if (theme === "cake") {
+    container.replaceChildren(blockCake(cakeLayers(sampleLayers)));
+    return;
+  }
+  const orbs = document.createElement("div");
+  orbs.className = "orbs";
+  orbs.append(document.createElement("span"), document.createElement("span"));
+  container.replaceChildren(orbs);
+}
+
 function renderCake(container, items, theme) {
   const layers = cakeLayers(items.length ? items : sampleLayers);
   if (theme === "cake") {

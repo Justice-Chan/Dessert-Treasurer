@@ -7,8 +7,11 @@ const viewLabels = { overview: "OVERVIEW", myClaims: "MY CLAIMS", claimForm: "NE
 // Summary rows with these labels feed the hero; every other row is a spending category.
 const balanceLabel = "帳面餘額";
 const chipLabels = ["本月收入", "本月支出", "待處理報銷"];
-const themes = { dark: "深色 ASCII", cake: "甜點色塊" };
-const themeKey = "dashboard-theme";
+// "dark" and "cake" are the dark and light looks. The system setting picks one
+// unless the user has flipped the toggle, which is remembered under themeKey.
+const themeNames = ["dark", "cake"];
+const themeKey = "dashboard-theme-override";
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 const imageLongSide = 1600;
 const otherCategory = "其他";
 
@@ -26,6 +29,7 @@ function show(view) {
   const signedOut = view === "signedOut";
   $("#signedOut").hidden = !signedOut;
   $("#app").hidden = signedOut;
+  $("#glyphField").hidden = signedOut;
   Object.keys(viewLabels).forEach((id) => { $(`#${id}`).hidden = id !== view; });
   const section = view === "detail" ? "review" : view;
   document.querySelectorAll("#drawer [data-nav]").forEach((button) => {
@@ -64,18 +68,27 @@ function currentTheme() {
   return document.documentElement.dataset.theme;
 }
 
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = themes[theme] ? theme : "dark";
-  try { localStorage.setItem(themeKey, currentTheme()); } catch (error) { /* private mode: keep for this visit only */ }
-  $("#themeToggle").textContent = `外觀：${themes[currentTheme()]}`;
+function storedTheme() {
+  try {
+    const stored = localStorage.getItem(themeKey);
+    return themeNames.includes(stored) ? stored : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function applyTheme(theme = storedTheme() || (systemDark.matches ? "dark" : "cake")) {
+  document.documentElement.dataset.theme = theme;
   glyphField?.recolor();
-  renderCake($("#landingArt"), [], currentTheme());
+  renderLandingArt($("#landingArt"), theme);
   renderSummary(summaryItems);
   renderSignInButton();
 }
 
-function storedTheme() {
-  try { return localStorage.getItem(themeKey); } catch (error) { return null; }
+function toggleTheme() {
+  const theme = currentTheme() === "dark" ? "cake" : "dark";
+  try { localStorage.setItem(themeKey, theme); } catch (error) { /* private mode: lasts for this visit only */ }
+  applyTheme(theme);
 }
 
 function element(tag, className, text) {
@@ -128,7 +141,7 @@ async function handleCredential(response) {
     const user = await callBackend("whoami");
     categories = user.categories || {};
     limits = { ...limits, ...user.limits };
-    $("#userLabel").textContent = `${user.name || user.email}・${roleText[user.role] || user.role}`;
+    $("#userLabel").textContent = roleText[user.role] || user.role;
     $("#navReview").hidden = user.role !== "treasurer";
     $("#heroReview").hidden = user.role !== "treasurer";
     fillParentOptions();
@@ -507,7 +520,8 @@ async function submitClaim(event) {
 }
 
 $("#signOut").addEventListener("click", signOut);
-$("#themeToggle").addEventListener("click", () => applyTheme(currentTheme() === "dark" ? "cake" : "dark"));
+$("#themeToggle").addEventListener("click", toggleTheme);
+systemDark.addEventListener("change", () => applyTheme());
 $("#menuButton").addEventListener("click", () => setDrawer(true));
 $("#scrim").addEventListener("click", () => setDrawer(false));
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") setDrawer(false); });
@@ -524,4 +538,4 @@ $("#claimCancel").addEventListener("click", () => navigate("overview"));
 $("#claimForm").addEventListener("submit", submitClaim);
 
 glyphField = startGlyphField($("#glyphField"));
-applyTheme(storedTheme() || "dark");
+applyTheme();

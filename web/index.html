@@ -8,19 +8,20 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <canvas id="glyphField" aria-hidden="true"></canvas>
+  <canvas id="glyphField" aria-hidden="true" hidden></canvas>
 
   <section class="landing" id="signedOut">
     <header class="landing-top">
-      <span class="brand">甜點社</span>
+      <span class="brand">成功大學甜點社</span>
       <span class="mono">DESSERT TREASURER</span>
     </header>
     <div class="landing-body">
-      <p class="mono eyebrow">CLUB LEDGER</p>
-      <h1>每一筆甜點的帳，<br>都看得見。</h1>
-      <p class="lede">送出報帳、追蹤審核進度、查看社團財務。</p>
+      <p class="eyebrow-row">
+        <span class="mono eyebrow">CLUB LEDGER</span>
+        <span class="lede">送出報帳、追蹤審核進度、查看社團財務。</span>
+      </p>
+      <h1>NCKU<br>Dessert Club</h1>
       <div id="signInButton"></div>
-      <p class="subtle">請用已登記的 Google 帳號登入。</p>
     </div>
     <div class="art landing-art" id="landingArt" aria-hidden="true"></div>
   </section>
@@ -40,7 +41,9 @@
       </ul>
       <div class="drawer-foot">
         <p class="subtle" id="userLabel"></p>
-        <button type="button" class="link" id="themeToggle"></button>
+        <button type="button" class="icon" id="themeToggle" aria-label="切換明暗模式">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+        </button>
         <button type="button" class="link" id="signOut">登出</button>
       </div>
     </nav>

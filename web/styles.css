@@ -76,12 +76,21 @@ h1, h2, p { margin: 0; }
 
 .landing-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .landing-body { align-self: center; max-width: 640px; padding: 40px 0; }
-.eyebrow { margin-bottom: 14px; color: var(--accent); }
+.eyebrow { color: var(--accent); }
+.eyebrow-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 14px; }
+.hero .eyebrow { margin-bottom: 14px; }
 .landing h1 { font-size: clamp(2.125rem, 9vw, 4rem); line-height: 1.15; letter-spacing: -0.01em; font-weight: 700; }
-.lede { margin: 18px 0 28px; color: var(--muted); font-size: 1.0625rem; }
+.lede { color: var(--muted); font-size: 0.9375rem; }
+.landing h1 { margin-bottom: 32px; }
 #signInButton { min-height: 44px; margin-bottom: 12px; }
 .landing-art { justify-self: end; opacity: 0.85; }
 .landing-art .block-cake { width: 220px; }
+
+/* Flat overlapping discs that bleed off the corner of the dark landing page. */
+.orbs { position: relative; width: 300px; height: 300px; margin: 0 -110px -130px 0; }
+.orbs span { position: absolute; border-radius: 50%; }
+.orbs span:first-child { inset: 0; background: #c8792b; }
+.orbs span:last-child { inset: 44px; background: #e9a650; }
 
 /* ---- Shell ---- */
 
@@ -116,8 +125,9 @@ h1, h2, p { margin: 0; }
 }
 #drawer li button[aria-current="page"] { border-color: var(--line); background: var(--field); }
 #drawer li button .mono { letter-spacing: 0.04em; }
-.drawer-foot { margin-top: auto; display: grid; justify-items: start; gap: 2px; padding: 0 8px; }
-.drawer-foot p { overflow-wrap: anywhere; margin-bottom: 6px; }
+.drawer-foot { margin-top: auto; display: flex; align-items: center; gap: 4px; padding: 0 8px; }
+.drawer-foot p { flex: 1; }
+.drawer-foot .icon { color: var(--muted); }
 
 .shell { position: relative; z-index: 1; min-height: 100vh; }
 
