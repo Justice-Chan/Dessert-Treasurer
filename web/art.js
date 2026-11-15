@@ -61,7 +61,7 @@ function renderMotes(container, count = 18) {
   }));
 }
 
-// Landing page art, ray-marched into text: a cookie and a macaron on the left,
+// Landing page art, ray-marched into text: a plate of macarons and cookies on the left,
 // a turning cake on the right.
 let landingScenes = null;
 
@@ -120,51 +120,67 @@ function cakeScene() {
   };
 }
 
+// A slowly turning plate piled with macarons and chocolate-chip cookies.
 function treatsScene() {
-  const chips = [[0, 0], [0.2, 0.12], [-0.18, 0.16], [-0.1, -0.22], [0.17, -0.17]];
-  let cookie = {};
-  let macaron = {};
-  let dCookie = 0, dShell = 0, dFill = 0;
-  let chipX = 0, chipZ = 0, cookieFace = 0, macaronAlong = 0;
+  const chips = [[0, 0], [0.15, 0.09], [-0.13, 0.12], [-0.07, -0.16], [0.12, -0.13]];
+  const plateTop = -0.37;
+  const unit = (x, y, z) => { const n = Math.hypot(x, y, z); return [x / n, y / n, z / n]; };
+  // Each treat: centre and axis in the plate's own frame.
+  const item = (kind, x, y, z, axis = [0, 1, 0]) => {
+    const side = unit(axis[1], -axis[0], 0.001);
+    const other = [axis[1] * side[2] - axis[2] * side[1], axis[2] * side[0] - axis[0] * side[2], axis[0] * side[1] - axis[1] * side[0]];
+    return { kind, x, y, z, axis, side, other };
+  };
+  const items = [
+    item("macaron", -0.42, plateTop + 0.17, 0.3),
+    item("macaron", 0.25, plateTop + 0.17, 0.42),
+    item("macaron", -0.05, plateTop + 0.17, -0.4),
+    item("macaron", -0.02, plateTop + 0.5, 0.12, unit(0.3, 0.9, 0.2)),
+    item("cookie", 0.55, plateTop + 0.05, -0.18),
+    item("cookie", 0.5, plateTop + 0.15, -0.14, unit(0.08, 1, 0.05)),
+    item("cookie", -0.6, plateTop + 0.25, -0.22, unit(-0.8, 0.55, -0.2))
+  ];
+  let spinCos = 1, spinSin = 0;
+  let part = "";
+  let along = 0, chipX = 0, chipZ = 0;
   return {
-    cols: 46, rows: 17, lift: 0,
+    cols: 52, rows: 18, lift: -0.2,
     update(seconds) {
-      const sway = 0.5 * Math.sin(seconds * 0.8);
-      const lean = 0.63 + 0.2 * Math.sin(seconds * 0.6);
-      const axis = [Math.sin(sway) * Math.cos(lean), Math.sin(lean), Math.cos(sway) * Math.cos(lean)];
-      const e1 = [axis[2], 0, -axis[0]];
-      const length = Math.hypot(e1[0], e1[2]);
-      e1[0] /= length; e1[2] /= length;
-      const e2 = [axis[1] * e1[2], axis[2] * e1[0] - axis[0] * e1[2], -axis[1] * e1[0]];
-      cookie = { y: 0.08 * Math.sin(seconds * 1.3), e1, axis, e2, cos: Math.cos(seconds * 0.5), sin: Math.sin(seconds * 0.5) };
-      const tilt = 0.5 + 0.18 * Math.sin(seconds * 0.7);
-      const roll = 0.35 * Math.sin(seconds * 0.9);
-      macaron = {
-        y: 0.07 * Math.sin(seconds * 1.1 + 2),
-        axis: [Math.sin(roll) * Math.cos(tilt), Math.cos(roll) * Math.cos(tilt), Math.sin(tilt)]
-      };
+      spinCos = Math.cos(seconds * 0.35);
+      spinSin = Math.sin(seconds * 0.35);
     },
     distance(x, y, z) {
-      const qx = x + 0.52, qy = y - cookie.y;
-      const lx = qx * cookie.e1[0] + qy * cookie.e1[1] + z * cookie.e1[2];
-      const lz = qx * cookie.e2[0] + qy * cookie.e2[1] + z * cookie.e2[2];
-      cookieFace = qx * cookie.axis[0] + qy * cookie.axis[1] + z * cookie.axis[2];
-      chipX = lx * cookie.cos + lz * cookie.sin;
-      chipZ = -lx * cookie.sin + lz * cookie.cos;
-      dCookie = discDistance(Math.hypot(lx, lz), cookieFace, 0.42, 0, 0.07);
-      const mx = x - 0.52, my = y - macaron.y;
-      macaronAlong = mx * macaron.axis[0] + my * macaron.axis[1] + z * macaron.axis[2];
-      const radial = Math.sqrt(Math.max(0, mx * mx + my * my + z * z - macaronAlong * macaronAlong));
-      dShell = discDistance(radial, Math.abs(macaronAlong), 0.4, 0.17, 0.11, 0.09);
-      dFill = discDistance(radial, macaronAlong, 0.36, 0, 0.08);
-      return Math.min(dCookie, dShell, dFill);
+      const px = x * spinCos + z * spinSin;
+      const pz = -x * spinSin + z * spinCos;
+      const radial = Math.hypot(px, pz);
+      let nearest = Math.min(discDistance(radial, y, 1, plateTop - 0.03, 0.03, 0.02), Math.hypot(radial - 1, y - plateTop - 0.01) - 0.05);
+      part = "plate";
+      for (const treat of items) {
+        const qx = px - treat.x, qy = y - treat.y, qz = pz - treat.z;
+        const h = qx * treat.axis[0] + qy * treat.axis[1] + qz * treat.axis[2];
+        const r = Math.sqrt(Math.max(0, qx * qx + qy * qy + qz * qz - h * h));
+        if (treat.kind === "cookie") {
+          const d = discDistance(r, h, 0.3, 0, 0.05);
+          if (d < nearest) {
+            nearest = d; part = "cookie"; along = h;
+            chipX = qx * treat.side[0] + qy * treat.side[1] + qz * treat.side[2];
+            chipZ = qx * treat.other[0] + qy * treat.other[1] + qz * treat.other[2];
+          }
+          continue;
+        }
+        const shell = discDistance(r, Math.abs(h), 0.3, 0.115, 0.085, 0.07);
+        const filling = discDistance(r, h, 0.27, 0, 0.05);
+        if (shell < nearest) { nearest = shell; part = "shell"; along = h; }
+        if (filling < nearest) { nearest = filling; part = "filling"; }
+      }
+      return nearest;
     },
     tone() {
-      const nearest = Math.min(dCookie, dShell, dFill);
-      if (nearest === dFill) return 0.25;
-      if (nearest === dShell) return Math.abs(macaronAlong) < 0.11 ? 0.5 : 0.95;   // ruffled feet near the filling
-      const onChip = cookieFace > 0 && chips.some(([cx, cz]) => Math.hypot(chipX - cx, chipZ - cz) < 0.07);
-      return onChip ? 0.12 : 0.75;
+      if (part === "plate") return 0.3;
+      if (part === "filling") return 0.15;
+      if (part === "shell") return Math.abs(along) < 0.07 ? 0.5 : 0.95;      // ruffled feet near the filling
+      const onChip = Math.abs(along) > 0.03 && chips.some(([cx, cz]) => Math.hypot(chipX - cx, chipZ - cz) < 0.055);
+      return onChip ? 0.1 : 0.7;
     }
   };
 }
