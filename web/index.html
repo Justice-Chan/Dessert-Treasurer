@@ -11,22 +11,64 @@
   <main>
     <h1>甜點社報帳</h1>
 
-    <section id="signedOut">
+    <section class="card" id="signedOut">
       <p>請用已登記的 Google 帳號登入。</p>
       <div id="signInButton"></div>
     </section>
 
-    <section id="signedIn" hidden>
-      <dl>
-        <dt>帳號</dt><dd id="userEmail"></dd>
-        <dt>姓名</dt><dd id="userName"></dd>
-        <dt>角色</dt><dd id="userRole"></dd>
-      </dl>
-      <div class="actions">
-        <button type="button" class="primary" id="writeTest">寫入測試列</button>
-        <button type="button" id="signOut">登出</button>
+    <div id="home" hidden>
+      <div class="user-bar">
+        <span id="userLabel"></span>
+        <button type="button" class="link" id="signOut">登出</button>
       </div>
-    </section>
+
+      <button type="button" class="primary block" id="newClaim">新增報帳</button>
+
+      <section class="card" aria-labelledby="summaryTitle">
+        <h2 id="summaryTitle">社團財務</h2>
+        <dl class="summary" id="summaryList"></dl>
+        <p class="subtle" id="summaryEmpty" hidden>尚無資料。</p>
+      </section>
+
+      <section class="card" aria-labelledby="claimsTitle">
+        <h2 id="claimsTitle">我的申請</h2>
+        <ul class="claims" id="claimList"></ul>
+        <p class="subtle" id="claimsEmpty" hidden>還沒有送出過報帳。</p>
+      </section>
+    </div>
+
+    <form class="card" id="claimForm" hidden novalidate>
+      <h2>新增報帳</h2>
+      <label for="claimDate">消費日期</label>
+      <input id="claimDate" type="date" required>
+
+      <label for="claimAmount">金額（新台幣）</label>
+      <input id="claimAmount" type="number" inputmode="numeric" min="1" step="1" required>
+
+      <label for="claimParent">主項目</label>
+      <select id="claimParent" required></select>
+
+      <label for="claimChild">副項目</label>
+      <select id="claimChild" required></select>
+
+      <label for="claimActivity">活動／社課<span class="subtle">（選填）</span></label>
+      <input id="claimActivity" maxlength="60" autocomplete="off">
+
+      <label for="claimVendor">店家<span class="subtle">（選填）</span></label>
+      <input id="claimVendor" maxlength="60" autocomplete="off" placeholder="例如：全聯、網購">
+
+      <label for="claimDescription">說明<span class="subtle">（選填）</span></label>
+      <textarea id="claimDescription" maxlength="300" rows="3"></textarea>
+
+      <label for="claimFiles">收據照片或 PDF</label>
+      <input id="claimFiles" type="file" accept="image/*,application/pdf" multiple required>
+      <p class="subtle" id="claimFilesHint"></p>
+
+      <div class="actions">
+        <button type="button" id="claimCancel">取消</button>
+        <button type="submit" class="primary" id="claimSubmit">送出</button>
+      </div>
+    </form>
 
     <p id="message" role="status" aria-live="polite"></p>
   </main>
