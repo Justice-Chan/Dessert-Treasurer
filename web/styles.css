@@ -70,6 +70,8 @@ button {
 button.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 600; }
 button.block { display: block; width: 100%; min-height: 52px; margin-bottom: 16px; font-size: 1.0625rem; }
 button.link { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--accent); flex: none; }
+button.danger { color: var(--error); }
+.claims button.link { padding: 0; }
 button:disabled { opacity: 0.6; cursor: default; }
 
 .actions { display: flex; gap: 8px; margin-top: 20px; }

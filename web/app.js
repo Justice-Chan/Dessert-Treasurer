@@ -127,9 +127,29 @@ function renderClaims(claims) {
     bottom.append(element("span", "claim-meta", details), element("span", `pill ${statusClass[claim.status] || ""}`, claim.status));
     item.append(top, bottom);
     if (claim.reviewNote) item.append(element("div", "claim-note", `審核備註：${claim.reviewNote}`));
+    if (claim.canWithdraw) {
+      const button = element("button", "link danger", "撤銷這筆申請");
+      button.type = "button";
+      button.addEventListener("click", () => withdrawClaim(claim, button));
+      item.append(button);
+    }
     return item;
   }));
   $("#claimsEmpty").hidden = claims.length > 0;
+}
+
+async function withdrawClaim(claim, button) {
+  const summary = `${claim.parent} / ${claim.child}　${money.format(claim.amount)}`;
+  if (!window.confirm(`確定要撤銷這筆申請嗎？\n${summary}\n撤銷後申請和收據都會刪除。`)) return;
+  button.disabled = true;
+  showMessage("撤銷中…");
+  try {
+    await callBackend("withdrawRequest", { id: claim.id });
+    showMessage("已撤銷這筆申請。");
+  } catch (error) {
+    reportError(error);
+  }
+  await loadHome();
 }
 
 // ---- New claim ----

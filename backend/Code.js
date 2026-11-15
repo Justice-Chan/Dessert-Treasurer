@@ -23,6 +23,9 @@ const SUMMARY_HEADER = ["項目", "金額"];
 const ROLES = { "總務": "treasurer", "幹部": "officer" };
 const TOKEN_ISSUERS = ["accounts.google.com", "https://accounts.google.com"];
 const STATUS_PENDING = "待審核";
+const STATUS_REJECTED = "退回";
+// A claim can be withdrawn until it is approved; afterwards the treasurer handles it.
+const WITHDRAWABLE = [STATUS_PENDING, STATUS_REJECTED];
 const OTHER_CATEGORY = "其他";
 
 // Mirrors the expense categories in frontend/js/core/state.js so synced claims fit the app.
@@ -60,6 +63,7 @@ const ACTIONS = {
   }),
   submitRequest,
   listMyRequests,
+  withdrawRequest,
   getSummary
 };
 
@@ -352,9 +356,35 @@ function listMyRequests(user) {
       description: cellText(row[COL["說明"]]),
       attachmentCount: cellText(row[COL["附件"]]).split(",").filter(Boolean).length,
       status: cellText(row[COL["狀態"]]),
+      canWithdraw: WITHDRAWABLE.includes(cellText(row[COL["狀態"]])),
       reviewNote: cellText(row[COL["審核備註"]])
     }))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+// Removes the claim row and moves its receipts to the Drive trash (recoverable for 30 days).
+// The log row is the only remaining trace, and tells the app sync which id disappeared.
+function withdrawRequest(user, payload) {
+  const id = typeof payload.id === "string" ? payload.id.trim() : "";
+  const missing = () => appError("not_found", "找不到這筆申請，可能已經被撤銷。");
+  if (!id) throw missing();
+  const fileIds = withLock(() => {
+    const rows = dataRows(CLAIM_SHEET, CLAIM_HEADER.length);
+    const index = rows.findIndex((row) => cellText(row[COL["id"]]) === id);
+    const row = rows[index];
+    const allowed = row && (user.role === "treasurer" || cellText(row[COL["申請人 email"]]).toLowerCase() === user.email);
+    if (!allowed) throw missing();
+    if (!WITHDRAWABLE.includes(cellText(row[COL["狀態"]]))) {
+      throw appError("invalid", "已核准或已付款的申請不能撤銷，請聯絡總務。");
+    }
+    tab(CLAIM_SHEET).deleteRow(index + 2);
+    appendLog(user.email, "withdrawRequest", id);
+    return cellText(row[COL["附件"]]).split(",").filter(Boolean);
+  });
+  fileIds.forEach((fileId) => {
+    try { DriveApp.getFileById(fileId).setTrashed(true); } catch (error) { console.error(error); }
+  });
+  return { id };
 }
 
 // Totals only; the summary tab must never hold personal data.
