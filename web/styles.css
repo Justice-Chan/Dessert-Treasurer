@@ -86,6 +86,24 @@ h1, h2, p { margin: 0; }
 .landing-art { justify-self: end; opacity: 0.85; }
 .landing-art .block-cake { width: 220px; }
 
+/* Small dots that rise slowly through the empty part of the landing page. */
+.landing > :not(.motes) { position: relative; z-index: 1; }
+.motes { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.mote { position: absolute; border-radius: 50%; background: var(--accent); opacity: 0; animation: mote-rise linear infinite; }
+:root[data-theme="cake"] .mote:nth-child(3n) { background: #f4c0d1; }
+:root[data-theme="cake"] .mote:nth-child(3n + 1) { background: #fac775; }
+
+@keyframes mote-rise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  15% { opacity: var(--peak); }
+  85% { opacity: var(--peak); }
+  100% { transform: translate(var(--sway), -32vh); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mote { animation: none; opacity: var(--peak); }
+}
+
 /* Flat overlapping discs that bleed off the corner of the dark landing page. */
 .orbs { position: relative; width: 300px; height: 300px; margin: 0 -110px -130px 0; }
 .orbs > * { position: absolute; border-radius: 50%; }

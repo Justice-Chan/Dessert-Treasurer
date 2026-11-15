@@ -40,6 +40,27 @@ function blockCake(layers) {
   return cake;
 }
 
+// Scatters dots over the landing page; each gets its own size, pace and starting point.
+function renderMotes(container, count = 18) {
+  container.replaceChildren(...Array.from({ length: count }, () => {
+    const mote = document.createElement("span");
+    const size = 3 + Math.random() * 9;
+    const duration = 14 + Math.random() * 16;
+    mote.className = "mote";
+    mote.style.cssText = [
+      `left: ${(Math.random() * 100).toFixed(1)}%`,
+      `top: ${(20 + Math.random() * 80).toFixed(1)}%`,
+      `width: ${size.toFixed(1)}px`,
+      `height: ${size.toFixed(1)}px`,
+      `--peak: ${(0.18 + Math.random() * 0.4).toFixed(2)}`,
+      `--sway: ${Math.round((Math.random() - 0.5) * 80)}px`,
+      `animation-duration: ${duration.toFixed(1)}s`,
+      `animation-delay: -${(Math.random() * duration).toFixed(1)}s`
+    ].join("; ");
+    return mote;
+  }));
+}
+
 // Landing page art: flat discs in the dark, the block cake in the light.
 function renderLandingArt(container, theme) {
   if (theme === "cake") {

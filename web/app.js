@@ -539,4 +539,5 @@ $("#claimCancel").addEventListener("click", () => navigate("overview"));
 $("#claimForm").addEventListener("submit", submitClaim);
 
 glyphField = startGlyphField($("#glyphField"));
+renderMotes($("#landingMotes"));
 applyTheme();
