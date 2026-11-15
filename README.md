@@ -126,6 +126,7 @@ See [Architecture](docs/ARCHITECTURE.md) for the source map and build flow. Edit
 | [User guide](docs/USER_GUIDE.md) | Install on macOS or Windows, find stored data, and manage backups and recovery. |
 | [Development](docs/DEVELOPMENT.md) | Set up tools, run tests, build installers, and prepare releases. |
 | [Architecture](docs/ARCHITECTURE.md) | Navigate the frontend, native code, and build flow. |
+| [Web dashboard](docs/WEB_DASHBOARD.md) | Status, deployment and remaining work for the online reimbursement dashboard. |
 | [Changelog](docs/CHANGELOG.md) | Review changes between versions. |
 
 For bugs and suggestions, [open an issue](https://github.com/Justice-Chan/Dessert-Treasurer/issues). Do not include real financial records, member details, or backups. Read [Contributing](docs/CONTRIBUTING.md) before opening a pull request; report security or data-safety concerns privately through [Security](docs/SECURITY.md).
