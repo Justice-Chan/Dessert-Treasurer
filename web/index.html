@@ -23,6 +23,7 @@
       </div>
 
       <button type="button" class="primary block" id="newClaim">新增報帳</button>
+      <button type="button" class="block" id="openReview" hidden>審核報帳</button>
 
       <section class="card" aria-labelledby="summaryTitle">
         <h2 id="summaryTitle">社團財務</h2>
@@ -71,6 +72,50 @@
         <button type="submit" class="primary" id="claimSubmit">送出</button>
       </div>
     </form>
+
+    <div id="review" hidden>
+      <div class="toolbar">
+        <button type="button" class="link" id="reviewBack">‹ 返回首頁</button>
+        <select id="reviewStatus" aria-label="依狀態篩選">
+          <option value="待審核">待審核</option>
+          <option value="已核准">已核准</option>
+          <option value="退回">退回</option>
+          <option value="已付款">已付款</option>
+          <option value="">全部</option>
+        </select>
+      </div>
+      <section class="card" aria-labelledby="reviewTitle">
+        <h2 id="reviewTitle">報帳申請</h2>
+        <ul class="claims" id="reviewList"></ul>
+        <p class="subtle" id="reviewEmpty" hidden>沒有符合的申請。</p>
+      </section>
+    </div>
+
+    <div id="detail" hidden>
+      <div class="toolbar">
+        <button type="button" class="link" id="detailBack">‹ 返回清單</button>
+      </div>
+      <section class="card" aria-labelledby="detailTitle">
+        <h2 id="detailTitle">申請內容</h2>
+        <dl class="fields" id="detailFields"></dl>
+      </section>
+      <section class="card" aria-labelledby="receiptsTitle">
+        <h2 id="receiptsTitle">收據</h2>
+        <div id="detailAttachments"></div>
+      </section>
+      <section class="card" id="detailActions">
+        <div id="reviewControls">
+          <label for="reviewNote">審核備註<span class="subtle">（退回時必填）</span></label>
+          <textarea id="reviewNote" maxlength="300" rows="2"></textarea>
+          <div class="actions">
+            <button type="button" id="rejectClaim">退回</button>
+            <button type="button" class="primary" id="approveClaim">核准</button>
+          </div>
+        </div>
+        <button type="button" class="link danger" id="withdrawFromDetail">撤銷這筆申請</button>
+        <p class="subtle" id="detailLocked" hidden>這筆申請已付款，只能在記帳 app 裡調整。</p>
+      </section>
+    </div>
 
     <p id="message" role="status" aria-live="polite"></p>
   </main>

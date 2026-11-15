@@ -23,9 +23,15 @@ const SUMMARY_HEADER = ["項目", "金額"];
 const ROLES = { "總務": "treasurer", "幹部": "officer" };
 const TOKEN_ISSUERS = ["accounts.google.com", "https://accounts.google.com"];
 const STATUS_PENDING = "待審核";
+const STATUS_APPROVED = "已核准";
 const STATUS_REJECTED = "退回";
 // A claim can be withdrawn until it is approved; afterwards the treasurer handles it.
 const WITHDRAWABLE = [STATUS_PENDING, STATUS_REJECTED];
+// Review decisions and the statuses each may start from. 已付款 is set only by the app sync.
+const DECISIONS = {
+  approve: { from: [STATUS_PENDING, STATUS_REJECTED], to: STATUS_APPROVED },
+  reject: { from: [STATUS_PENDING, STATUS_APPROVED], to: STATUS_REJECTED }
+};
 const OTHER_CATEGORY = "其他";
 
 // Mirrors the expense categories in frontend/js/core/state.js so synced claims fit the app.
@@ -64,6 +70,9 @@ const ACTIONS = {
   submitRequest,
   listMyRequests,
   withdrawRequest,
+  getAttachment,
+  listAllRequests,
+  reviewRequest,
   getSummary
 };
 
@@ -341,45 +350,129 @@ function submitRequest(user, payload) {
   return { id };
 }
 
+function claimFromRow(row) {
+  const status = cellText(row[COL["狀態"]]);
+  return {
+    id: cellText(row[COL["id"]]),
+    createdAt: cellText(row[COL["建立時間"]]),
+    date: cellText(row[COL["消費日期"]]),
+    amount: Number(row[COL["金額"]]) || 0,
+    parent: cellText(row[COL["主項目"]]),
+    child: cellText(row[COL["副項目"]]),
+    activity: cellText(row[COL["活動／社課"]]),
+    vendor: cellText(row[COL["店家"]]),
+    description: cellText(row[COL["說明"]]),
+    attachmentCount: attachmentIds(row).length,
+    status,
+    canWithdraw: WITHDRAWABLE.includes(status),
+    reviewNote: cellText(row[COL["審核備註"]])
+  };
+}
+
+function attachmentIds(row) {
+  return cellText(row[COL["附件"]]).split(",").filter(Boolean);
+}
+
+function ownsRow(user, row) {
+  return cellText(row[COL["申請人 email"]]).toLowerCase() === user.email;
+}
+
+function newestFirst(a, b) {
+  return b.createdAt.localeCompare(a.createdAt);
+}
+
+function requireTreasurer(user) {
+  if (user.role !== "treasurer") throw appError("forbidden", "只有總務可以執行這個操作。");
+}
+
+function missingClaim() {
+  return appError("not_found", "找不到這筆申請，可能已經被撤銷。");
+}
+
 function listMyRequests(user) {
   return dataRows(CLAIM_SHEET, CLAIM_HEADER.length)
-    .filter((row) => cellText(row[COL["申請人 email"]]).toLowerCase() === user.email)
-    .map((row) => ({
-      id: cellText(row[COL["id"]]),
-      createdAt: cellText(row[COL["建立時間"]]),
-      date: cellText(row[COL["消費日期"]]),
-      amount: Number(row[COL["金額"]]) || 0,
-      parent: cellText(row[COL["主項目"]]),
-      child: cellText(row[COL["副項目"]]),
-      activity: cellText(row[COL["活動／社課"]]),
-      vendor: cellText(row[COL["店家"]]),
-      description: cellText(row[COL["說明"]]),
-      attachmentCount: cellText(row[COL["附件"]]).split(",").filter(Boolean).length,
-      status: cellText(row[COL["狀態"]]),
-      canWithdraw: WITHDRAWABLE.includes(cellText(row[COL["狀態"]])),
-      reviewNote: cellText(row[COL["審核備註"]])
-    }))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .filter((row) => ownsRow(user, row))
+    .map(claimFromRow)
+    .sort(newestFirst);
+}
+
+// ---- Treasurer review ----
+
+function listAllRequests(user, payload) {
+  requireTreasurer(user);
+  const status = typeof payload.status === "string" ? payload.status : "";
+  return dataRows(CLAIM_SHEET, CLAIM_HEADER.length)
+    .filter((row) => !status || cellText(row[COL["狀態"]]) === status)
+    .map((row) => {
+      const claim = claimFromRow(row);
+      return {
+        ...claim,
+        applicantEmail: cellText(row[COL["申請人 email"]]),
+        applicantName: cellText(row[COL["申請人姓名"]]),
+        reviewer: cellText(row[COL["審核人"]]),
+        reviewedAt: cellText(row[COL["審核時間"]]),
+        canApprove: DECISIONS.approve.from.includes(claim.status),
+        canReject: DECISIONS.reject.from.includes(claim.status)
+      };
+    })
+    .sort(newestFirst);
+}
+
+function reviewRequest(user, payload) {
+  requireTreasurer(user);
+  const id = typeof payload.id === "string" ? payload.id.trim() : "";
+  const decision = Object.prototype.hasOwnProperty.call(DECISIONS, payload.decision) ? DECISIONS[payload.decision] : null;
+  if (!decision) throw appError("bad_request", "不支援的審核動作。");
+  const note = requiredText(payload.note, LIMITS.description, "審核備註", decision.to === STATUS_REJECTED);
+  return withLock(() => {
+    const rows = dataRows(CLAIM_SHEET, CLAIM_HEADER.length);
+    const index = rows.findIndex((row) => cellText(row[COL["id"]]) === id);
+    if (!id || index < 0) throw missingClaim();
+    const status = cellText(rows[index][COL["狀態"]]);
+    if (!decision.from.includes(status)) throw appError("invalid", `這筆申請目前是「${status}」，無法執行這個動作。`);
+    const now = new Date().toISOString();
+    // 狀態 through 更新時間 are the last five columns, written as one range.
+    tab(CLAIM_SHEET).getRange(index + 2, COL["狀態"] + 1, 1, 5)
+      .setValues([[decision.to, user.email, now, note, now].map(safeCell)]);
+    appendLog(user.email, `reviewRequest:${payload.decision}`, id);
+    return { id, status: decision.to };
+  });
+}
+
+// Receipts are served through the backend, so nobody needs direct access to the Drive folder.
+// The caller names a claim and a position, never a Drive file id.
+function getAttachment(user, payload) {
+  const id = typeof payload.id === "string" ? payload.id.trim() : "";
+  const row = dataRows(CLAIM_SHEET, CLAIM_HEADER.length).find((cells) => cellText(cells[COL["id"]]) === id);
+  if (!id || !row || !(user.role === "treasurer" || ownsRow(user, row))) throw missingClaim();
+  const fileId = Number.isInteger(payload.index) ? attachmentIds(row)[payload.index] : null;
+  if (!fileId) throw appError("not_found", "找不到這個附件。");
+  let blob;
+  try {
+    blob = DriveApp.getFileById(fileId).getBlob();
+  } catch (error) {
+    console.error(error);
+    throw appError("not_found", "附件已不在雲端硬碟，可能被移動或刪除。");
+  }
+  return { name: blob.getName(), type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) };
 }
 
 // Removes the claim row and moves its receipts to the Drive trash (recoverable for 30 days).
 // The log row is the only remaining trace, and tells the app sync which id disappeared.
 function withdrawRequest(user, payload) {
   const id = typeof payload.id === "string" ? payload.id.trim() : "";
-  const missing = () => appError("not_found", "找不到這筆申請，可能已經被撤銷。");
-  if (!id) throw missing();
+  if (!id) throw missingClaim();
   const fileIds = withLock(() => {
     const rows = dataRows(CLAIM_SHEET, CLAIM_HEADER.length);
     const index = rows.findIndex((row) => cellText(row[COL["id"]]) === id);
     const row = rows[index];
-    const allowed = row && (user.role === "treasurer" || cellText(row[COL["申請人 email"]]).toLowerCase() === user.email);
-    if (!allowed) throw missing();
+    if (!row || !(user.role === "treasurer" || ownsRow(user, row))) throw missingClaim();
     if (!WITHDRAWABLE.includes(cellText(row[COL["狀態"]]))) {
       throw appError("invalid", "已核准或已付款的申請不能撤銷，請聯絡總務。");
     }
     tab(CLAIM_SHEET).deleteRow(index + 2);
     appendLog(user.email, "withdrawRequest", id);
-    return cellText(row[COL["附件"]]).split(",").filter(Boolean);
+    return attachmentIds(row);
   });
   fileIds.forEach((fileId) => {
     try { DriveApp.getFileById(fileId).setTrashed(true); } catch (error) { console.error(error); }

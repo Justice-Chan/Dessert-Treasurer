@@ -3,13 +3,15 @@ const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat("zh-TW", { style: "currency", currency: "TWD", maximumFractionDigits: 0 });
 const roleText = { treasurer: "總務", officer: "幹部" };
 const statusClass = { "待審核": "pending", "已核准": "approved", "已付款": "paid", "退回": "rejected" };
-const views = ["signedOut", "home", "claimForm"];
+const views = ["signedOut", "home", "claimForm", "review", "detail"];
 const imageLongSide = 1600;
 const otherCategory = "其他";
 
 // Kept in memory only, so closing the tab signs the user out.
 let idToken = "";
 let categories = {};
+let currentClaim = null;
+let receiptUrls = [];
 let limits = { files: 5, fileBytes: 5 * 1024 * 1024, category: 30 };
 
 function show(view) {
@@ -75,6 +77,7 @@ async function handleCredential(response) {
     categories = user.categories || {};
     limits = { ...limits, ...user.limits };
     $("#userLabel").textContent = `${user.name || user.email}・${roleText[user.role] || user.role}`;
+    $("#openReview").hidden = user.role !== "treasurer";
     fillParentOptions();
     show("home");
     showMessage("");
@@ -120,12 +123,7 @@ function renderSummary(items) {
 function renderClaims(claims) {
   $("#claimList").replaceChildren(...claims.map((claim) => {
     const item = element("li");
-    const top = element("div", "claim-line");
-    top.append(element("span", "", `${claim.parent} / ${claim.child}`), element("strong", "", money.format(claim.amount)));
-    const bottom = element("div", "claim-line");
-    const details = [claim.date, claim.vendor, claim.activity, claim.description].filter(Boolean).join("・");
-    bottom.append(element("span", "claim-meta", details), element("span", `pill ${statusClass[claim.status] || ""}`, claim.status));
-    item.append(top, bottom);
+    item.append(...claimLines(claim, [claim.date, claim.vendor, claim.activity, claim.description]));
     if (claim.reviewNote) item.append(element("div", "claim-note", `審核備註：${claim.reviewNote}`));
     if (claim.canWithdraw) {
       const button = element("button", "link danger", "撤銷這筆申請");
@@ -138,18 +136,142 @@ function renderClaims(claims) {
   $("#claimsEmpty").hidden = claims.length > 0;
 }
 
-async function withdrawClaim(claim, button) {
+async function withdrawClaim(claim, button, afterwards = loadHome) {
   const summary = `${claim.parent} / ${claim.child}　${money.format(claim.amount)}`;
   if (!window.confirm(`確定要撤銷這筆申請嗎？\n${summary}\n撤銷後申請和收據都會刪除。`)) return;
   button.disabled = true;
   showMessage("撤銷中…");
+  let failure = null;
   try {
     await callBackend("withdrawRequest", { id: claim.id });
-    showMessage("已撤銷這筆申請。");
+  } catch (error) {
+    failure = error;
+  }
+  button.disabled = false;
+  await afterwards();
+  if (failure) reportError(failure);
+  else showMessage("已撤銷這筆申請。");
+}
+
+// ---- Treasurer review ----
+
+function claimLines(claim, metaParts) {
+  const top = element("div", "claim-line");
+  top.append(element("span", "", `${claim.parent} / ${claim.child}`), element("strong", "", money.format(claim.amount)));
+  const bottom = element("div", "claim-line");
+  bottom.append(
+    element("span", "claim-meta", metaParts.filter(Boolean).join("・")),
+    element("span", `pill ${statusClass[claim.status] || ""}`, claim.status)
+  );
+  return [top, bottom];
+}
+
+async function openReview() {
+  clearReceipts();
+  show("review");
+  showMessage("載入中…");
+  try {
+    const claims = await callBackend("listAllRequests", { status: $("#reviewStatus").value });
+    $("#reviewList").replaceChildren(...claims.map((claim) => {
+      const row = element("button", "row");
+      row.type = "button";
+      row.append(...claimLines(claim, [claim.applicantName || claim.applicantEmail, claim.date]));
+      row.addEventListener("click", () => openDetail(claim));
+      const item = element("li");
+      item.append(row);
+      return item;
+    }));
+    $("#reviewEmpty").hidden = claims.length > 0;
+    showMessage("");
   } catch (error) {
     reportError(error);
   }
-  await loadHome();
+}
+
+function openDetail(claim) {
+  currentClaim = claim;
+  const applicant = claim.applicantName ? `${claim.applicantName}（${claim.applicantEmail}）` : claim.applicantEmail;
+  const fields = [
+    ["申請人", applicant],
+    ["消費日期", claim.date],
+    ["金額", money.format(claim.amount)],
+    ["分類", `${claim.parent} / ${claim.child}`],
+    ["活動／社課", claim.activity],
+    ["店家", claim.vendor],
+    ["說明", claim.description],
+    ["狀態", claim.status],
+    ["審核人", claim.reviewer],
+    ["審核備註", claim.reviewNote]
+  ].filter(([, value]) => value);
+  $("#detailFields").replaceChildren(...fields.flatMap(([label, value]) => [element("dt", "", label), element("dd", "", value)]));
+  $("#reviewNote").value = "";
+  $("#approveClaim").hidden = !claim.canApprove;
+  $("#rejectClaim").hidden = !claim.canReject;
+  $("#reviewControls").hidden = !claim.canApprove && !claim.canReject;
+  $("#withdrawFromDetail").hidden = !claim.canWithdraw;
+  $("#detailLocked").hidden = claim.canApprove || claim.canReject || claim.canWithdraw;
+  showMessage("");
+  show("detail");
+  loadReceipts(claim);
+}
+
+function clearReceipts() {
+  receiptUrls.forEach((url) => URL.revokeObjectURL(url));
+  receiptUrls = [];
+  currentClaim = null;
+  $("#detailAttachments").replaceChildren();
+}
+
+// Receipts come through the backend one at a time; a slow one does not block the others.
+async function loadReceipts(claim) {
+  const container = $("#detailAttachments");
+  container.replaceChildren(element("p", "subtle", claim.attachmentCount ? "載入收據中…" : "沒有附件。"));
+  for (let index = 0; index < claim.attachmentCount; index += 1) {
+    let node;
+    try {
+      const file = await callBackend("getAttachment", { id: claim.id, index });
+      const blob = await (await fetch(`data:${file.type};base64,${file.data}`)).blob();
+      const url = URL.createObjectURL(blob);
+      receiptUrls.push(url);
+      node = element("a", "receipt");
+      node.href = url;
+      node.target = "_blank";
+      node.rel = "noopener";
+      if (file.type === "image/jpeg" || file.type === "image/png") {
+        const image = element("img");
+        image.src = url;
+        image.alt = `收據 ${index + 1}`;
+        node.append(image);
+      } else {
+        node.textContent = `開啟附件 ${index + 1}（${file.name}）`;
+        node.download = file.name;
+      }
+    } catch (error) {
+      node = element("p", "claim-note", `附件 ${index + 1} 載入失敗：${error.message}`);
+    }
+    if (currentClaim !== claim) return;
+    if (index === 0) container.replaceChildren();
+    container.append(node);
+  }
+}
+
+async function reviewClaim(decision) {
+  const claim = currentClaim;
+  const note = $("#reviewNote").value.trim();
+  if (!claim) return;
+  if (decision === "reject" && !note) return showMessage("退回時請填寫審核備註，讓申請人知道原因。", true);
+  const buttons = [$("#approveClaim"), $("#rejectClaim")];
+  buttons.forEach((button) => { button.disabled = true; });
+  showMessage("處理中…");
+  try {
+    const result = await callBackend("reviewRequest", { id: claim.id, decision, note });
+    await openReview();
+    showMessage(`已將申請改為「${result.status}」。`);
+  } catch (error) {
+    reportError(error);
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+  }
 }
 
 // ---- New claim ----
@@ -280,6 +402,13 @@ async function submitClaim(event) {
 
 $("#signOut").addEventListener("click", signOut);
 $("#newClaim").addEventListener("click", openClaimForm);
+$("#openReview").addEventListener("click", openReview);
+$("#reviewStatus").addEventListener("change", openReview);
+$("#reviewBack").addEventListener("click", () => { clearReceipts(); showMessage(""); show("home"); loadHome(); });
+$("#detailBack").addEventListener("click", openReview);
+$("#approveClaim").addEventListener("click", () => reviewClaim("approve"));
+$("#rejectClaim").addEventListener("click", () => reviewClaim("reject"));
+$("#withdrawFromDetail").addEventListener("click", (event) => currentClaim && withdrawClaim(currentClaim, event.currentTarget, openReview));
 $("#claimParent").addEventListener("change", fillChildOptions);
 $("#claimChild").addEventListener("change", showOtherFields);
 $("#claimFiles").addEventListener("change", showSelectedFiles);
