@@ -14,7 +14,7 @@ Live site: <https://justice-chan.github.io/Dessert-Treasurer/>
 
 The dashboard posts `{action, idToken, payload}` to the backend. The backend verifies the Google ID token and checks the role in 權限表 on every call; the page hides controls only for convenience.
 
-Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder; receipts go into `YYYY-MM` subfolders by submission date). Run `checkSetup` in the Apps Script editor to diagnose a wrong value.
+Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder; receipts go into `YYYY-MM` subfolders by submission date), `SYNC_SECRET` (at least 32 random characters; the desktop app sends it instead of a Google sign-in). Run `checkSetup` in the Apps Script editor to diagnose a wrong value.
 
 ## Run and deploy
 
@@ -38,10 +38,11 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 
 - Statuses match the app: 待審核, 已核准, 已付款, 退回. Categories mirror the app's expense categories; 其他 accepts custom text.
 - Withdrawal: the applicant (own claims) or the treasurer (any claim) may withdraw while a claim is 待審核 or 退回. The row is deleted, receipts go to the Drive trash, and a row stays in 操作紀錄.
-- 已付款 is set only in the desktop app and written back on sync; the web locks paid claims.
+- 已付款 is recorded only in the desktop app and is not written back; the web shows such a claim as 已核准.
 - 財務彙總 holds aggregates only, written by the app on sync. Member data stays in the app; the Sheet holds name, Gmail and role.
 - The app keeps a link to each receipt and does not download photos.
 - No bank details are collected.
+- Sync: the web decides 待審核, 已核准 and 退回; the app decides 已付款. A claim the app has paid ignores later web status changes. A web claim deleted in the app stays in its trash and is not pulled again. The secret is stored in the app's data file and stripped from backups.
 
 ## Status
 
@@ -51,12 +52,12 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 | 1 Officer side: sign-in, submit, list, withdraw | Live, tested on a phone |
 | 2 Treasurer side: review, approve, reject, view receipts | Live; tested with stubbed data only, not yet with real claims |
 | Redesign: overview first, side navigation, light and dark themes, ASCII landing art | Live; phone performance of the landing animation not yet confirmed |
-| 3 App sync | Not started |
+| 3 App sync | Built and tested with mocked responses; backend not yet deployed or tried against the real Sheet |
 | 4 Handover guide, monthly backup, optional email | Not started |
 
 ## Remaining work
 
-**Phase 3, app sync.** The Tauri app pulls claims from the backend using an API secret (a new `syncPull` action), deduplicates by claim id, and removes claims that 操作紀錄 shows as withdrawn. It stores the Drive link in the claim's receipt field. It writes back 已付款 and the 財務彙總 rows the overview reads: 帳面餘額, 本月收入, 本月支出, 待處理報銷, plus one row per parent category of spending. Until then the overview shows "—" and a sample cake.
+**Phase 3, finish.** Set `SYNC_SECRET`, deploy the backend, enter the URL and secret in the app's 設定, and run a sync against real claims. `syncPull` returns every claim with Drive links plus the withdrawn ids from 操作紀錄; `syncPush` only replaces 財務彙總 with the current month's overview figures: 帳面餘額, 本月收入, 本月支出, 待處理報銷 and one row per spending parent category.
 
 **Phase 4.** A one-page, non-technical handover guide for the next treasurer; a monthly backup of the Sheet to Drive; optional email notifications.
 

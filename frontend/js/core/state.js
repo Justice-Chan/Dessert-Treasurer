@@ -51,7 +51,7 @@ const sectionMeta = {
   categories: ["分類", "依甜點社常見情境整理主項目與副項目。"],
   trash: ["垃圾桶", "刪除項目保留 30 天，可在到期前還原。"],
   backup: ["備份", "以 JSON 或 CSV 下載、還原帳務資料。"],
-  settings: ["設定", "管理匯入試算表時可辨識的欄位同義詞。"]
+  settings: ["設定", "設定網頁報帳同步，以及匯入試算表時可辨識的欄位同義詞。"]
 };
 
 // Built-in spreadsheet header aliases. Settings store only the aliases added to or removed from these lists,
@@ -123,11 +123,21 @@ function cloudLinkUrl(value) {
   }
 }
 
+// A receipt field holding only links (synced web claims list one per receipt) shows each as a link.
 function claimReceiptMarkup(receipt) {
-  const url = cloudLinkUrl(receipt);
-  return url
-    ? `<a class="cloud-link" href="${escapeHtml(url)}" data-open-cloud-link="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">雲端連結</a>`
-    : escapeHtml(receipt || "");
+  const urls = String(receipt || "").trim().split(/\s+/).map(cloudLinkUrl);
+  if (!urls.length || !urls.every(Boolean)) return escapeHtml(receipt || "");
+  return urls.map((url, index) => `<a class="cloud-link" href="${escapeHtml(url)}" data-open-cloud-link="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">雲端連結${urls.length > 1 ? ` ${index + 1}` : ""}</a>`).join(" ");
+}
+
+const webSyncUrlPattern = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/;
+function normalizeWebSync(saved) {
+  const url = String(saved?.url || "").trim();
+  return {
+    url: webSyncUrlPattern.test(url) ? url : "",
+    secret: String(saved?.secret || "").trim().slice(0, 200),
+    lastSyncedAt: typeof saved?.lastSyncedAt === "string" ? saved.lastSyncedAt : ""
+  };
 }
 
 async function openCloudLink(url) {
@@ -294,6 +304,7 @@ function normalizeState(saved = {}) {
     activities,
     memberImportLink,
     importSynonyms,
+    webSync: normalizeWebSync(saved.webSync),
     reconciliations: Array.isArray(saved.reconciliations) ? saved.reconciliations : [],
     lastBackupAt: typeof saved.lastBackupAt === "string" ? saved.lastBackupAt : "",
     lockedMonths: Array.isArray(saved.lockedMonths) ? [...new Set(saved.lockedMonths)] : []

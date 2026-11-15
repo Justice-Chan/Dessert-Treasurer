@@ -113,7 +113,7 @@ function claimsCsvRows() {
 async function exportComplete() {
   if (selectedExportFormat === "json") {
     const attachments = await exportReceipts();
-    download(`甜點社總務完整備份-${today()}.json`, JSON.stringify({ backupVersion: 3, ...state, attachments }, null, 2), "application/json");
+    download(`甜點社總務完整備份-${today()}.json`, JSON.stringify({ backupVersion: 3, ...state, webSync: { ...state.webSync, secret: "" }, attachments }, null, 2), "application/json");
     state.lastBackupAt = new Date().toISOString();
     saveState();
     toast("完整備份已開始下載。");

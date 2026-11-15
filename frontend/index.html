@@ -274,6 +274,7 @@
             <div class="claim-heading">
               <h2>報銷清單</h2>
               <strong id="claimSearchTotal" class="claim-search-total expense" hidden aria-live="polite"></strong>
+              <button type="button" id="syncWebClaims">同步網頁報帳</button>
             </div>
             <div class="filters with-dates">
               <input id="claimSearch" placeholder="搜尋申請人、用途、憑證">
@@ -727,6 +728,20 @@
       </section>
 
       <section class="section" id="settings" aria-labelledby="pageTitle">
+        <div class="panel">
+          <h2>網頁報帳同步</h2>
+          <p class="subtle">從網頁報帳系統取回申請、移除已撤銷的申請，並回寫付款狀態與財務彙總。網址與金鑰向後端管理者索取；金鑰只存在這台電腦，不會寫入備份。</p>
+          <form id="webSyncForm">
+            <div class="form-grid">
+              <div class="field full"><label for="webSyncUrl">後端網址</label><input id="webSyncUrl" maxlength="300" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+              <div class="field full"><label for="webSyncSecret">同步金鑰</label><input id="webSyncSecret" type="password" maxlength="200" autocomplete="off"></div>
+            </div>
+            <div class="form-actions account-form-actions">
+              <span class="subtle" id="webSyncStatus">尚未同步</span>
+              <button type="submit" class="primary">儲存同步設定</button>
+            </div>
+          </form>
+        </div>
         <div class="panel">
           <h2>匯入欄位同義詞</h2>
           <p class="subtle">可直接編輯所有可辨識的欄位名稱，多個名稱以頓號、逗號或換行分隔。姓名與學號各至少保留一個名稱。</p>

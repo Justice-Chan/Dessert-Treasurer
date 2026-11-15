@@ -4,6 +4,7 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- 報銷 has a 同步網頁報帳 button: it pulls web claims (receipts as Drive links), drops withdrawn ones, follows web review decisions, and writes back the overview totals; payments stay in the app. The backend URL and secret are set in 設定 and never enter backups.
 - macOS packages, including the DMG, are ad-hoc signed during bundling.
 - The window uses the app's background colour while loading instead of flashing dark.
 

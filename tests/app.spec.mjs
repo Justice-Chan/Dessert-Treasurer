@@ -499,3 +499,48 @@ test("activity suffix aliases migrate, import and survive incomplete spreadsheet
   expect(result.migratedAliases).toContain("匯款後五碼");
   expect(result.clearedAliases).toEqual([]);
 });
+
+test("web sync adds claims, drops withdrawn ones and sends only the summary", async ({ page }) => {
+  const backend = "https://script.google.com/macros/s/test-deployment/exec";
+  const remote = (id, status, extra = {}) => ({
+    id, createdAt: "2099-09-20T00:00:00Z", applicantEmail: `${id}@example.com`, applicantName: `幹部${id}`, date,
+    amount: 450, parent: "食材與耗材", child: "乳品", activity: "社課", vendor: "全聯", description: "鮮奶油",
+    status, reviewNote: "", receiptLinks: ["https://drive.google.com/file/d/a/view", "https://drive.google.com/file/d/b/view"], ...extra
+  });
+  let claims = [remote("w1", "待審核"), remote("w2", "已核准")];
+  const pushes = [];
+  await page.route(backend, async (route) => {
+    const request = JSON.parse(route.request().postData());
+    expect(request.secret).toBe("s".repeat(32));
+    if (request.action === "syncPush") pushes.push(request.payload);
+    const data = request.action === "syncPull" ? { claims, withdrawnIds: ["w0"] } : { summaryRows: 4 };
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
+  });
+
+  await openSection(page, "設定");
+  await page.locator("#webSyncUrl").fill(backend);
+  await page.locator("#webSyncSecret").fill("s".repeat(32));
+  await page.locator("#webSyncForm button[type=submit]").click();
+
+  await openSection(page, "報銷");
+  await page.evaluate(() => {
+    state.claims.push({ id: "w0", source: "web", date: "2099-09-20", person: "撤銷者", title: "粉類", parent: "食材與耗材", child: "粉類", amount: 100, status: "pending", paymentDate: "", paymentAccountId: "", receipt: "", attachments: [], note: "" });
+    renderClaims();
+  });
+  await page.locator("#syncWebClaims").click();
+  await expect(page.locator("#claimRows")).toContainText("幹部w1");
+  await expect(page.locator("#claimRows")).toContainText("幹部w2");
+  await expect(page.locator("#claimRows")).not.toContainText("撤銷者");
+  await expect(page.locator("#claimRows .cloud-link")).toHaveCount(4);
+  expect(Object.keys(pushes[0])).toEqual(["summary"]);
+  expect(pushes[0].summary.map((row) => row.label)).toEqual(expect.arrayContaining(["帳面餘額", "本月收入", "本月支出", "待處理報銷"]));
+
+  await page.locator("[data-pay-claim]").click();
+  await page.locator("#claimPaymentDate").fill(date);
+  await page.getByRole("button", { name: "確認付款" }).click();
+  claims = [remote("w1", "退回", { reviewNote: "缺收據" }), remote("w2", "已核准")];
+  await page.locator("#syncWebClaims").click();
+  await expect.poll(() => pushes.length).toBe(2);
+  expect(Object.keys(pushes[1])).toEqual(["summary"]);
+  await expect(page.locator("#claimRows")).toContainText("退回");
+});

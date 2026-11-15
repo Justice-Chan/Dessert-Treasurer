@@ -127,6 +127,8 @@ function bindEvents() {
     });
   });
   $("#importSynonymForm").addEventListener("submit", saveImportSynonyms);
+  $("#webSyncForm").addEventListener("submit", saveWebSyncSettings);
+  $("#syncWebClaims").addEventListener("click", () => syncWebClaims());
   $("#resetImportSynonyms").addEventListener("click", () => {
     requestAppActionConfirmation({
       title: "還原預設同義詞",
@@ -759,7 +761,8 @@ function bindEvents() {
     let replacedClaimIds = null;
     try {
       if (imported.scope === "complete") {
-        state = normalizeState(imported.data);
+        // Backups never hold the sync secret, so keep this computer's sync settings.
+        state = normalizeState({ ...imported.data, webSync: previousState.webSync });
         replacesAllReceipts = true;
       } else if (imported.scope === "entries") {
         const currentClaimIds = new Set(state.claims.map((claim) => claim.id));

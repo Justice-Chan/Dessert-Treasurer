@@ -12,6 +12,7 @@
   "js/features/reports.js",
   "js/features/backups.js",
   "js/features/trash.js",
+  "js/features/sync.js",
   "js/ui/events.js",
   "js/bootstrap.js"
 ]

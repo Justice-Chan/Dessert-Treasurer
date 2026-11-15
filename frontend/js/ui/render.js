@@ -180,7 +180,10 @@ function renderCurrentSection(section = currentSection()) {
   else if (section === "categories") renderCategories();
   else if (section === "trash") renderTrash();
   else if (section === "backup") renderBackupHealth();
-  else if (section === "settings") renderImportSynonymSettings();
+  else if (section === "settings") {
+    renderImportSynonymSettings();
+    renderWebSyncSettings();
+  }
 }
 
 function render() {
@@ -211,23 +214,34 @@ function renderBackupHealth() {
   node.title = elapsedDays >= 30 ? `距今 ${elapsedDays} 天，建議立即下載新的 JSON 完整備份。` : "JSON 完整備份可在需要時還原全部資料。";
 }
 
-function renderOverview() {
-  renderMonthSelector();
-  const [year, monthNumber] = selectedMonth.split("-").map(Number);
-  const monthEnd = new Date(year, monthNumber, 0);
-  const monthEndKey = dateKey(monthEnd);
+// The overview figures for one month; the web sync sends the same numbers to 財務彙總.
+function monthTotals(month) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const monthEndKey = dateKey(new Date(year, monthNumber, 0));
   const balance = state.accounts
     .filter((account) => accountExistsAt(account, monthEndKey))
     .reduce((sum, account) => sum + accountBalance(account.id, monthEndKey), 0);
-  const monthEntries = state.entries.filter((entry) => isActiveEntry(entry) && entry.date && entry.date.startsWith(selectedMonth));
-  const monthClaims = state.claims.filter((claim) => claim.date && claim.date.startsWith(selectedMonth));
+  const monthEntries = state.entries.filter((entry) => isActiveEntry(entry) && entry.date && entry.date.startsWith(month));
+  const monthClaims = state.claims.filter((claim) => claim.date && claim.date.startsWith(month));
   const activeMonthClaims = monthClaims.filter((claim) => claim.status !== "rejected");
   const income = monthEntries.filter((entry) => entry.type === "income").reduce((sum, entry) => sum + Number(entry.amount), 0);
   const claimsTotal = activeMonthClaims.reduce((sum, claim) => sum + Number(claim.amount), 0);
   const otherExpenseGroups = groupOtherExpenses(monthEntries);
   const otherExpense = otherExpenseGroups.reduce((sum, item) => sum + item.value, 0);
-  const expense = claimsTotal + otherExpense;
   const pending = monthClaims.filter((claim) => claim.status === "pending" || claim.status === "approved").reduce((sum, claim) => sum + Number(claim.amount), 0);
+  const byParent = {};
+  activeMonthClaims.forEach((claim) => { byParent[claim.parent || "未分類"] = (byParent[claim.parent || "未分類"] || 0) + Number(claim.amount); });
+  otherExpenseGroups.forEach((item) => { byParent[item.label] = (byParent[item.label] || 0) + item.value; });
+  const expenseByParent = Object.entries(byParent).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
+  return { balance, income, expense: claimsTotal + otherExpense, claimsTotal, otherExpense, otherExpenseGroups, pending, expenseByParent };
+}
+
+function renderOverview() {
+  renderMonthSelector();
+  const [year, monthNumber] = selectedMonth.split("-").map(Number);
+  const monthEnd = new Date(year, monthNumber, 0);
+  const monthEndKey = dateKey(monthEnd);
+  const { balance, income, expense, claimsTotal, otherExpense, otherExpenseGroups, pending } = monthTotals(selectedMonth);
   $("#balance").textContent = fmt.format(balance);
   $("#monthIncome").textContent = fmt.format(income);
   $("#monthExpense").textContent = fmt.format(expense);

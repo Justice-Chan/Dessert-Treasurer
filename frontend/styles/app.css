@@ -166,6 +166,7 @@ h3 { font-size: 15px; margin-bottom: 10px; }
 
 .ledger-heading h2,
 .claim-heading h2 { margin-bottom: 14px; }
+#syncWebClaims { margin-left: auto; }
 .ledger-search-total,
 .claim-search-total { font-size: 16px; white-space: nowrap; }
 

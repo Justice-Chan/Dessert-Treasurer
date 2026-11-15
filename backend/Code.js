@@ -4,6 +4,7 @@
 //   OAUTH_CLIENT_ID  Google OAuth client ID used by web/ for sign-in
 //   SHEET_ID         Spreadsheet holding the tabs below
 //   DRIVE_FOLDER_ID  Drive folder holding the monthly (YYYY-MM) receipt folders
+//   SYNC_SECRET      Long random string the desktop app sends for syncPull and syncPush
 //
 // 權限表 is maintained by hand. The other tabs are created and written by this script.
 
@@ -27,7 +28,7 @@ const STATUS_APPROVED = "已核准";
 const STATUS_REJECTED = "退回";
 // A claim can be withdrawn until it is approved; afterwards the treasurer handles it.
 const WITHDRAWABLE = [STATUS_PENDING, STATUS_REJECTED];
-// Review decisions and the statuses each may start from. 已付款 is set only by the app sync.
+// Review decisions and the statuses each may start from. Payment is tracked only in the app.
 const DECISIONS = {
   approve: { from: [STATUS_PENDING, STATUS_REJECTED], to: STATUS_APPROVED },
   reject: { from: [STATUS_PENDING, STATUS_APPROVED], to: STATUS_REJECTED }
@@ -76,13 +77,21 @@ const ACTIONS = {
   getSummary
 };
 
+// Called by the desktop app with SYNC_SECRET instead of a Google sign-in.
+const SYNC_ACTIONS = { syncPull, syncPush };
+const SYNC_LIMITS = { summaryRows: 50, label: 30, amount: 100000000 };
+
 function doPost(e) {
   try {
     const request = parseRequest(e);
+    const payload = request.payload && typeof request.payload === "object" ? request.payload : {};
+    if (Object.prototype.hasOwnProperty.call(SYNC_ACTIONS, request.action)) {
+      verifySyncSecret(request.secret);
+      return respond({ ok: true, data: SYNC_ACTIONS[request.action](payload) });
+    }
     const handler = Object.prototype.hasOwnProperty.call(ACTIONS, request.action) ? ACTIONS[request.action] : null;
     if (!handler) throw appError("bad_request", "不支援的操作。");
     const user = authorize(request.idToken);
-    const payload = request.payload && typeof request.payload === "object" ? request.payload : {};
     return respond({ ok: true, data: handler(user, payload) });
   } catch (error) {
     if (!error.code) console.error(error);
@@ -133,6 +142,10 @@ function checkSetup() {
       return "OK";
     },
     "收據資料夾可開啟": () => DriveApp.getFolderById(property("DRIVE_FOLDER_ID")).getName(),
+    "SYNC_SECRET 已設定且夠長": () => {
+      if (property("SYNC_SECRET").length < 32) throw new Error("至少需要 32 個字元");
+      return "OK";
+    },
     "可連線到 Google 登入驗證": () => {
       UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo?id_token=x", { muteHttpExceptions: true });
       return "OK";
@@ -487,4 +500,72 @@ function getSummary() {
       .map((row) => ({ label: cellText(row[0]), amount: Number(row[1]) }))
       .filter((item) => item.label && Number.isFinite(item.amount))
   };
+}
+
+// ---- Desktop app sync ----
+
+// Compares every character so the response time does not reveal how much of a guess was right.
+function verifySyncSecret(secret) {
+  const expected = property("SYNC_SECRET");
+  const given = typeof secret === "string" ? secret : "";
+  let difference = given.length ^ expected.length;
+  for (let index = 0; index < expected.length; index += 1) {
+    difference |= expected.charCodeAt(index) ^ (given.charCodeAt(index) || 0);
+  }
+  if (difference !== 0 || expected.length < 32) throw appError("unauthorized", "同步金鑰不正確。");
+}
+
+function driveLink(fileId) {
+  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
+}
+
+// Every claim, plus the ids the 操作紀錄 shows as withdrawn so the app can drop them.
+function syncPull() {
+  const claims = dataRows(CLAIM_SHEET, CLAIM_HEADER.length).map((row) => {
+    const claim = claimFromRow(row);
+    return {
+      id: claim.id,
+      createdAt: claim.createdAt,
+      applicantEmail: cellText(row[COL["申請人 email"]]),
+      applicantName: cellText(row[COL["申請人姓名"]]),
+      date: claim.date,
+      amount: claim.amount,
+      parent: claim.parent,
+      child: claim.child,
+      activity: claim.activity,
+      vendor: claim.vendor,
+      description: claim.description,
+      status: claim.status,
+      reviewNote: claim.reviewNote,
+      receiptLinks: attachmentIds(row).map(driveLink)
+    };
+  }).filter((claim) => claim.id);
+  const withdrawnIds = dataRows(LOG_SHEET, LOG_HEADER.length)
+    .filter((row) => cellText(row[2]) === "withdrawRequest")
+    .map((row) => cellText(row[3]))
+    .filter(Boolean);
+  return { claims, withdrawnIds: [...new Set(withdrawnIds)] };
+}
+
+function syncSummaryRows(value) {
+  if (!Array.isArray(value) || value.length > SYNC_LIMITS.summaryRows) throw appError("bad_request", "財務彙總格式不正確。");
+  return value.map((item) => {
+    const label = item && typeof item.label === "string" ? item.label.trim() : "";
+    const amount = item ? item.amount : NaN;
+    if (!label || label.length > SYNC_LIMITS.label || typeof amount !== "number" || !Number.isFinite(amount) || Math.abs(amount) > SYNC_LIMITS.amount) {
+      throw appError("bad_request", "財務彙總格式不正確。");
+    }
+    return [safeCell(label), Math.round(amount)];
+  });
+}
+
+// Replaces the summary tab as a whole. Claim statuses are never changed here.
+function syncPush(payload) {
+  const summary = syncSummaryRows(payload.summary);
+  return withLock(() => {
+    const summaryTab = tab(SUMMARY_SHEET, SUMMARY_HEADER, true);
+    if (summaryTab.getLastRow() > 1) summaryTab.getRange(2, 1, summaryTab.getLastRow() - 1, SUMMARY_HEADER.length).clearContent();
+    if (summary.length) summaryTab.getRange(2, 1, summary.length, SUMMARY_HEADER.length).setValues(summary);
+    return { summaryRows: summary.length };
+  });
 }
