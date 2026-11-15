@@ -22,6 +22,7 @@ let currentClaim = null;
 let receiptUrls = [];
 let glyphField = null;
 let summaryItems = [];
+let messageTimer = 0;
 let limits = { files: 5, fileBytes: 5 * 1024 * 1024, category: 30 };
 
 // "signedOut" shows the landing page; any other view is shown inside the app shell.
@@ -39,6 +40,7 @@ function show(view) {
   $("#viewLabel").textContent = viewLabels[view] || "";
   setDrawer(false);
   window.scrollTo(0, 0);
+  if (signedOut) renderSignInButton();
 }
 
 function setDrawer(open) {
@@ -56,10 +58,13 @@ function navigate(view) {
   return view === "myClaims" ? loadMyClaims() : loadOverview();
 }
 
-function showMessage(text, isError = false) {
+// Messages fade after three seconds; progress messages stay until replaced.
+function showMessage(text, isError = false, sticky = false) {
+  clearTimeout(messageTimer);
   $("#message").textContent = text;
   $("#message").hidden = !text;
   $("#message").classList.toggle("error", isError);
+  if (text && !sticky) messageTimer = setTimeout(() => { $("#message").hidden = true; }, 3000);
 }
 
 // ---- Theme ----
@@ -137,7 +142,7 @@ function reportError(error) {
 
 async function handleCredential(response) {
   idToken = response.credential;
-  showMessage("登入中…");
+  showMessage("登入中…", false, true);
   try {
     const user = await callBackend("whoami");
     categories = user.categories || {};
@@ -164,7 +169,7 @@ function signOut() {
 // Called when the Google Identity Services script finishes loading.
 function startSignIn() {
   if (!config.oauthClientId || !config.backendUrl) {
-    showMessage("尚未完成設定：請在 config.js 填入 oauthClientId 與 backendUrl。", true);
+    showMessage("尚未完成設定：請在 config.js 填入 oauthClientId 與 backendUrl。", true, true);
     return;
   }
   google.accounts.id.initialize({ client_id: config.oauthClientId, callback: handleCredential });
@@ -173,6 +178,8 @@ function startSignIn() {
 
 function renderSignInButton() {
   if (!window.google?.accounts?.id || !config.oauthClientId) return;
+  // A used or once-hidden Google button stops responding, so always draw a fresh one.
+  $("#signInButton").replaceChildren();
   google.accounts.id.renderButton($("#signInButton"), {
     theme: currentTheme() === "dark" ? "filled_black" : "outline",
     size: "large",
@@ -260,7 +267,7 @@ async function withdrawClaim(claim, button, afterwards = loadMyClaims) {
   const summary = `${claim.parent} / ${claim.child}　${money.format(claim.amount)}`;
   if (!window.confirm(`確定要撤銷這筆申請嗎？\n${summary}\n撤銷後申請和收據都會刪除。`)) return;
   button.disabled = true;
-  showMessage("撤銷中…");
+  showMessage("撤銷中…", false, true);
   let failure = null;
   try {
     await callBackend("withdrawRequest", { id: claim.id });
@@ -289,7 +296,7 @@ function claimLines(claim, metaParts) {
 async function openReview() {
   clearReceipts();
   show("review");
-  showMessage("載入中…");
+  showMessage("載入中…", false, true);
   try {
     const claims = await callBackend("listAllRequests", { status: $("#reviewStatus").value });
     $("#reviewList").replaceChildren(...claims.map((claim) => {
@@ -382,7 +389,7 @@ async function reviewClaim(decision) {
   if (decision === "reject" && !note) return showMessage("退回時請填寫審核備註，讓申請人知道原因。", true);
   const buttons = [$("#approveClaim"), $("#rejectClaim")];
   buttons.forEach((button) => { button.disabled = true; });
-  showMessage("處理中…");
+  showMessage("處理中…", false, true);
   try {
     const result = await callBackend("reviewRequest", { id: claim.id, decision, note });
     await openReview();
@@ -497,7 +504,7 @@ async function submitClaim(event) {
   const button = $("#claimSubmit");
   button.disabled = true;
   button.textContent = "送出中…";
-  showMessage("正在上傳，請不要關閉頁面。");
+  showMessage("正在上傳，請不要關閉頁面。", false, true);
   try {
     await callBackend("submitRequest", {
       date: $("#claimDate").value,
