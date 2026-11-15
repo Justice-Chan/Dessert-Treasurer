@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant-TW">
+<html lang="zh-Hant-TW" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,119 +8,165 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main>
-    <h1>甜點社報帳</h1>
+  <canvas id="glyphField" aria-hidden="true"></canvas>
 
-    <section class="card" id="signedOut">
-      <p>請用已登記的 Google 帳號登入。</p>
+  <section class="landing" id="signedOut">
+    <header class="landing-top">
+      <span class="brand">甜點社</span>
+      <span class="mono">DESSERT TREASURER</span>
+    </header>
+    <div class="landing-body">
+      <p class="mono eyebrow">CLUB LEDGER</p>
+      <h1>每一筆甜點的帳，<br>都看得見。</h1>
+      <p class="lede">送出報帳、追蹤審核進度、查看社團財務。</p>
       <div id="signInButton"></div>
-    </section>
+      <p class="subtle">請用已登記的 Google 帳號登入。</p>
+    </div>
+    <div class="art landing-art" id="landingArt" aria-hidden="true"></div>
+  </section>
 
-    <div id="home" hidden>
-      <div class="user-bar">
-        <span id="userLabel"></span>
+  <div id="app" hidden>
+    <div id="scrim" hidden></div>
+    <nav id="drawer" aria-label="功能列">
+      <div class="drawer-head">
+        <span class="brand">甜點社</span>
+        <span class="mono">DESSERT TREASURER</span>
+      </div>
+      <ul>
+        <li><button type="button" data-nav="overview">總覽<span class="mono">Overview</span></button></li>
+        <li><button type="button" data-nav="claimForm">新增報帳<span class="mono">New claim</span></button></li>
+        <li><button type="button" data-nav="myClaims">我的申請<span class="mono">My claims</span></button></li>
+        <li id="navReview" hidden><button type="button" data-nav="review">審核報帳<span class="mono">Review</span></button></li>
+      </ul>
+      <div class="drawer-foot">
+        <p class="subtle" id="userLabel"></p>
+        <button type="button" class="link" id="themeToggle"></button>
         <button type="button" class="link" id="signOut">登出</button>
       </div>
+    </nav>
 
-      <button type="button" class="primary block" id="newClaim">新增報帳</button>
-      <button type="button" class="block" id="openReview" hidden>審核報帳</button>
+    <div class="shell">
+      <header class="topbar">
+        <button type="button" class="icon" id="menuButton" aria-label="開啟功能列" aria-expanded="false" aria-controls="drawer">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+        <span class="brand">甜點社</span>
+        <span class="mono" id="viewLabel"></span>
+      </header>
 
-      <section class="card" aria-labelledby="summaryTitle">
-        <h2 id="summaryTitle">社團財務</h2>
-        <dl class="summary" id="summaryList"></dl>
-        <p class="subtle" id="summaryEmpty" hidden>尚無資料。</p>
-      </section>
-
-      <section class="card" aria-labelledby="claimsTitle">
-        <h2 id="claimsTitle">我的申請</h2>
-        <ul class="claims" id="claimList"></ul>
-        <p class="subtle" id="claimsEmpty" hidden>還沒有送出過報帳。</p>
-      </section>
-    </div>
-
-    <form class="card" id="claimForm" hidden novalidate>
-      <h2>新增報帳</h2>
-      <label for="claimDate">消費日期</label>
-      <input id="claimDate" type="date" required>
-
-      <label for="claimAmount">金額（新台幣）</label>
-      <input id="claimAmount" type="number" inputmode="numeric" min="1" step="1" required>
-
-      <label for="claimParent">主項目</label>
-      <select id="claimParent" required></select>
-      <input id="claimParentOther" aria-label="自訂主項目" placeholder="輸入自訂主項目" autocomplete="off" hidden>
-
-      <label for="claimChild">副項目</label>
-      <select id="claimChild" required></select>
-      <input id="claimChildOther" aria-label="自訂副項目" placeholder="輸入自訂副項目" autocomplete="off" hidden>
-
-      <label for="claimActivity">活動／社課<span class="subtle">（選填）</span></label>
-      <input id="claimActivity" maxlength="60" autocomplete="off">
-
-      <label for="claimVendor">店家<span class="subtle">（選填）</span></label>
-      <input id="claimVendor" maxlength="60" autocomplete="off" placeholder="例如：全聯、網購">
-
-      <label for="claimDescription">說明<span class="subtle">（選填）</span></label>
-      <textarea id="claimDescription" maxlength="300" rows="3"></textarea>
-
-      <label for="claimFiles">收據照片或 PDF</label>
-      <input id="claimFiles" type="file" accept="image/*,application/pdf" multiple required>
-      <p class="subtle" id="claimFilesHint"></p>
-
-      <div class="actions">
-        <button type="button" id="claimCancel">取消</button>
-        <button type="submit" class="primary" id="claimSubmit">送出</button>
-      </div>
-    </form>
-
-    <div id="review" hidden>
-      <div class="toolbar">
-        <button type="button" class="link" id="reviewBack">‹ 返回首頁</button>
-        <select id="reviewStatus" aria-label="依狀態篩選">
-          <option value="待審核">待審核</option>
-          <option value="已核准">已核准</option>
-          <option value="退回">退回</option>
-          <option value="已付款">已付款</option>
-          <option value="">全部</option>
-        </select>
-      </div>
-      <section class="card" aria-labelledby="reviewTitle">
-        <h2 id="reviewTitle">報帳申請</h2>
-        <ul class="claims" id="reviewList"></ul>
-        <p class="subtle" id="reviewEmpty" hidden>沒有符合的申請。</p>
-      </section>
-    </div>
-
-    <div id="detail" hidden>
-      <div class="toolbar">
-        <button type="button" class="link" id="detailBack">‹ 返回清單</button>
-      </div>
-      <section class="card" aria-labelledby="detailTitle">
-        <h2 id="detailTitle">申請內容</h2>
-        <dl class="fields" id="detailFields"></dl>
-      </section>
-      <section class="card" aria-labelledby="receiptsTitle">
-        <h2 id="receiptsTitle">收據</h2>
-        <div id="detailAttachments"></div>
-      </section>
-      <section class="card" id="detailActions">
-        <div id="reviewControls">
-          <label for="reviewNote">審核備註<span class="subtle">（退回時必填）</span></label>
-          <textarea id="reviewNote" maxlength="300" rows="2"></textarea>
-          <div class="actions">
-            <button type="button" id="rejectClaim">退回</button>
-            <button type="button" class="primary" id="approveClaim">核准</button>
-          </div>
+      <main>
+        <div id="overview" hidden>
+          <section class="hero" aria-labelledby="heroLabel">
+            <p class="mono eyebrow">CLUB BALANCE</p>
+            <p class="hero-number" id="heroBalance">—</p>
+            <p class="hero-label" id="heroLabel">帳面餘額</p>
+            <div class="chips" id="heroChips"></div>
+            <div class="hero-actions">
+              <button type="button" class="primary" data-nav="claimForm">新增報帳</button>
+              <button type="button" id="heroReview" data-nav="review" hidden>審核報帳</button>
+            </div>
+          </section>
+          <section class="card" aria-labelledby="spendingTitle">
+            <h2 id="spendingTitle">支出分布<span class="mono">Spending</span></h2>
+            <div class="art-row">
+              <div class="art" id="cakeArt" aria-hidden="true"></div>
+              <dl class="legend" id="cakeLegend"></dl>
+            </div>
+            <p class="subtle" id="summaryEmpty" hidden>尚未同步。總務在記帳 app 同步後，這裡會顯示社團財務。</p>
+          </section>
         </div>
-        <button type="button" class="link danger" id="withdrawFromDetail">撤銷這筆申請</button>
-        <p class="subtle" id="detailLocked" hidden>這筆申請已付款，只能在記帳 app 裡調整。</p>
-      </section>
-    </div>
 
-    <p id="message" role="status" aria-live="polite"></p>
-  </main>
+        <div id="myClaims" hidden>
+          <section class="card" aria-labelledby="claimsTitle">
+            <h2 id="claimsTitle">我的申請<span class="mono">My claims</span></h2>
+            <ul class="claims" id="claimList"></ul>
+            <p class="subtle" id="claimsEmpty" hidden>還沒有送出過報帳。</p>
+          </section>
+        </div>
+
+        <form class="card" id="claimForm" hidden novalidate>
+          <h2>新增報帳<span class="mono">New claim</span></h2>
+          <label for="claimDate">消費日期</label>
+          <input id="claimDate" type="date" required>
+
+          <label for="claimAmount">金額（新台幣）</label>
+          <input id="claimAmount" type="number" inputmode="numeric" min="1" step="1" required>
+
+          <label for="claimParent">主項目</label>
+          <select id="claimParent" required></select>
+          <input id="claimParentOther" aria-label="自訂主項目" placeholder="輸入自訂主項目" autocomplete="off" hidden>
+
+          <label for="claimChild">副項目</label>
+          <select id="claimChild" required></select>
+          <input id="claimChildOther" aria-label="自訂副項目" placeholder="輸入自訂副項目" autocomplete="off" hidden>
+
+          <label for="claimActivity">活動／社課<span class="subtle">（選填）</span></label>
+          <input id="claimActivity" maxlength="60" autocomplete="off">
+
+          <label for="claimVendor">店家<span class="subtle">（選填）</span></label>
+          <input id="claimVendor" maxlength="60" autocomplete="off" placeholder="例如：全聯、網購">
+
+          <label for="claimDescription">說明<span class="subtle">（選填）</span></label>
+          <textarea id="claimDescription" maxlength="300" rows="3"></textarea>
+
+          <label for="claimFiles">收據照片或 PDF</label>
+          <input id="claimFiles" type="file" accept="image/*,application/pdf" multiple required>
+          <p class="subtle" id="claimFilesHint"></p>
+
+          <div class="actions">
+            <button type="button" id="claimCancel">取消</button>
+            <button type="submit" class="primary" id="claimSubmit">送出</button>
+          </div>
+        </form>
+
+        <div id="review" hidden>
+          <section class="card" aria-labelledby="reviewTitle">
+            <div class="card-head">
+              <h2 id="reviewTitle">報帳申請<span class="mono">Review</span></h2>
+              <select id="reviewStatus" aria-label="依狀態篩選">
+                <option value="待審核">待審核</option>
+                <option value="已核准">已核准</option>
+                <option value="退回">退回</option>
+                <option value="已付款">已付款</option>
+                <option value="">全部</option>
+              </select>
+            </div>
+            <ul class="claims" id="reviewList"></ul>
+            <p class="subtle" id="reviewEmpty" hidden>沒有符合的申請。</p>
+          </section>
+        </div>
+
+        <div id="detail" hidden>
+          <button type="button" class="link back" id="detailBack">‹ 返回清單</button>
+          <section class="card" aria-labelledby="detailTitle">
+            <h2 id="detailTitle">申請內容<span class="mono">Claim</span></h2>
+            <dl class="fields" id="detailFields"></dl>
+          </section>
+          <section class="card" aria-labelledby="receiptsTitle">
+            <h2 id="receiptsTitle">收據<span class="mono">Receipts</span></h2>
+            <div id="detailAttachments"></div>
+          </section>
+          <section class="card" id="detailActions">
+            <div id="reviewControls">
+              <label for="reviewNote">審核備註<span class="subtle">（退回時必填）</span></label>
+              <textarea id="reviewNote" maxlength="300" rows="2"></textarea>
+              <div class="actions">
+                <button type="button" id="rejectClaim">退回</button>
+                <button type="button" class="primary" id="approveClaim">核准</button>
+              </div>
+            </div>
+            <button type="button" class="link danger" id="withdrawFromDetail">撤銷這筆申請</button>
+            <p class="subtle" id="detailLocked" hidden>這筆申請已付款，只能在記帳 app 裡調整。</p>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <p id="message" role="status" aria-live="polite" hidden></p>
 
   <script src="config.js"></script>
+  <script src="art.js"></script>
   <script src="app.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer onload="startSignIn()"></script>
 </body>

@@ -3,7 +3,12 @@ const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat("zh-TW", { style: "currency", currency: "TWD", maximumFractionDigits: 0 });
 const roleText = { treasurer: "總務", officer: "幹部" };
 const statusClass = { "待審核": "pending", "已核准": "approved", "已付款": "paid", "退回": "rejected" };
-const views = ["signedOut", "home", "claimForm", "review", "detail"];
+const viewLabels = { overview: "OVERVIEW", myClaims: "MY CLAIMS", claimForm: "NEW CLAIM", review: "REVIEW", detail: "CLAIM" };
+// Summary rows with these labels feed the hero; every other row is a spending category.
+const balanceLabel = "帳面餘額";
+const chipLabels = ["本月收入", "本月支出", "待處理報銷"];
+const themes = { dark: "深色 ASCII", cake: "甜點色塊" };
+const themeKey = "dashboard-theme";
 const imageLongSide = 1600;
 const otherCategory = "其他";
 
@@ -12,18 +17,65 @@ let idToken = "";
 let categories = {};
 let currentClaim = null;
 let receiptUrls = [];
+let glyphField = null;
+let summaryItems = [];
 let limits = { files: 5, fileBytes: 5 * 1024 * 1024, category: 30 };
 
+// "signedOut" shows the landing page; any other view is shown inside the app shell.
 function show(view) {
-  views.forEach((id) => { $(`#${id}`).hidden = id !== view; });
+  const signedOut = view === "signedOut";
+  $("#signedOut").hidden = !signedOut;
+  $("#app").hidden = signedOut;
+  Object.keys(viewLabels).forEach((id) => { $(`#${id}`).hidden = id !== view; });
+  const section = view === "detail" ? "review" : view;
+  document.querySelectorAll("#drawer [data-nav]").forEach((button) => {
+    if (button.dataset.nav === section) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  $("#viewLabel").textContent = viewLabels[view] || "";
+  setDrawer(false);
   window.scrollTo(0, 0);
+}
+
+function setDrawer(open) {
+  $("#drawer").classList.toggle("open", open);
+  $("#scrim").hidden = !open;
+  $("#menuButton").setAttribute("aria-expanded", String(open));
+}
+
+function navigate(view) {
+  showMessage("");
+  if (view === "claimForm") return openClaimForm();
+  if (view === "review") return openReview();
+  clearReceipts();
+  show(view);
+  return view === "myClaims" ? loadMyClaims() : loadOverview();
 }
 
 function showMessage(text, isError = false) {
   $("#message").textContent = text;
+  $("#message").hidden = !text;
   $("#message").classList.toggle("error", isError);
-  // The message sits below a long form, so bring errors into view.
-  if (isError) $("#message").scrollIntoView({ block: "nearest" });
+}
+
+// ---- Theme ----
+
+function currentTheme() {
+  return document.documentElement.dataset.theme;
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = themes[theme] ? theme : "dark";
+  try { localStorage.setItem(themeKey, currentTheme()); } catch (error) { /* private mode: keep for this visit only */ }
+  $("#themeToggle").textContent = `外觀：${themes[currentTheme()]}`;
+  glyphField?.recolor();
+  renderCake($("#landingArt"), [], currentTheme());
+  renderSummary(summaryItems);
+  renderSignInButton();
+}
+
+function storedTheme() {
+  try { return localStorage.getItem(themeKey); } catch (error) { return null; }
 }
 
 function element(tag, className, text) {
@@ -77,11 +129,12 @@ async function handleCredential(response) {
     categories = user.categories || {};
     limits = { ...limits, ...user.limits };
     $("#userLabel").textContent = `${user.name || user.email}・${roleText[user.role] || user.role}`;
-    $("#openReview").hidden = user.role !== "treasurer";
+    $("#navReview").hidden = user.role !== "treasurer";
+    $("#heroReview").hidden = user.role !== "treasurer";
     fillParentOptions();
-    show("home");
+    show("overview");
     showMessage("");
-    await loadHome();
+    await loadOverview();
   } catch (error) {
     reportError(error);
   }
@@ -101,23 +154,76 @@ function startSignIn() {
     return;
   }
   google.accounts.id.initialize({ client_id: config.oauthClientId, callback: handleCredential });
-  google.accounts.id.renderButton($("#signInButton"), { theme: "outline", size: "large", locale: "zh_TW" });
+  renderSignInButton();
 }
 
-// ---- Home ----
-
-async function loadHome() {
-  const [claims, summary] = await Promise.allSettled([callBackend("listMyRequests"), callBackend("getSummary")]);
-  if (claims.status === "fulfilled") renderClaims(claims.value);
-  if (summary.status === "fulfilled") renderSummary(summary.value.items || []);
-  const failure = [claims, summary].find((result) => result.status === "rejected");
-  if (failure) reportError(failure.reason);
+function renderSignInButton() {
+  if (!window.google?.accounts?.id || !config.oauthClientId) return;
+  google.accounts.id.renderButton($("#signInButton"), {
+    theme: currentTheme() === "dark" ? "filled_black" : "outline",
+    size: "large",
+    shape: "pill",
+    locale: "zh_TW"
+  });
 }
 
-function renderSummary(items) {
-  const list = $("#summaryList");
-  list.replaceChildren(...items.flatMap((item) => [element("dt", "", item.label), element("dd", "", money.format(item.amount))]));
+// ---- Overview ----
+
+async function loadOverview() {
+  try {
+    summaryItems = (await callBackend("getSummary")).items || [];
+    renderSummary(summaryItems, true);
+  } catch (error) {
+    reportError(error);
+  }
+}
+
+function countUp(node, target) {
+  const duration = 700;
+  const start = performance.now();
+  const step = (now) => {
+    const progress = Math.min(1, (now - start) / duration);
+    node.textContent = money.format(Math.round(target * (1 - Math.pow(1 - progress, 3))));
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function renderSummary(items, animate = false) {
+  const balance = items.find((item) => item.label === balanceLabel);
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!balance) $("#heroBalance").textContent = "—";
+  else if (animate && !still) countUp($("#heroBalance"), balance.amount);
+  else $("#heroBalance").textContent = money.format(balance.amount);
+
+  $("#heroChips").replaceChildren(...chipLabels.map((label) => items.find((item) => item.label === label)).filter(Boolean).map((item) => {
+    const chip = element("span", "chip");
+    chip.append(element("span", "", item.label), money.format(item.amount));
+    return chip;
+  }));
+
+  const spending = items.filter((item) => item.label !== balanceLabel && !chipLabels.includes(item.label));
+  const theme = currentTheme();
+  const layers = renderCake($("#cakeArt"), spending, theme);
+  $("#cakeLegend").replaceChildren(...(spending.length ? layers.slice().reverse() : []).flatMap((layer) => {
+    const term = element("dt");
+    const swatch = theme === "cake"
+      ? element("span", `swatch block layer-${layer.index % maxLayers}`)
+      : element("span", "swatch", cakeGlyphs[layer.index % cakeGlyphs.length]);
+    term.append(swatch, element("span", "", layer.label));
+    return [term, element("dd", "", money.format(layer.amount))];
+  }));
   $("#summaryEmpty").hidden = items.length > 0;
+}
+
+// ---- My claims ----
+
+async function loadMyClaims() {
+  try {
+    renderClaims(await callBackend("listMyRequests"));
+  } catch (error) {
+    reportError(error);
+  }
 }
 
 function renderClaims(claims) {
@@ -136,7 +242,7 @@ function renderClaims(claims) {
   $("#claimsEmpty").hidden = claims.length > 0;
 }
 
-async function withdrawClaim(claim, button, afterwards = loadHome) {
+async function withdrawClaim(claim, button, afterwards = loadMyClaims) {
   const summary = `${claim.parent} / ${claim.child}　${money.format(claim.amount)}`;
   if (!window.confirm(`確定要撤銷這筆申請嗎？\n${summary}\n撤銷後申請和收據都會刪除。`)) return;
   button.disabled = true;
@@ -389,9 +495,9 @@ async function submitClaim(event) {
       description: $("#claimDescription").value,
       attachments: await Promise.all(files.map(prepareAttachment))
     });
-    show("home");
+    show("myClaims");
     showMessage("報帳已送出，等待總務審核。");
-    await loadHome();
+    await loadMyClaims();
   } catch (error) {
     reportError(error);
   } finally {
@@ -401,10 +507,12 @@ async function submitClaim(event) {
 }
 
 $("#signOut").addEventListener("click", signOut);
-$("#newClaim").addEventListener("click", openClaimForm);
-$("#openReview").addEventListener("click", openReview);
+$("#themeToggle").addEventListener("click", () => applyTheme(currentTheme() === "dark" ? "cake" : "dark"));
+$("#menuButton").addEventListener("click", () => setDrawer(true));
+$("#scrim").addEventListener("click", () => setDrawer(false));
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") setDrawer(false); });
+document.querySelectorAll("[data-nav]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.nav)));
 $("#reviewStatus").addEventListener("change", openReview);
-$("#reviewBack").addEventListener("click", () => { clearReceipts(); showMessage(""); show("home"); loadHome(); });
 $("#detailBack").addEventListener("click", openReview);
 $("#approveClaim").addEventListener("click", () => reviewClaim("approve"));
 $("#rejectClaim").addEventListener("click", () => reviewClaim("reject"));
@@ -412,5 +520,8 @@ $("#withdrawFromDetail").addEventListener("click", (event) => currentClaim && wi
 $("#claimParent").addEventListener("change", fillChildOptions);
 $("#claimChild").addEventListener("change", showOtherFields);
 $("#claimFiles").addEventListener("change", showSelectedFiles);
-$("#claimCancel").addEventListener("click", () => { showMessage(""); show("home"); });
+$("#claimCancel").addEventListener("click", () => navigate("overview"));
 $("#claimForm").addEventListener("submit", submitClaim);
+
+glyphField = startGlyphField($("#glyphField"));
+applyTheme(storedTheme() || "dark");
