@@ -83,8 +83,8 @@ h1, h2, p { margin: 0; }
 .lede { color: var(--muted); font-size: 0.9375rem; }
 .landing h1 { margin-bottom: 32px; }
 #signInButton { min-height: 44px; margin-bottom: 12px; }
-.landing-art { justify-self: end; opacity: 0.85; }
-.landing-art pre.ascii-scene { margin: 0 0 -8px; font-size: clamp(6px, 1.7vw, 10px); line-height: 1; }
+.landing-art { display: flex; justify-content: space-between; align-items: flex-end; opacity: 0.85; }
+.landing-art pre.ascii-scene { margin: 0 0 -8px; font-size: clamp(5.5px, 1.5vw, 10px); line-height: 1; }
 
 /* Small dots that rise slowly through the empty part of the landing page. */
 .landing > :not(.motes) { position: relative; z-index: 1; }
