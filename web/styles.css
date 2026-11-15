@@ -84,7 +84,7 @@ h1, h2, p { margin: 0; }
 .landing h1 { margin-bottom: 32px; }
 #signInButton { min-height: 44px; margin-bottom: 12px; }
 .landing-art { justify-self: end; opacity: 0.85; }
-.landing-art .block-cake { width: 220px; }
+.landing-art pre.ascii-scene { margin: 0 0 -8px; font-size: clamp(6px, 1.7vw, 10px); line-height: 1; }
 
 /* Small dots that rise slowly through the empty part of the landing page. */
 .landing > :not(.motes) { position: relative; z-index: 1; }
@@ -104,26 +104,6 @@ h1, h2, p { margin: 0; }
   .mote { animation: none; opacity: var(--peak); }
 }
 
-/* Flat overlapping discs that bleed off the corner of the dark landing page. */
-.orbs { position: relative; width: 300px; height: 300px; margin: 0 -110px -130px 0; }
-.orbs > * { position: absolute; border-radius: 50%; }
-.orbs .disc-outer { inset: 0; background: #c8792b; animation: disc-breathe 9s ease-in-out infinite; }
-.orbs .disc-inner { inset: 44px; background: #e9a650; animation: disc-drift 13s ease-in-out infinite; }
-/* Rings leave the discs and fade as they cross the page. */
-.orbs .ring { inset: 0; border: 1px solid #e9a650; opacity: 0; animation: ring-spread 12s linear infinite; }
-.orbs .ring:nth-child(2) { animation-delay: 4s; }
-.orbs .ring:nth-child(3) { animation-delay: 8s; }
-
-@keyframes disc-breathe { 50% { transform: scale(1.07); } }
-@keyframes disc-drift { 50% { transform: translate(-14px, -18px) scale(0.94); } }
-@keyframes ring-spread {
-  0% { transform: scale(1); opacity: 0.55; }
-  100% { transform: scale(3.4); opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .orbs > * { animation: none; }
-}
 
 /* ---- Shell ---- */
 
