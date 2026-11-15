@@ -341,12 +341,12 @@ textarea { resize: vertical; }
 
 #message {
   position: fixed;
-  left: 50%;
+  left: 16px;
+  right: 16px;
   bottom: 20px;
   z-index: 40;
-  width: max-content;
-  max-width: calc(100vw - 32px);
-  transform: translateX(-50%);
+  width: fit-content;
+  margin: 0 auto;
   padding: 12px 24px;
   text-align: center;
   background: var(--field);
