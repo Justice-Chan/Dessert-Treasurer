@@ -23,6 +23,7 @@ const SUMMARY_HEADER = ["項目", "金額"];
 const ROLES = { "總務": "treasurer", "幹部": "officer" };
 const TOKEN_ISSUERS = ["accounts.google.com", "https://accounts.google.com"];
 const STATUS_PENDING = "待審核";
+const OTHER_CATEGORY = "其他";
 
 // Mirrors the expense categories in frontend/js/core/state.js so synced claims fit the app.
 const CATEGORIES = {
@@ -35,6 +36,7 @@ const CATEGORIES = {
 
 const LIMITS = {
   amount: 1000000,
+  category: 30,
   shortText: 60,
   description: 300,
   files: 5,
@@ -51,7 +53,11 @@ const FILE_TYPES = {
 };
 
 const ACTIONS = {
-  whoami: (user) => ({ ...user, categories: CATEGORIES, limits: { files: LIMITS.files, fileBytes: LIMITS.fileBytes } }),
+  whoami: (user) => ({
+    ...user,
+    categories: CATEGORIES,
+    limits: { files: LIMITS.files, fileBytes: LIMITS.fileBytes, category: LIMITS.category }
+  }),
   submitRequest,
   listMyRequests,
   getSummary
@@ -101,6 +107,31 @@ function property(name) {
   const value = PropertiesService.getScriptProperties().getProperty(name);
   if (!value) throw new Error(`Missing script property: ${name}`);
   return value;
+}
+
+// Run from the Apps Script editor after any setup change. It exercises every permission
+// the web app needs, so a missing grant shows up here instead of as a failed request.
+function checkSetup() {
+  const checks = {
+    "OAUTH_CLIENT_ID 已設定": () => property("OAUTH_CLIENT_ID") && "OK",
+    "試算表可開啟": () => spreadsheet().getName(),
+    "權限表分頁存在": () => {
+      if (!spreadsheet().getSheetByName(PERMISSION_SHEET)) throw new Error(`找不到「${PERMISSION_SHEET}」分頁`);
+      return "OK";
+    },
+    "收據資料夾可開啟": () => DriveApp.getFolderById(property("DRIVE_FOLDER_ID")).getName(),
+    "可連線到 Google 登入驗證": () => {
+      UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo?id_token=x", { muteHttpExceptions: true });
+      return "OK";
+    }
+  };
+  Object.entries(checks).forEach(([label, check]) => {
+    try {
+      console.log(`✅ ${label}：${check()}`);
+    } catch (error) {
+      console.log(`❌ ${label}：${error.message}`);
+    }
+  });
 }
 
 // ---- Identity and roles ----
@@ -210,15 +241,16 @@ function validateClaim(payload) {
     throw appError("invalid", `金額必須是 1 到 ${LIMITS.amount} 之間的整數。`);
   }
 
-  const parent = typeof payload.parent === "string" ? payload.parent : "";
-  const children = Object.prototype.hasOwnProperty.call(CATEGORIES, parent) ? CATEGORIES[parent] : null;
-  if (!children || !children.includes(payload.child)) throw appError("invalid", "請選擇主項目與副項目。");
+  // Like the desktop app, a category may be one of CATEGORIES or free text typed under 其他.
+  const parent = requiredText(payload.parent, LIMITS.category, "主項目", true);
+  const child = requiredText(payload.child, LIMITS.category, "副項目", true);
+  if (parent === OTHER_CATEGORY || child === OTHER_CATEGORY) throw appError("invalid", "選擇「其他」時請填寫自訂項目名稱。");
 
   return {
     date,
     amount,
     parent,
-    child: payload.child,
+    child,
     activity: requiredText(payload.activity, LIMITS.shortText, "活動／社課", false),
     vendor: requiredText(payload.vendor, LIMITS.shortText, "店家", false),
     description: requiredText(payload.description, LIMITS.description, "說明", false)

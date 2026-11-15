@@ -5,11 +5,12 @@ const roleText = { treasurer: "總務", officer: "幹部" };
 const statusClass = { "待審核": "pending", "已核准": "approved", "已付款": "paid", "退回": "rejected" };
 const views = ["signedOut", "home", "claimForm"];
 const imageLongSide = 1600;
+const otherCategory = "其他";
 
 // Kept in memory only, so closing the tab signs the user out.
 let idToken = "";
 let categories = {};
-let limits = { files: 5, fileBytes: 5 * 1024 * 1024 };
+let limits = { files: 5, fileBytes: 5 * 1024 * 1024, category: 30 };
 
 function show(view) {
   views.forEach((id) => { $(`#${id}`).hidden = id !== view; });
@@ -72,7 +73,7 @@ async function handleCredential(response) {
   try {
     const user = await callBackend("whoami");
     categories = user.categories || {};
-    limits = user.limits || limits;
+    limits = { ...limits, ...user.limits };
     $("#userLabel").textContent = `${user.name || user.email}・${roleText[user.role] || user.role}`;
     fillParentOptions();
     show("home");
@@ -139,16 +140,33 @@ function localToday() {
 }
 
 function setOptions(select, values, placeholder) {
-  select.replaceChildren(new Option(placeholder, ""), ...values.map((value) => new Option(value, value)));
+  const options = values.map((value) => new Option(value, value));
+  select.replaceChildren(...(placeholder ? [new Option(placeholder, ""), ...options] : options));
 }
 
 function fillParentOptions() {
-  setOptions($("#claimParent"), Object.keys(categories), "請選擇");
+  setOptions($("#claimParent"), [...Object.keys(categories), otherCategory], "請選擇");
   fillChildOptions();
 }
 
+// Same rule as the desktop app: 其他 reveals a text field for a custom name.
 function fillChildOptions() {
-  setOptions($("#claimChild"), categories[$("#claimParent").value] || [], "請選擇");
+  const parent = $("#claimParent").value;
+  if (parent === otherCategory) setOptions($("#claimChild"), [otherCategory]);
+  else setOptions($("#claimChild"), parent ? [...(categories[parent] || []), otherCategory] : [], "請選擇");
+  showOtherFields();
+}
+
+function showOtherFields() {
+  [["#claimParent", "#claimParentOther"], ["#claimChild", "#claimChildOther"]].forEach(([select, input]) => {
+    $(input).hidden = $(select).value !== otherCategory;
+    $(input).maxLength = limits.category;
+    if ($(input).hidden) $(input).value = "";
+  });
+}
+
+function categoryValue(select, input) {
+  return $(select).value === otherCategory ? $(input).value.trim() : $(select).value;
 }
 
 function openClaimForm() {
@@ -208,7 +226,9 @@ async function submitClaim(event) {
   const amount = Number($("#claimAmount").value);
   if (!$("#claimDate").value) return showMessage("請填寫消費日期。", true);
   if (!Number.isInteger(amount) || amount < 1) return showMessage("金額請填正整數。", true);
-  if (!$("#claimParent").value || !$("#claimChild").value) return showMessage("請選擇主項目與副項目。", true);
+  const parent = categoryValue("#claimParent", "#claimParentOther");
+  const child = categoryValue("#claimChild", "#claimChildOther");
+  if (!parent || !child || parent === otherCategory || child === otherCategory) return showMessage("請選擇主項目與副項目；選「其他」時請填寫名稱。", true);
   if (!files.length) return showMessage("請至少附上一張收據照片。", true);
   if (files.length > limits.files) return showMessage(`一次最多上傳 ${limits.files} 個附件。`, true);
 
@@ -220,8 +240,8 @@ async function submitClaim(event) {
     await callBackend("submitRequest", {
       date: $("#claimDate").value,
       amount,
-      parent: $("#claimParent").value,
-      child: $("#claimChild").value,
+      parent,
+      child,
       activity: $("#claimActivity").value,
       vendor: $("#claimVendor").value,
       description: $("#claimDescription").value,
@@ -241,6 +261,7 @@ async function submitClaim(event) {
 $("#signOut").addEventListener("click", signOut);
 $("#newClaim").addEventListener("click", openClaimForm);
 $("#claimParent").addEventListener("change", fillChildOptions);
+$("#claimChild").addEventListener("change", showOtherFields);
 $("#claimFiles").addEventListener("change", showSelectedFiles);
 $("#claimCancel").addEventListener("click", () => { showMessage(""); show("home"); });
 $("#claimForm").addEventListener("submit", submitClaim);

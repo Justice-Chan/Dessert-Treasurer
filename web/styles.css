@@ -93,6 +93,7 @@ input, select, textarea {
 input[type="file"] { padding: 8px 0; border: 0; }
 textarea { resize: vertical; }
 #claimFilesHint { margin: 4px 0 0; }
+#claimParentOther, #claimChildOther { margin-top: 8px; }
 
 .summary { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; margin: 0; }
 .summary dt { color: var(--muted); }
