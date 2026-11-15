@@ -18,7 +18,7 @@
     <div class="landing-body">
       <p class="eyebrow-row">
         <span class="mono eyebrow">CLUB LEDGER</span>
-        <span class="lede">送出報帳、追蹤審核進度、查看社團財務。</span>
+        <span class="lede">報帳、追蹤審核進度、查看社團財務</span>
       </p>
       <h1>NCKU<br>Dessert Club</h1>
       <div id="signInButton"></div>
@@ -35,14 +35,16 @@
       </div>
       <ul>
         <li><button type="button" data-nav="overview">總覽<span class="mono">Overview</span></button></li>
-        <li><button type="button" data-nav="claimForm">新增報帳<span class="mono">New claim</span></button></li>
         <li><button type="button" data-nav="myClaims">我的申請<span class="mono">My claims</span></button></li>
+        <li><button type="button" data-nav="claimForm">新增報帳<span class="mono">New claim</span></button></li>
         <li id="navReview" hidden><button type="button" data-nav="review">審核報帳<span class="mono">Review</span></button></li>
       </ul>
       <div class="drawer-foot">
         <p class="subtle" id="userLabel"></p>
-        <button type="button" class="icon" id="themeToggle" aria-label="切換明暗模式">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+        <button type="button" class="mode-switch" id="themeToggle" role="switch" aria-label="深色模式" aria-checked="false">
+          <span class="mode-thumb"></span>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="link" id="signOut">登出</button>
       </div>

@@ -48,7 +48,11 @@ function renderLandingArt(container, theme) {
   }
   const orbs = document.createElement("div");
   orbs.className = "orbs";
-  orbs.append(document.createElement("span"), document.createElement("span"));
+  ["ring", "ring", "ring", "disc-outer", "disc-inner"].forEach((name) => {
+    const part = document.createElement("span");
+    part.className = name;
+    orbs.append(part);
+  });
   container.replaceChildren(orbs);
 }
 

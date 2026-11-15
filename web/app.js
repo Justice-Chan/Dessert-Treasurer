@@ -79,6 +79,7 @@ function storedTheme() {
 
 function applyTheme(theme = storedTheme() || (systemDark.matches ? "dark" : "cake")) {
   document.documentElement.dataset.theme = theme;
+  $("#themeToggle").setAttribute("aria-checked", String(theme === "dark"));
   glyphField?.recolor();
   renderLandingArt($("#landingArt"), theme);
   renderSummary(summaryItems);

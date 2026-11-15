@@ -88,9 +88,24 @@ h1, h2, p { margin: 0; }
 
 /* Flat overlapping discs that bleed off the corner of the dark landing page. */
 .orbs { position: relative; width: 300px; height: 300px; margin: 0 -110px -130px 0; }
-.orbs span { position: absolute; border-radius: 50%; }
-.orbs span:first-child { inset: 0; background: #c8792b; }
-.orbs span:last-child { inset: 44px; background: #e9a650; }
+.orbs > * { position: absolute; border-radius: 50%; }
+.orbs .disc-outer { inset: 0; background: #c8792b; animation: disc-breathe 9s ease-in-out infinite; }
+.orbs .disc-inner { inset: 44px; background: #e9a650; animation: disc-drift 13s ease-in-out infinite; }
+/* Rings leave the discs and fade as they cross the page. */
+.orbs .ring { inset: 0; border: 1px solid #e9a650; opacity: 0; animation: ring-spread 12s linear infinite; }
+.orbs .ring:nth-child(2) { animation-delay: 4s; }
+.orbs .ring:nth-child(3) { animation-delay: 8s; }
+
+@keyframes disc-breathe { 50% { transform: scale(1.07); } }
+@keyframes disc-drift { 50% { transform: translate(-14px, -18px) scale(0.94); } }
+@keyframes ring-spread {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(3.4); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbs > * { animation: none; }
+}
 
 /* ---- Shell ---- */
 
@@ -117,7 +132,7 @@ h1, h2, p { margin: 0; }
 #drawer li button {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   width: 100%;
   border: 1px solid transparent;
   background: none;
@@ -127,7 +142,33 @@ h1, h2, p { margin: 0; }
 #drawer li button .mono { letter-spacing: 0.04em; }
 .drawer-foot { margin-top: auto; display: flex; align-items: center; gap: 4px; padding: 0 8px; }
 .drawer-foot p { flex: 1; }
-.drawer-foot .icon { color: var(--muted); }
+.drawer-foot { gap: 12px; }
+
+.mode-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  place-items: center;
+  width: 76px;
+  min-height: 0;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--muted);
+}
+.mode-switch svg { position: relative; }
+.mode-thumb {
+  position: absolute;
+  inset: 2px 50% 2px 2px;
+  border-radius: 999px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  transition: transform 0.2s ease;
+}
+.mode-switch[aria-checked="true"] .mode-thumb { transform: translateX(calc(100% + 2px)); }
+.mode-switch[aria-checked="false"] svg:first-of-type,
+.mode-switch[aria-checked="true"] svg:last-of-type { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .mode-thumb { transition: none; } }
 
 .shell { position: relative; z-index: 1; min-height: 100vh; }
 
