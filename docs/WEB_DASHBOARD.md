@@ -18,11 +18,13 @@ Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DR
 
 ## Run and deploy
 
-Preview the dashboard locally:
+Preview the dashboard at `http://localhost:8080/` and the desktop app's UI at `/app/`, both read from disk:
 
 ```bash
-python3 -m http.server 8081 -d web
+node scripts/dev-server.mjs
 ```
+
+Google sign-in works locally only from an origin listed on the OAuth client.
 
 Deploy the backend (needs `backend/.clasp.json`, copied from `.clasp.json.example`, and a `clasp login`):
 
@@ -43,6 +45,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 - The app keeps a link to each receipt and does not download photos.
 - No bank details are collected.
 - Receipts are optional, for small purchases with no receipt or only a paper slip.
+- The overview shows when the app last synced (Script Property `SUMMARY_SYNCED_AT`, set by `syncPush`) and, for the treasurer, how many claims await review.
 - Sync: the web decides 待審核, 已核准 and 退回; the app decides 已付款. A claim the app has paid ignores later web status changes. A web claim deleted in the app stays in its trash and is not pulled again. The secret is stored in the app's data file and stripped from backups.
 
 ## Status

@@ -63,17 +63,16 @@
       <main>
         <div id="overview" hidden>
           <section class="hero" aria-labelledby="heroLabel">
-            <p class="mono eyebrow">CLUB BALANCE</p>
+            <p class="eyebrow" id="heroLabel">帳面餘額<span id="heroSynced"></span></p>
             <p class="hero-number" id="heroBalance">—</p>
-            <p class="hero-label" id="heroLabel">帳面餘額</p>
-            <div class="chips" id="heroChips"></div>
-            <div class="hero-actions">
-              <button type="button" class="primary" data-nav="claimForm">新增報帳</button>
-              <button type="button" id="heroReview" data-nav="review" hidden>審核報帳</button>
+            <div class="stats">
+              <div class="stat" data-label="本月收入" hidden><span>本月收入</span><strong></strong></div>
+              <div class="stat" data-label="本月支出" hidden><span>本月支出</span><strong></strong></div>
+              <div class="stat" id="heroReview" hidden><span>待審核</span><button type="button" class="link" data-nav="review"></button></div>
             </div>
           </section>
           <section class="card" aria-labelledby="spendingTitle">
-            <h2 id="spendingTitle">支出分布<span class="mono">Spending</span></h2>
+            <h2 id="spendingTitle">支出分布</h2>
             <div class="art-row">
               <div class="art" id="cakeArt" aria-hidden="true"></div>
               <dl class="legend" id="cakeLegend"></dl>
@@ -99,11 +98,12 @@
             <div class="calendar" id="claimCalendar" role="dialog" aria-label="選擇消費日期" hidden>
               <div class="calendar-head">
                 <button type="button" class="icon" id="calendarPrev" aria-label="上個月">‹</button>
-                <strong id="calendarMonth" aria-live="polite"></strong>
+                <button type="button" class="calendar-title" id="calendarMonth" aria-live="polite"></button>
                 <button type="button" class="icon" id="calendarNext" aria-label="下個月">›</button>
               </div>
               <div class="calendar-grid calendar-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
               <div class="calendar-grid" id="calendarDays"></div>
+              <div class="calendar-months" id="calendarMonths" hidden></div>
               <div class="calendar-foot"><button type="button" class="link" id="calendarToday">今天</button></div>
             </div>
           </div>
@@ -148,8 +148,10 @@
 
         <div id="review" hidden>
           <section class="card" aria-labelledby="reviewTitle">
-            <div class="card-head">
-              <h2 id="reviewTitle">報帳申請<span class="mono">Review</span></h2>
+            <div class="review-head">
+              <h2 id="reviewTitle">報帳申請</h2>
+              <span class="mono" aria-hidden="true">Review</span>
+              <p class="subtle" id="reviewSummary" aria-live="polite"></p>
               <select id="reviewStatus" aria-label="依狀態篩選">
                 <option value="待審核">待審核</option>
                 <option value="已核准">已核准</option>
@@ -159,7 +161,6 @@
               </select>
             </div>
             <ul class="claims" id="reviewList"></ul>
-            <p class="subtle" id="reviewEmpty" hidden>沒有符合的申請。</p>
           </section>
         </div>
 

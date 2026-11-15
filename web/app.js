@@ -6,7 +6,9 @@ const statusClass = { "待審核": "pending", "已核准": "approved", "已付�
 const viewLabels = { overview: "OVERVIEW", myClaims: "MY CLAIMS", claimForm: "NEW CLAIM", review: "REVIEW", detail: "CLAIM" };
 // Summary rows with these labels feed the hero; every other row is a spending category.
 const balanceLabel = "帳面餘額";
-const chipLabels = ["本月收入", "本月支出", "待處理報銷"];
+const expenseLabel = "本月支出";
+const totalLabels = [balanceLabel, "本月收入", expenseLabel, "待處理報銷"];
+const syncedFormat = new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric", timeZone: "Asia/Taipei" });
 // "dark" and "cake" are the dark and light looks. The system setting picks one
 // unless the user has flipped the toggle, which is remembered under themeKey.
 const themeNames = ["dark", "cake"];
@@ -21,7 +23,7 @@ let categories = {};
 let currentClaim = null;
 let receiptUrls = [];
 let glyphField = null;
-let summaryItems = [];
+let summary = { items: [] };
 let messageTimer = 0;
 let limits = { files: 5, fileBytes: 5 * 1024 * 1024, category: 30 };
 
@@ -87,7 +89,7 @@ function applyTheme(theme = storedTheme() || (systemDark.matches ? "dark" : "cak
   $("#themeToggle").setAttribute("aria-checked", String(theme === "dark"));
   glyphField?.recolor();
   renderLandingArt($("#landingArt"), theme);
-  renderSummary(summaryItems);
+  renderSummary(summary);
   renderSignInButton();
 }
 
@@ -149,7 +151,6 @@ async function handleCredential(response) {
     limits = { ...limits, ...user.limits };
     $("#userLabel").textContent = roleText[user.role] || user.role;
     $("#navReview").hidden = user.role !== "treasurer";
-    $("#heroReview").hidden = user.role !== "treasurer";
     fillParentOptions();
     show("overview");
     showMessage("");
@@ -192,8 +193,8 @@ function renderSignInButton() {
 
 async function loadOverview() {
   try {
-    summaryItems = (await callBackend("getSummary")).items || [];
-    renderSummary(summaryItems, true);
+    summary = await callBackend("getSummary");
+    renderSummary(summary, true);
   } catch (error) {
     reportError(error);
   }
@@ -210,29 +211,39 @@ function countUp(node, target) {
   requestAnimationFrame(step);
 }
 
-function renderSummary(items, animate = false) {
-  const balance = items.find((item) => item.label === balanceLabel);
+function renderSummary({ items = [], syncedAt = "", pendingReview }, animate = false) {
+  const find = (label) => items.find((item) => item.label === label);
+  const balance = find(balanceLabel);
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!balance) $("#heroBalance").textContent = "—";
   else if (animate && !still) countUp($("#heroBalance"), balance.amount);
   else $("#heroBalance").textContent = money.format(balance.amount);
+  const synced = syncedAt ? new Date(syncedAt) : null;
+  $("#heroSynced").textContent = synced && !Number.isNaN(synced.getTime()) ? ` · ${syncedFormat.format(synced)} 同步` : "";
 
-  $("#heroChips").replaceChildren(...chipLabels.map((label) => items.find((item) => item.label === label)).filter(Boolean).map((item) => {
-    const chip = element("span", "chip");
-    chip.append(element("span", "", item.label), money.format(item.amount));
-    return chip;
-  }));
+  document.querySelectorAll(".stat[data-label]").forEach((stat) => {
+    const item = find(stat.dataset.label);
+    stat.hidden = !item;
+    if (item) stat.querySelector("strong").textContent = money.format(item.amount);
+  });
+  // Only the treasurer receives a count; it opens the review list.
+  $("#heroReview").hidden = typeof pendingReview !== "number";
+  $("#heroReview button").textContent = pendingReview > 0 ? `${pendingReview} 筆 →` : "0 筆";
 
-  const spending = items.filter((item) => item.label !== balanceLabel && !chipLabels.includes(item.label));
+  const spending = items.filter((item) => !totalLabels.includes(item.label));
+  const expense = find(expenseLabel);
+  const total = expense ? expense.amount : spending.reduce((sum, item) => sum + Math.max(0, item.amount), 0);
   const theme = currentTheme();
   const layers = renderCake($("#cakeArt"), spending, theme);
-  $("#cakeLegend").replaceChildren(...(spending.length ? layers.slice().reverse() : []).flatMap((layer) => {
+  // Legend rows follow the cake from the top layer down.
+  $("#cakeLegend").replaceChildren(...(spending.length ? layers : []).flatMap((layer) => {
     const term = element("dt");
     const swatch = theme === "cake"
       ? element("span", `swatch block layer-${layer.index % maxLayers}`)
       : element("span", "swatch", cakeGlyphs[layer.index % cakeGlyphs.length]);
     term.append(swatch, element("span", "", layer.label));
-    return [term, element("dd", "", money.format(layer.amount))];
+    const share = total > 0 ? `${Math.round((layer.amount / total) * 100)}%` : "";
+    return [term, element("dd", "share", share), element("dd", "", money.format(layer.amount))];
   }));
   $("#summaryEmpty").hidden = items.length > 0;
 }
@@ -308,7 +319,7 @@ async function openReview() {
       item.append(row);
       return item;
     }));
-    $("#reviewEmpty").hidden = claims.length > 0;
+    $("#reviewSummary").textContent = claims.length ? `共 ${claims.length} 筆` : "沒有符合的申請。";
     showMessage("");
   } catch (error) {
     reportError(error);
@@ -469,6 +480,8 @@ function showSelectedFiles() {
 
 const earliestClaimDate = "2020-01-01";
 let calendarMonth = "";
+// "days" shows one month; "months" shows the twelve months of calendarMonth's year.
+let calendarView = "days";
 
 function setClaimDate(value) {
   $("#claimDate").value = value;
@@ -484,6 +497,30 @@ function shiftMonth(month, delta) {
 function renderCalendar() {
   const [year, number] = calendarMonth.split("-").map(Number);
   const today = localToday();
+  const months = calendarView === "months";
+  $("#calendarDays").hidden = months;
+  $(".calendar-weekdays").hidden = months;
+  $("#calendarMonths").hidden = !months;
+  $("#calendarMonth").setAttribute("aria-label", months ? "回到日期" : "選擇月份");
+  if (months) {
+    $("#calendarMonth").textContent = `${year} 年`;
+    $("#calendarPrev").setAttribute("aria-label", "上一年");
+    $("#calendarNext").setAttribute("aria-label", "下一年");
+    $("#calendarPrev").disabled = year - 1 < Number(earliestClaimDate.slice(0, 4));
+    $("#calendarNext").disabled = year + 1 > Number(today.slice(0, 4));
+    $("#calendarMonths").replaceChildren(...Array.from({ length: 12 }, (_, index) => {
+      const value = `${year}-${String(index + 1).padStart(2, "0")}`;
+      const button = element("button", "", `${index + 1} 月`);
+      button.type = "button";
+      button.dataset.month = value;
+      button.disabled = value > today.slice(0, 7) || value < earliestClaimDate.slice(0, 7);
+      if (value === ($("#claimDate").value || today).slice(0, 7)) button.setAttribute("aria-pressed", "true");
+      return button;
+    }));
+    return;
+  }
+  $("#calendarPrev").setAttribute("aria-label", "上個月");
+  $("#calendarNext").setAttribute("aria-label", "下個月");
   const firstWeekday = new Date(Date.UTC(year, number - 1, 1)).getUTCDay();
   const dayCount = new Date(Date.UTC(year, number, 0)).getUTCDate();
   $("#calendarMonth").textContent = `${year} 年 ${number} 月`;
@@ -505,6 +542,7 @@ function renderCalendar() {
 
 function openCalendar() {
   calendarMonth = ($("#claimDate").value || localToday()).slice(0, 7);
+  calendarView = "days";
   renderCalendar();
   $("#claimCalendar").hidden = false;
   $("#claimDateButton").setAttribute("aria-expanded", "true");
@@ -611,8 +649,27 @@ $("#claimParent").addEventListener("change", () => showOtherFields("claimParent"
 $("#claimChild").addEventListener("change", () => showOtherFields("claimChild"));
 document.querySelectorAll("[data-picker]").forEach((button) => button.addEventListener("click", () => leaveCustomCategory(button.dataset.picker)));
 $("#claimDateButton").addEventListener("click", () => ($("#claimCalendar").hidden ? openCalendar() : closeCalendar(true)));
-$("#calendarPrev").addEventListener("click", () => { calendarMonth = shiftMonth(calendarMonth, -1); renderCalendar(); });
-$("#calendarNext").addEventListener("click", () => { calendarMonth = shiftMonth(calendarMonth, 1); renderCalendar(); });
+// A year step can land past today; clamp to the newest month that may be picked.
+function stepCalendar(direction) {
+  const step = calendarView === "months" ? 12 : 1;
+  calendarMonth = shiftMonth(calendarMonth, direction * step);
+  if (calendarMonth > localToday().slice(0, 7)) calendarMonth = localToday().slice(0, 7);
+  renderCalendar();
+}
+
+$("#calendarPrev").addEventListener("click", () => stepCalendar(-1));
+$("#calendarNext").addEventListener("click", () => stepCalendar(1));
+$("#calendarMonth").addEventListener("click", () => {
+  calendarView = calendarView === "days" ? "months" : "days";
+  renderCalendar();
+});
+$("#calendarMonths").addEventListener("click", (event) => {
+  const month = event.target.closest("[data-month]");
+  if (!month || month.disabled) return;
+  calendarMonth = month.dataset.month;
+  calendarView = "days";
+  renderCalendar();
+});
 $("#calendarToday").addEventListener("click", () => pickDate(localToday()));
 $("#calendarDays").addEventListener("click", (event) => {
   const day = event.target.closest("[data-date]");

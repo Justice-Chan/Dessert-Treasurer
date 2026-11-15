@@ -79,6 +79,7 @@ const ACTIONS = {
 
 // Called by the desktop app with SYNC_SECRET instead of a Google sign-in.
 const SYNC_ACTIONS = { syncPull, syncPush };
+const SYNCED_AT_PROPERTY = "SUMMARY_SYNCED_AT";
 const SYNC_LIMITS = { summaryRows: 50, label: 30, amount: 100000000 };
 
 function doPost(e) {
@@ -496,12 +497,19 @@ function withdrawRequest(user, payload) {
 }
 
 // Totals only; the summary tab must never hold personal data.
-function getSummary() {
-  return {
+// syncedAt says how fresh the totals are; only the treasurer gets the review count.
+function getSummary(user) {
+  const summary = {
     items: dataRows(SUMMARY_SHEET, SUMMARY_HEADER.length)
       .map((row) => ({ label: cellText(row[0]), amount: Number(row[1]) }))
-      .filter((item) => item.label && Number.isFinite(item.amount))
+      .filter((item) => item.label && Number.isFinite(item.amount)),
+    syncedAt: PropertiesService.getScriptProperties().getProperty(SYNCED_AT_PROPERTY) || ""
   };
+  if (user.role === "treasurer") {
+    summary.pendingReview = dataRows(CLAIM_SHEET, CLAIM_HEADER.length)
+      .filter((row) => cellText(row[COL["狀態"]]) === STATUS_PENDING).length;
+  }
+  return summary;
 }
 
 // ---- Desktop app sync ----
@@ -568,6 +576,7 @@ function syncPush(payload) {
     const summaryTab = tab(SUMMARY_SHEET, SUMMARY_HEADER, true);
     if (summaryTab.getLastRow() > 1) summaryTab.getRange(2, 1, summaryTab.getLastRow() - 1, SUMMARY_HEADER.length).clearContent();
     if (summary.length) summaryTab.getRange(2, 1, summary.length, SUMMARY_HEADER.length).setValues(summary);
+    PropertiesService.getScriptProperties().setProperty(SYNCED_AT_PROPERTY, new Date().toISOString());
     return { summaryRows: summary.length };
   });
 }
