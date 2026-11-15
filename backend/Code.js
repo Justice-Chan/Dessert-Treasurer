@@ -289,8 +289,10 @@ function startsWith(bytes, signature, offset) {
     && signature.every((value, index) => (bytes[start + index] & 0xff) === value);
 }
 
+// Receipts are optional: small purchases often have none, or only a paper slip.
 function decodeAttachments(attachments) {
-  if (!Array.isArray(attachments) || !attachments.length) throw appError("invalid", "請至少附上一張收據照片。");
+  if (attachments === undefined) return [];
+  if (!Array.isArray(attachments)) throw appError("bad_request", "附件格式不正確。");
   if (attachments.length > LIMITS.files) throw appError("invalid", `一次最多上傳 ${LIMITS.files} 個附件。`);
   return attachments.map((attachment) => {
     const type = attachment && Object.prototype.hasOwnProperty.call(FILE_TYPES, attachment.type) ? FILE_TYPES[attachment.type] : null;

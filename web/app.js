@@ -408,30 +408,41 @@ function localToday() {
   return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
-function setOptions(select, values, placeholder) {
-  const options = values.map((value) => new Option(value, value));
-  select.replaceChildren(...(placeholder ? [new Option(placeholder, ""), ...options] : options));
+function setOptions(select, values) {
+  select.replaceChildren(...values.map((value) => new Option(value, value)));
 }
 
 function fillParentOptions() {
-  setOptions($("#claimParent"), [...Object.keys(categories), otherCategory], "請選擇");
+  setOptions($("#claimParent"), [...Object.keys(categories), otherCategory]);
   fillChildOptions();
 }
 
-// Same rule as the desktop app: 其他 reveals a text field for a custom name.
+// Same rule as the desktop app, except 其他 turns the dropdown itself into a text field.
 function fillChildOptions() {
   const parent = $("#claimParent").value;
-  if (parent === otherCategory) setOptions($("#claimChild"), [otherCategory]);
-  else setOptions($("#claimChild"), parent ? [...(categories[parent] || []), otherCategory] : [], "請選擇");
+  setOptions($("#claimChild"), parent === otherCategory ? [otherCategory] : [...(categories[parent] || []), otherCategory]);
   showOtherFields();
 }
 
-function showOtherFields() {
-  [["#claimParent", "#claimParentOther"], ["#claimChild", "#claimChildOther"]].forEach(([select, input]) => {
-    $(input).hidden = $(select).value !== otherCategory;
-    $(input).maxLength = limits.category;
-    if ($(input).hidden) $(input).value = "";
+function showOtherFields(focusId) {
+  ["claimParent", "claimChild"].forEach((id) => {
+    const custom = $(`#${id}`).value === otherCategory;
+    const input = $(`#${id}Other`);
+    $(`#${id}`).hidden = custom;
+    input.hidden = !custom;
+    input.maxLength = limits.category;
+    // The child list holds only 其他 under a custom parent, so it has nothing to go back to.
+    $(`[data-picker="${id}"]`).hidden = !custom || (id === "claimChild" && $("#claimParent").value === otherCategory);
+    if (!custom) input.value = "";
+    else if (id === focusId) input.focus();
   });
+}
+
+function leaveCustomCategory(id) {
+  $(`#${id}`).selectedIndex = 0;
+  if (id === "claimParent") fillChildOptions();
+  else showOtherFields();
+  $(`#${id}`).focus();
 }
 
 function categoryValue(select, input) {
@@ -440,19 +451,76 @@ function categoryValue(select, input) {
 
 function openClaimForm() {
   $("#claimForm").reset();
-  fillChildOptions();
-  $("#claimDate").max = localToday();
-  $("#claimDate").value = localToday();
-  $("#claimFilesHint").textContent = `最多 ${limits.files} 個檔案，照片會自動縮小後上傳。`;
+  fillParentOptions();
+  setClaimDate(localToday());
+  closeCalendar();
+  showSelectedFiles();
   showMessage("");
   show("claimForm");
 }
 
 function showSelectedFiles() {
   const count = $("#claimFiles").files.length;
-  $("#claimFilesHint").textContent = count
-    ? `已選 ${count} 個檔案。`
-    : `最多 ${limits.files} 個檔案，照片會自動縮小後上傳。`;
+  $("#claimFilesHint").textContent = count ? `已選 ${count} 個檔案` : `最多 ${limits.files} 個檔案`;
+}
+
+// ---- Date picker ----
+// A small calendar drawn with the page's own colours; the browser's picker ignores the theme.
+
+const earliestClaimDate = "2020-01-01";
+let calendarMonth = "";
+
+function setClaimDate(value) {
+  $("#claimDate").value = value;
+  $("#claimDateButton").textContent = value.replaceAll("-", "/");
+}
+
+function shiftMonth(month, delta) {
+  const [year, number] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(year, number - 1 + delta, 1));
+  return date.toISOString().slice(0, 7);
+}
+
+function renderCalendar() {
+  const [year, number] = calendarMonth.split("-").map(Number);
+  const today = localToday();
+  const firstWeekday = new Date(Date.UTC(year, number - 1, 1)).getUTCDay();
+  const dayCount = new Date(Date.UTC(year, number, 0)).getUTCDate();
+  $("#calendarMonth").textContent = `${year} 年 ${number} 月`;
+  $("#calendarPrev").disabled = shiftMonth(calendarMonth, -1) < earliestClaimDate.slice(0, 7);
+  $("#calendarNext").disabled = shiftMonth(calendarMonth, 1) > today.slice(0, 7);
+  const cells = Array.from({ length: firstWeekday }, () => element("span"));
+  for (let day = 1; day <= dayCount; day += 1) {
+    const value = `${calendarMonth}-${String(day).padStart(2, "0")}`;
+    const button = element("button", "calendar-day", String(day));
+    button.type = "button";
+    button.dataset.date = value;
+    button.disabled = value > today || value < earliestClaimDate;
+    if (value === today) button.classList.add("today");
+    if (value === $("#claimDate").value) button.setAttribute("aria-pressed", "true");
+    cells.push(button);
+  }
+  $("#calendarDays").replaceChildren(...cells);
+}
+
+function openCalendar() {
+  calendarMonth = ($("#claimDate").value || localToday()).slice(0, 7);
+  renderCalendar();
+  $("#claimCalendar").hidden = false;
+  $("#claimDateButton").setAttribute("aria-expanded", "true");
+  ($("#calendarDays [aria-pressed='true']") || $("#calendarDays button:not(:disabled)"))?.focus();
+}
+
+function closeCalendar(returnFocus) {
+  if ($("#claimCalendar").hidden) return;
+  $("#claimCalendar").hidden = true;
+  $("#claimDateButton").setAttribute("aria-expanded", "false");
+  if (returnFocus) $("#claimDateButton").focus();
+}
+
+function pickDate(value) {
+  setClaimDate(value);
+  closeCalendar(true);
 }
 
 function blobToBase64(blob) {
@@ -498,7 +566,6 @@ async function submitClaim(event) {
   const parent = categoryValue("#claimParent", "#claimParentOther");
   const child = categoryValue("#claimChild", "#claimChildOther");
   if (!parent || !child || parent === otherCategory || child === otherCategory) return showMessage("請選擇主項目與副項目；選「其他」時請填寫名稱。", true);
-  if (!files.length) return showMessage("請至少附上一張收據照片。", true);
   if (files.length > limits.files) return showMessage(`一次最多上傳 ${limits.files} 個附件。`, true);
 
   const button = $("#claimSubmit");
@@ -540,7 +607,23 @@ $("#approveClaim").addEventListener("click", () => reviewClaim("approve"));
 $("#rejectClaim").addEventListener("click", () => reviewClaim("reject"));
 $("#withdrawFromDetail").addEventListener("click", (event) => currentClaim && withdrawClaim(currentClaim, event.currentTarget, openReview));
 $("#claimParent").addEventListener("change", fillChildOptions);
-$("#claimChild").addEventListener("change", showOtherFields);
+$("#claimParent").addEventListener("change", () => showOtherFields("claimParent"));
+$("#claimChild").addEventListener("change", () => showOtherFields("claimChild"));
+document.querySelectorAll("[data-picker]").forEach((button) => button.addEventListener("click", () => leaveCustomCategory(button.dataset.picker)));
+$("#claimDateButton").addEventListener("click", () => ($("#claimCalendar").hidden ? openCalendar() : closeCalendar(true)));
+$("#calendarPrev").addEventListener("click", () => { calendarMonth = shiftMonth(calendarMonth, -1); renderCalendar(); });
+$("#calendarNext").addEventListener("click", () => { calendarMonth = shiftMonth(calendarMonth, 1); renderCalendar(); });
+$("#calendarToday").addEventListener("click", () => pickDate(localToday()));
+$("#calendarDays").addEventListener("click", (event) => {
+  const day = event.target.closest("[data-date]");
+  if (day && !day.disabled) pickDate(day.dataset.date);
+});
+$("#claimCalendar").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") { event.stopPropagation(); closeCalendar(true); }
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".date-field")) closeCalendar();
+});
 $("#claimFiles").addEventListener("change", showSelectedFiles);
 $("#claimCancel").addEventListener("click", () => navigate("overview"));
 $("#claimForm").addEventListener("submit", submitClaim);

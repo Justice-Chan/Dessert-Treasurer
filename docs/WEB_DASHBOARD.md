@@ -42,6 +42,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 - 財務彙總 holds aggregates only, written by the app on sync. Member data stays in the app; the Sheet holds name, Gmail and role.
 - The app keeps a link to each receipt and does not download photos.
 - No bank details are collected.
+- Receipts are optional, for small purchases with no receipt or only a paper slip.
 - Sync: the web decides 待審核, 已核准 and 退回; the app decides 已付款. A claim the app has paid ignores later web status changes. A web claim deleted in the app stays in its trash and is not pulled again. The secret is stored in the app's data file and stripped from backups.
 
 ## Status

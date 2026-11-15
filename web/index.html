@@ -92,19 +92,38 @@
 
         <form class="card" id="claimForm" hidden novalidate>
           <h2>新增報帳<span class="mono">New claim</span></h2>
-          <label for="claimDate">消費日期</label>
-          <input id="claimDate" type="date" required>
+          <label for="claimDateButton">消費日期</label>
+          <div class="date-field">
+            <input id="claimDate" type="hidden">
+            <button type="button" class="date-button" id="claimDateButton" aria-haspopup="dialog" aria-expanded="false"></button>
+            <div class="calendar" id="claimCalendar" role="dialog" aria-label="選擇消費日期" hidden>
+              <div class="calendar-head">
+                <button type="button" class="icon" id="calendarPrev" aria-label="上個月">‹</button>
+                <strong id="calendarMonth" aria-live="polite"></strong>
+                <button type="button" class="icon" id="calendarNext" aria-label="下個月">›</button>
+              </div>
+              <div class="calendar-grid calendar-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+              <div class="calendar-grid" id="calendarDays"></div>
+              <div class="calendar-foot"><button type="button" class="link" id="calendarToday">今天</button></div>
+            </div>
+          </div>
 
-          <label for="claimAmount">金額（新台幣）</label>
+          <label for="claimAmount">金額</label>
           <input id="claimAmount" type="number" inputmode="numeric" min="1" step="1" required>
 
           <label for="claimParent">主項目</label>
-          <select id="claimParent" required></select>
-          <input id="claimParentOther" aria-label="自訂主項目" placeholder="輸入自訂主項目" autocomplete="off" hidden>
+          <div class="picker">
+            <select id="claimParent" required></select>
+            <input id="claimParentOther" aria-label="自訂主項目" placeholder="輸入自訂主項目" autocomplete="off" hidden>
+            <button type="button" class="picker-back" data-picker="claimParent" aria-label="改回主項目選單" hidden>選單</button>
+          </div>
 
           <label for="claimChild">副項目</label>
-          <select id="claimChild" required></select>
-          <input id="claimChildOther" aria-label="自訂副項目" placeholder="輸入自訂副項目" autocomplete="off" hidden>
+          <div class="picker">
+            <select id="claimChild" required></select>
+            <input id="claimChildOther" aria-label="自訂副項目" placeholder="輸入自訂副項目" autocomplete="off" hidden>
+            <button type="button" class="picker-back" data-picker="claimChild" aria-label="改回副項目選單" hidden>選單</button>
+          </div>
 
           <label for="claimActivity">活動／社課<span class="subtle">（選填）</span></label>
           <input id="claimActivity" maxlength="60" autocomplete="off">
@@ -115,9 +134,11 @@
           <label for="claimDescription">說明<span class="subtle">（選填）</span></label>
           <textarea id="claimDescription" maxlength="300" rows="3"></textarea>
 
-          <label for="claimFiles">收據照片或 PDF</label>
-          <input id="claimFiles" type="file" accept="image/*,application/pdf" multiple required>
-          <p class="subtle" id="claimFilesHint"></p>
+          <label for="claimFiles" class="split-label">
+            <span>收據照片或 PDF<span class="subtle">（選填）</span></span>
+            <span class="subtle" id="claimFilesHint"></span>
+          </label>
+          <input id="claimFiles" type="file" accept="image/*,application/pdf" multiple>
 
           <div class="actions">
             <button type="button" id="claimCancel">取消</button>

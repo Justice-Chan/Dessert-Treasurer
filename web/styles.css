@@ -247,10 +247,65 @@ input, select, textarea {
   font: inherit;
 }
 
+/* The browser arrow sits off-centre in a short select, so draw one that follows the theme. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  line-height: 1.25;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
 input[type="file"] { padding: 8px 0; border: 0; background: none; }
 textarea { resize: vertical; }
-#claimFilesHint { margin-top: 4px; }
-#claimParentOther, #claimChildOther { margin-top: 8px; }
+.split-label { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.split-label > .subtle { font-weight: 400; white-space: nowrap; }
+
+/* 其他 swaps the dropdown for a text field in the same spot. */
+.picker { position: relative; }
+.picker input { padding-right: 64px; }
+.picker-back {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+/* ---- Date picker ---- */
+
+.date-field { position: relative; }
+.date-button { display: block; width: 100%; padding: 8px 10px; background: var(--field); text-align: left; font-variant-numeric: tabular-nums; }
+.calendar {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 15;
+  width: min(320px, 100%);
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+.calendar-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.calendar-head .icon { width: 36px; min-height: 36px; font-size: 1.375rem; line-height: 1; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.calendar-weekdays { color: var(--muted); font-size: 0.8125rem; margin-bottom: 2px; }
+.calendar-day { min-height: 38px; padding: 0; border: 1px solid transparent; border-radius: 8px; font-variant-numeric: tabular-nums; }
+.calendar-day:not(:disabled):hover { border-color: var(--line); background: var(--field); }
+.calendar-day.today { color: var(--accent); font-weight: 700; }
+.calendar-day[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.calendar-day:disabled { opacity: 0.3; }
+.calendar-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
+.calendar-foot .link { min-height: 36px; }
 #reviewControls label { margin-top: 0; }
 #detailActions .link { margin-top: 8px; }
 
@@ -281,9 +336,9 @@ textarea { resize: vertical; }
 }
 .card > :last-child { margin-bottom: 0; }
 .card h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; font-size: 1.0625rem; }
-.card-head { display: flex; align-items: flex-start; gap: 12px; }
-.card-head h2 { flex: 1; }
-.card-head select { width: auto; min-height: 36px; padding: 4px 8px; }
+.card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.card-head h2 { flex: 1; justify-content: flex-start; align-items: baseline; margin-bottom: 0; }
+.card-head select { width: auto; min-height: 38px; padding: 6px 34px 6px 14px; border-radius: 999px; }
 
 .art-row { display: grid; gap: 18px; justify-items: center; }
 @media (min-width: 560px) { .art-row { grid-template-columns: auto 1fr; align-items: center; justify-items: stretch; } }
