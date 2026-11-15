@@ -83,8 +83,19 @@ h1, h2, p { margin: 0; }
 .lede { color: var(--muted); font-size: 0.9375rem; }
 .landing h1 { margin-bottom: 32px; }
 #signInButton { min-height: 44px; margin-bottom: 12px; }
-.landing-art { display: flex; justify-content: space-between; align-items: flex-end; opacity: 0.85; }
-.landing-art pre.ascii-scene { margin: 0 0 -8px; font-size: clamp(5.5px, 1.5vw, 10px); line-height: 1; }
+/* The cake is the hero: large, behind the text, bleeding off the right edge. */
+.landing > .landing-art.art { position: static; min-height: 30vh; display: flex; align-items: flex-end; opacity: 0.9; }
+.landing-art pre.ascii-scene { margin: 0; line-height: 1; }
+.landing-art pre.ascii-scene b { color: var(--text); font-weight: inherit; }
+.landing-art pre.cake { position: absolute; right: -9vw; bottom: 0; z-index: 0; font-size: min(2.3vw, 1.6vh); }
+.landing-art pre.plate { display: none; font-size: 10px; margin-bottom: -8px; }
+
+@media (min-width: 900px) {
+  .landing-body { max-width: min(640px, 42vw); }
+  .landing > .landing-art.art { min-height: 0; }
+  .landing-art pre.cake { right: -5vw; bottom: auto; top: 50%; transform: translateY(-50%); font-size: min(1.1vw, 1.7vh); }
+  .landing-art pre.plate { display: block; }
+}
 
 /* Small dots that rise slowly through the empty part of the landing page. */
 .landing > :not(.motes) { position: relative; z-index: 1; }

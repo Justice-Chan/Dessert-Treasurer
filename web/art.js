@@ -69,7 +69,7 @@ function renderLandingArt(container, theme) {
   if (!landingScenes) {
     landingScenes = [treatsScene(), cakeScene()].map((scene) => {
       const pre = document.createElement("pre");
-      pre.className = "ascii-scene";
+      pre.className = `ascii-scene ${scene.name}`;
       container.append(pre);
       return startAsciiScene(pre, scene);
     });
@@ -84,7 +84,8 @@ function discDistance(radial, along, radius, centre, half, round = 0.03) {
   return Math.min(Math.max(dx, dy), 0) + Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) - round;
 }
 
-// A scene supplies: update(seconds), distance(x, y, z) and tone(y, normalY) for the last distance() point.
+// A scene supplies: update(seconds), distance(x, y, z), and tone(y, normalY) and highlight()
+// for the last distance() point. `detail` is how many characters span one unit of the scene.
 function cakeScene() {
   const wedgeCos = Math.cos(0.4);
   const wedgeSin = Math.sin(0.4);
@@ -92,7 +93,8 @@ function cakeScene() {
   let spinCos = 1, spinSin = 0;
   let dCake = 0, dDollop = 0, dCherry = 0, wedge = 0;
   return {
-    cols: 46, rows: 23, lift: -0.08,
+    name: "cake", lift: -0.08,
+    ...(window.innerWidth < 900 ? { cols: 64, rows: 32, detail: 32 } : { cols: 92, rows: 46, detail: 46 }),   // coarser on phones
     update(seconds) {
       spinCos = Math.cos(seconds * 0.45);
       spinSin = Math.sin(seconds * 0.45);
@@ -111,11 +113,14 @@ function cakeScene() {
     },
     tone(y, normalY) {
       const nearest = Math.min(dCake, dDollop, dCherry);
-      if (nearest === dCherry) return 0.6;
+      if (nearest === dCherry) return 0.9;
       if (nearest === dDollop) return 0.85;
       if (wedge < 0.03) return Math.sin(y * 42) > 0 ? 0.85 : 0.35;      // layers on the cut faces
       if (normalY > 0.7) return 1;                                      // frosting on top
       return Math.abs(y + 0.3) < 0.045 || Math.abs(y - 0.175) < 0.04 ? 0.2 : 0.5;
+    },
+    highlight() {
+      return Math.min(dDollop, dCherry) < dCake;
     }
   };
 }
@@ -144,7 +149,7 @@ function treatsScene() {
   let part = "";
   let along = 0, chipX = 0, chipZ = 0;
   return {
-    cols: 52, rows: 18, lift: -0.2,
+    name: "plate", cols: 52, rows: 18, detail: 23, lift: -0.2,
     update(seconds) {
       spinCos = Math.cos(seconds * 0.35);
       spinSin = Math.sin(seconds * 0.35);
@@ -181,13 +186,16 @@ function treatsScene() {
       if (part === "shell") return Math.abs(along) < 0.07 ? 0.5 : 0.95;      // ruffled feet near the filling
       const onChip = Math.abs(along) > 0.03 && chips.some(([cx, cz]) => Math.hypot(chipX - cx, chipZ - cz) < 0.055);
       return onChip ? 0.1 : 0.7;
+    },
+    highlight() {
+      return part === "filling";
     }
   };
 }
 
 function startAsciiScene(pre, scene) {
   const ramp = ".:-=+*#%@";
-  const cell = 3.3 / 76;            // world units per column
+  const cell = 1 / scene.detail;    // world units per column
   const rowStep = cell / 0.6;       // characters are taller than they are wide
   const pitch = 0.38;
   const forward = [0, -Math.sin(pitch), -Math.cos(pitch)];
@@ -197,6 +205,7 @@ function startAsciiScene(pre, scene) {
   const { cols, rows } = scene;
   let inverted = false;
   let last = 0;
+  let gap = 80;
 
   function draw(seconds) {
     scene.update(seconds);
@@ -206,16 +215,21 @@ function startAsciiScene(pre, scene) {
       const oy = v * up[1] - forward[1] * 5;
       const oz = v * up[2] - forward[2] * 5;
       let line = "";
+      let bright = false;
       for (let col = 0; col < cols; col += 1) {
         const x = (col - cols / 2 + 0.5) * cell;
-        let travelled = 2.5;
+        let travelled = 3.5;            // the camera sits 5 away; everything lies within 1.5 of the centre
         let hit = false;
-        for (let step = 0; step < 56 && travelled < 8; step += 1) {
+        for (let step = 0; step < 56 && travelled < 6.6; step += 1) {
           const d = scene.distance(x, oy + forward[1] * travelled, oz + forward[2] * travelled);
           if (d < 0.012) { hit = true; break; }
           travelled += d;
         }
-        if (!hit) { line += " "; continue; }
+        if (!hit) {
+          if (bright) { line += "</b>"; bright = false; }
+          line += " ";
+          continue;
+        }
         const y = oy + forward[1] * travelled, z = oz + forward[2] * travelled;
         const e = 0.01;
         const nx = scene.distance(x + e, y, z) - scene.distance(x - e, y, z);
@@ -225,18 +239,23 @@ function startAsciiScene(pre, scene) {
         scene.distance(x, y, z);
         const lit = Math.max(0, (nx * light[0] + ny * light[1] + nz * light[2]) / size);
         const level = Math.min(1, scene.tone(y, ny / size) * (0.25 + 0.75 * lit));
+        if (scene.highlight() !== bright) {
+          bright = !bright;
+          line += bright ? "<b>" : "</b>";
+        }
         line += ramp[Math.round((inverted ? 1 - level : level) * (ramp.length - 1))];
       }
-      lines.push(line);
+      lines.push(bright ? `${line}</b>` : line);
     }
-    pre.textContent = lines.join("\n");
+    pre.innerHTML = lines.join("\n");      // only ramp characters and <b> runs
   }
 
   function tick(time) {
     const visible = !document.hidden && pre.offsetParent !== null;
-    if (visible && time - last > 80) {
+    if (visible && time - last > gap) {
       last = time;
       draw(time / 1000);
+      gap = Math.max(80, (performance.now() - time) * 3);      // slow devices redraw less often
     }
     requestAnimationFrame(tick);
   }
