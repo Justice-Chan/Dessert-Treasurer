@@ -46,6 +46,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 - The app keeps a link to each receipt and does not download photos.
 - No bank details are collected.
 - Receipts are optional, for small purchases with no receipt or only a paper slip.
+- Every claim names an activity. The form lists the activity folders in this month's `YYYY-MM` folder by name without their `01_` prefix, adding the session when a name repeats; 其他 creates a new folder, numbered as the next session if the name already exists. Receipts go into that folder.
 - The overview shows when the app last synced (Script Property `SUMMARY_SYNCED_AT`, set by `syncPush`) and, for the treasurer, how many claims await review.
 - Sync: the web decides 待審核, 已核准 and 退回; only a payment recorded in the app makes a claim 已付款 there. Synced claim ids must be UUIDs, and the app runs under a content security policy. A claim the app has paid ignores later web status changes. A web claim deleted in the app stays in its trash and is not pulled again. The secret is stored in the app's data file and stripped from backups.
 

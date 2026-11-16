@@ -479,3 +479,5 @@ button.review-row:hover { background: var(--field); }
 .review-row .claim-meta { margin-top: 2px; }
 .chevron { color: var(--muted); opacity: 0.6; font-size: 1.25rem; line-height: 1; }
 .list-head ~ .review-claims:not(:empty) { padding-top: 2px; }
+
+.field-hint { margin-top: 6px; color: var(--warn); }

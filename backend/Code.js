@@ -75,7 +75,8 @@ const ACTIONS = {
   getAttachment,
   listAllRequests,
   reviewRequest,
-  getSummary
+  getSummary,
+  listActivities
 };
 
 // Called by the desktop app with SYNC_SECRET instead of a Google sign-in.
@@ -287,7 +288,6 @@ function validateClaim(payload) {
     amount,
     parent,
     child,
-    activity: requiredText(payload.activity, LIMITS.shortText, "活動／社課", false),
     vendor: requiredText(payload.vendor, LIMITS.shortText, "店家", false),
     description: requiredText(payload.description, LIMITS.description, "說明", false)
   };
@@ -319,16 +319,71 @@ function decodeAttachments(attachments) {
   });
 }
 
-// Receipts are filed by submission month (YYYY-MM) under the configured folder.
-// Call inside withLock so two submissions cannot create the same folder twice.
-function monthFolder(month) {
-  const root = DriveApp.getFolderById(property("DRIVE_FOLDER_ID"));
-  const matches = root.getFoldersByName(month);
+// Receipts are filed by submission month (YYYY-MM), then by activity, under the configured folder.
+function currentMonth() {
+  return Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM");
+}
+
+function findMonthFolder(month) {
+  const matches = DriveApp.getFolderById(property("DRIVE_FOLDER_ID")).getFoldersByName(month);
   while (matches.hasNext()) {
     const folder = matches.next();
     if (!folder.isTrashed()) return folder;
   }
-  return root.createFolder(month);
+  return null;
+}
+
+// Call inside withLock so two submissions cannot create the same folder twice.
+function monthFolder(month) {
+  return findMonthFolder(month) || DriveApp.getFolderById(property("DRIVE_FOLDER_ID")).createFolder(month);
+}
+
+// Activity folders are named "01_泡芙實作課"; the number tells apart sessions of the same course.
+const ACTIVITY_PREFIX = /^(\d+)_\s*/;
+
+function activityFolders(month) {
+  if (!month) return [];
+  const folders = [];
+  const iterator = month.getFolders();
+  while (iterator.hasNext()) {
+    const folder = iterator.next();
+    if (folder.isTrashed()) continue;
+    const name = folder.getName();
+    const prefix = name.match(ACTIVITY_PREFIX);
+    folders.push({ folder, id: folder.getId(), name: prefix ? name.slice(prefix[0].length) : name, session: prefix ? Number(prefix[1]) : 0 });
+  }
+  // A session number is shown only when the month holds more than one folder with that name.
+  const counts = folders.reduce((map, item) => map.set(item.name, (map.get(item.name) || 0) + 1), new Map());
+  return folders
+    .map((item) => ({ ...item, label: counts.get(item.name) > 1 && item.session ? `${item.name}（第 ${item.session} 堂）` : item.name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant") || a.session - b.session);
+}
+
+// This month's activities, for the claim form.
+function listActivities() {
+  return activityFolders(findMonthFolder(currentMonth()))
+    .map(({ id, name, label }) => ({ id, name, label }));
+}
+
+// Picks an existing activity folder by id, or creates one for a typed name. A typed name that
+// already exists becomes its next session. Call inside withLock.
+function resolveActivity(payload) {
+  const month = monthFolder(currentMonth());
+  const existing = activityFolders(month);
+  const id = typeof payload.activityId === "string" ? payload.activityId.trim() : "";
+  if (id) {
+    const match = existing.find((item) => item.id === id);
+    if (!match) throw appError("invalid", "這個活動資料夾已不存在，請重新選擇。");
+    return { folder: match.folder, label: match.label };
+  }
+  // Older pages send the activity as free text.
+  const typed = typeof payload.activityName === "string" ? payload.activityName : payload.activity;
+  const name = requiredText(typed, LIMITS.shortText, "活動／社課", true).replace(ACTIVITY_PREFIX, "");
+  if (!name || /[\/\\]/.test(name)) throw appError("invalid", "活動名稱不能是空白，也不能包含斜線。");
+  const sessions = existing.filter((item) => item.name === name).map((item) => item.session);
+  const session = sessions.length ? Math.max(...sessions, 1) + 1 : 1;
+  const folder = month.createFolder(`${String(session).padStart(2, "0")}_${name}`);
+  return { folder, label: sessions.length ? `${name}（第 ${session} 堂）` : name };
 }
 
 function submitRequest(user, payload) {
@@ -337,7 +392,8 @@ function submitRequest(user, payload) {
   const id = Utilities.getUuid();
   const now = new Date().toISOString();
   const owner = (user.name || user.email.split("@")[0]).replace(/[^\p{L}\p{N}_-]/gu, "") || "applicant";
-  const folder = withLock(() => monthFolder(Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM")));
+  const activity = withLock(() => resolveActivity(payload));
+  const folder = activity.folder;
   const created = [];
   try {
     files.forEach((file, index) => {
@@ -354,7 +410,7 @@ function submitRequest(user, payload) {
       row[COL["金額"]] = claim.amount;
       row[COL["主項目"]] = claim.parent;
       row[COL["副項目"]] = claim.child;
-      row[COL["活動／社課"]] = claim.activity;
+      row[COL["活動／社課"]] = activity.label;
       row[COL["店家"]] = claim.vendor;
       row[COL["說明"]] = claim.description;
       row[COL["附件"]] = created.map((file) => file.getId()).join(",");

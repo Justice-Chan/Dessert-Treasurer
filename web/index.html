@@ -133,8 +133,13 @@
             <button type="button" class="picker-back" data-picker="claimChild" aria-label="改回副項目選單" hidden>選單</button>
           </div>
 
-          <label for="claimActivity">活動／社課<span class="subtle">（選填）</span></label>
-          <input id="claimActivity" maxlength="60" autocomplete="off">
+          <label for="claimActivity">活動／社課</label>
+          <div class="picker">
+            <select id="claimActivity" required></select>
+            <input id="claimActivityOther" aria-label="新的活動名稱" placeholder="輸入新的活動名稱" autocomplete="off" hidden>
+            <button type="button" class="picker-back" data-picker="claimActivity" aria-label="改回活動選單" hidden>選單</button>
+          </div>
+          <p class="subtle field-hint" id="activityHint" hidden></p>
 
           <label for="claimVendor">店家<span class="subtle">（選填）</span></label>
           <input id="claimVendor" maxlength="60" autocomplete="off" placeholder="例如：全聯、網購">

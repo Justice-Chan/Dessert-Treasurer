@@ -481,22 +481,63 @@ function fillChildOptions() {
   showOtherFields();
 }
 
+// Pickers whose last option swaps the dropdown for a text field: the value of that option,
+// and how long the typed name may be.
+const pickers = {
+  claimParent: { custom: otherCategory, maxLength: () => limits.category },
+  claimChild: { custom: otherCategory, maxLength: () => limits.category },
+  claimActivity: { custom: "new", maxLength: () => 60 }
+};
+
 function showOtherFields(focusId) {
-  ["claimParent", "claimChild"].forEach((id) => {
-    const custom = $(`#${id}`).value === otherCategory;
+  Object.entries(pickers).forEach(([id, picker]) => {
+    const custom = $(`#${id}`).value === picker.custom;
     const input = $(`#${id}Other`);
     $(`#${id}`).hidden = custom;
     input.hidden = !custom;
-    input.maxLength = limits.category;
-    // The child list holds only 其他 under a custom parent, so it has nothing to go back to.
-    $(`[data-picker="${id}"]`).hidden = !custom || (id === "claimChild" && $("#claimParent").value === otherCategory);
+    input.maxLength = picker.maxLength();
+    // A list holding only the custom option has nothing to go back to.
+    $(`[data-picker="${id}"]`).hidden = !custom || $(`#${id}`).options.length < 2;
     if (!custom) input.value = "";
     else if (id === focusId) input.focus();
   });
+  showActivityHint();
+}
+
+// ---- Activities ----
+// The month's activity folders come from the backend; picking one files the receipts there.
+
+let activityNames = new Set();
+
+async function loadActivities() {
+  const select = $("#claimActivity");
+  select.replaceChildren(new Option("載入中…", ""));
+  select.disabled = true;
+  let activities = [];
+  try {
+    activities = await callBackend("listActivities");
+  } catch (error) {
+    showMessage("讀不到本月的活動清單，可以直接輸入活動名稱。", true);
+  }
+  activityNames = new Set(activities.map((activity) => activity.name));
+  select.replaceChildren(...activities.map((activity) => new Option(activity.label, activity.id)), new Option("其他（新活動）", pickers.claimActivity.custom));
+  select.disabled = false;
+  showOtherFields();
+}
+
+function showActivityHint() {
+  const typed = $("#claimActivityOther").hidden ? "" : $("#claimActivityOther").value.trim();
+  const hint = $("#activityHint");
+  hint.hidden = !activityNames.has(typed);
+  hint.textContent = `本月已有「${typed}」。送出會建立新的一堂；同一堂請改從選單選。`;
 }
 
 function leaveCustomCategory(id) {
   $(`#${id}`).selectedIndex = 0;
+  if (id === "claimActivity") {
+    showOtherFields();
+    return $(`#${id}`).focus();
+  }
   if (id === "claimParent") fillChildOptions();
   else showOtherFields();
   $(`#${id}`).focus();
@@ -514,6 +555,7 @@ function openClaimForm() {
   showSelectedFiles();
   showMessage("");
   show("claimForm");
+  loadActivities();
 }
 
 function showSelectedFiles() {
@@ -650,6 +692,9 @@ async function submitClaim(event) {
   const parent = categoryValue("#claimParent", "#claimParentOther");
   const child = categoryValue("#claimChild", "#claimChildOther");
   if (!parent || !child || parent === otherCategory || child === otherCategory) return showMessage("請選擇主項目與副項目；選「其他」時請填寫名稱。", true);
+  const newActivity = $("#claimActivity").value === pickers.claimActivity.custom;
+  const activity = newActivity ? { activityName: $("#claimActivityOther").value.trim() } : { activityId: $("#claimActivity").value };
+  if (!activity.activityName && !activity.activityId) return showMessage("請選擇活動／社課；新活動請填寫名稱。", true);
   if (files.length > limits.files) return showMessage(`一次最多上傳 ${limits.files} 個附件。`, true);
 
   const button = $("#claimSubmit");
@@ -662,7 +707,7 @@ async function submitClaim(event) {
       amount,
       parent,
       child,
-      activity: $("#claimActivity").value,
+      ...activity,
       vendor: $("#claimVendor").value,
       description: $("#claimDescription").value,
       attachments: await Promise.all(files.map(prepareAttachment))
@@ -693,6 +738,8 @@ $("#reviewNextStatus").addEventListener("change", showStatusHint);
 $("#claimParent").addEventListener("change", fillChildOptions);
 $("#claimParent").addEventListener("change", () => showOtherFields("claimParent"));
 $("#claimChild").addEventListener("change", () => showOtherFields("claimChild"));
+$("#claimActivity").addEventListener("change", () => showOtherFields("claimActivity"));
+$("#claimActivityOther").addEventListener("input", showActivityHint);
 document.querySelectorAll("[data-picker]").forEach((button) => button.addEventListener("click", () => leaveCustomCategory(button.dataset.picker)));
 $("#claimDateButton").addEventListener("click", () => ($("#claimCalendar").hidden ? openCalendar() : closeCalendar(true)));
 // A year step can land past today; clamp to the newest month that may be picked.
