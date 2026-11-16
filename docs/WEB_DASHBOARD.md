@@ -70,4 +70,4 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 - The backend, Sheet and OAuth client belong to a personal Google account. Move them to a club account before real use: redeploy, then update `web/config.js` and the OAuth client's authorised origins.
 - The shared Drive folder is owned by a former officer's personal account.
 - The landing animation is drawn in the browser each frame; if it stutters on older phones, lower the phone detail in `cakeScene()` in `web/art.js`.
-- No favicon yet.
+- The favicon is a stand-in cut from the club logo; replace it with a simpler drawing that reads at 32px.

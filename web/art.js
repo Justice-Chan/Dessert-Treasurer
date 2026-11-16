@@ -1,7 +1,6 @@
 // Decorative art. Everything drawn here is also available as text on the page,
 // so it is hidden from assistive technology.
 
-const cakeGlyphs = ["░", "▒", "▓", "█", "#"];
 const sampleLayers = [{ label: "", amount: 2 }, { label: "", amount: 5 }, { label: "", amount: 9 }];
 const maxLayers = 5;
 
@@ -10,19 +9,6 @@ function cakeLayers(items) {
   const layers = items.filter((item) => item.amount > 0).sort((a, b) => b.amount - a.amount).slice(0, maxLayers).reverse();
   const largest = Math.max(...layers.map((layer) => layer.amount), 1);
   return layers.map((layer, index) => ({ ...layer, index, share: Math.sqrt(layer.amount / largest) }));
-}
-
-function asciiCake(layers) {
-  const widths = layers.map((layer) => 7 + 2 * Math.round(layer.share * 10));
-  const total = Math.max(...widths) + 6;
-  const center = (line) => " ".repeat(Math.floor((total - line.length) / 2)) + line;
-  const lines = [center("."), center("|")];
-  layers.forEach((layer, index) => {
-    const fill = cakeGlyphs[layer.index % cakeGlyphs.length].repeat(widths[index]);
-    lines.push(center(`.${"-".repeat(widths[index])}.`), center(`|${fill}|`), center(`|${fill}|`));
-  });
-  lines.push(center(`'${"-".repeat(widths[widths.length - 1])}'`), "=".repeat(total));
-  return lines.join("\n");
 }
 
 function blockCake(layers) {
@@ -271,15 +257,10 @@ function startAsciiScene(pre, scene) {
   };
 }
 
-function renderCake(container, items, theme) {
+// Both themes draw the same block cake; the layer colours come from the theme.
+function renderCake(container, items) {
   const layers = cakeLayers(items.length ? items : sampleLayers);
-  if (theme === "cake") {
-    container.replaceChildren(blockCake(layers));
-    return layers;
-  }
-  const pre = document.createElement("pre");
-  pre.textContent = asciiCake(layers);
-  container.replaceChildren(pre);
+  container.replaceChildren(blockCake(layers));
   return layers;
 }
 

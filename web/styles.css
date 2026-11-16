@@ -4,7 +4,7 @@
   --drawer: 264px;
 }
 
-/* Dark ASCII: near-black page, amber glyphs, white type. */
+/* Dark ASCII: near-black page, berry glyphs with cream fillings, white type. */
 :root[data-theme="dark"] {
   --page: #0b0a09;
   --surface: #141210;
@@ -12,13 +12,14 @@
   --line: #2c2823;
   --text: #f4efe7;
   --muted: #9d958b;
-  --accent: #e9a650;
+  --accent: #e58aa8;
+  --filling: #f6e3cf;
   --primary: #ffffff;
   --on-primary: #0b0a09;
   --error: #ff8f7a;
   --ok: #7fd69b;
   --warn: #e9c46a;
-  --glyph: 233, 166, 80;
+  --glyph: 229, 138, 168;
   color-scheme: dark;
 }
 
@@ -86,7 +87,7 @@ h1, h2, p { margin: 0; }
 /* The cake is the hero: large, behind the text, bleeding off the right edge. */
 .landing > .landing-art.art { position: static; min-height: 30vh; display: flex; align-items: flex-end; opacity: 0.9; }
 .landing-art pre.ascii-scene { margin: 0; line-height: 1; }
-.landing-art pre.ascii-scene b { color: var(--text); font-weight: inherit; }
+.landing-art pre.ascii-scene b { color: var(--filling, var(--text)); font-weight: inherit; }
 .landing-art pre.cake { position: absolute; right: -9vw; bottom: 0; z-index: 0; font-size: min(2.3vw, 1.6vh); }
 .landing-art pre.plate { display: none; font-size: 10px; margin-bottom: -8px; }
 
@@ -103,6 +104,7 @@ h1, h2, p { margin: 0; }
 .mote { position: absolute; border-radius: 50%; background: var(--accent); opacity: 0; animation: mote-rise linear infinite; }
 :root[data-theme="cake"] .mote:nth-child(3n) { background: #f4c0d1; }
 :root[data-theme="cake"] .mote:nth-child(3n + 1) { background: #fac775; }
+:root[data-theme="dark"] .mote:nth-child(3n) { background: var(--filling); }
 
 @keyframes mote-rise {
   0% { transform: translate(0, 0); opacity: 0; }
@@ -362,8 +364,7 @@ textarea { resize: vertical; }
 .legend dt { grid-column: 1 / 3; display: grid; grid-template-columns: subgrid; align-items: center; }
 .legend dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .legend dd.share { min-width: 3ch; color: var(--muted); font-size: 0.875rem; }
-.swatch { width: 1.2em; font-family: var(--mono); color: var(--accent); text-align: center; }
-.swatch.block { height: 12px; border-radius: 3px; }
+.swatch { width: 1.2em; height: 12px; border-radius: 3px; }
 
 .block-cake { display: flex; flex-direction: column; align-items: center; width: 200px; max-width: 100%; }
 .block-cake .cherry { width: 16px; height: 16px; margin-bottom: 2px; border-radius: 50%; background: var(--layer-cherry, #d4537e); }
@@ -374,6 +375,13 @@ textarea { resize: vertical; }
 .layer-2, .swatch.layer-2 { background: #d85a30; }
 .layer-3, .swatch.layer-3 { background: #993c1d; }
 .layer-4, .swatch.layer-4 { background: #712b13; }
+/* Night: the same pastries, dimmed and softened so they sit on the dark card without glare. */
+:root[data-theme="dark"] .block-cake .cherry { background: #c95b80; }
+:root[data-theme="dark"] .layer-0 { background: #e8a0b8; }
+:root[data-theme="dark"] .layer-1 { background: #ecc272; }
+:root[data-theme="dark"] .layer-2 { background: #9fc08a; }
+:root[data-theme="dark"] .layer-3 { background: #e0874f; }
+:root[data-theme="dark"] .layer-4 { background: #a8684a; }
 
 /* ---- Claims ---- */
 

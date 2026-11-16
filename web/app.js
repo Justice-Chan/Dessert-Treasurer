@@ -233,15 +233,11 @@ function renderSummary({ items = [], syncedAt = "", pendingReview }, animate = f
   const spending = items.filter((item) => !totalLabels.includes(item.label));
   const expense = find(expenseLabel);
   const total = expense ? expense.amount : spending.reduce((sum, item) => sum + Math.max(0, item.amount), 0);
-  const theme = currentTheme();
-  const layers = renderCake($("#cakeArt"), spending, theme);
+  const layers = renderCake($("#cakeArt"), spending);
   // Legend rows follow the cake from the top layer down.
   $("#cakeLegend").replaceChildren(...(spending.length ? layers : []).flatMap((layer) => {
     const term = element("dt");
-    const swatch = theme === "cake"
-      ? element("span", `swatch block layer-${layer.index % maxLayers}`)
-      : element("span", "swatch", cakeGlyphs[layer.index % cakeGlyphs.length]);
-    term.append(swatch, element("span", "", layer.label));
+    term.append(element("span", `swatch block layer-${layer.index % maxLayers}`), element("span", "", layer.label));
     const share = total > 0 ? `${Math.round((layer.amount / total) * 100)}%` : "";
     return [term, element("dd", "share", share), element("dd", "", money.format(layer.amount))];
   }));
