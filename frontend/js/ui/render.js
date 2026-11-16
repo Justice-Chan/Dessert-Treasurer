@@ -494,7 +494,7 @@ function renderClaims() {
       <td data-label="用途">${escapeHtml(claim.title)}<br><span class="subtle">${claimReceiptMarkup(claim.receipt)}${claim.attachments?.length ? ` · ${claim.attachments.length} 個附件` : ""}</span></td>
       <td data-label="分類">${escapeHtml(claim.parent)} / ${escapeHtml(claim.child)}</td>
       <td class="num" data-label="金額">${fmt.format(Number(claim.amount))}</td>
-      <td class="claim-status-cell" data-label="狀態"><div class="claim-status-line"><span class="pill ${claim.status}">${statusText[claim.status]}</span>${claimActionButtons(claim)}</div>${claim.status === "paid" ? `<span class="subtle claim-payment-meta">${escapeHtml(claim.paymentDate || "")} · ${escapeHtml(accountName(claim.paymentAccountId))}</span>` : ""}</td>
+      <td class="claim-status-cell" data-label="狀態"><div class="claim-status-line"><span class="pill ${claim.status}">${statusText[claim.status]}</span>${claimActionButtons(claim)}</div>${claim.webPaid && claim.status !== "paid" ? `<span class="subtle claim-payment-meta">網頁已標記付款，請記錄付款</span>` : ""}${claim.status === "paid" ? `<span class="subtle claim-payment-meta">${escapeHtml(claim.paymentDate || "")} · ${escapeHtml(accountName(claim.paymentAccountId))}</span>` : ""}</td>
     </tr>
   `).join("") : `<tr class="claim-empty-row"><td colspan="6"><div class="empty">${state.claims.length ? "沒有符合條件的報銷申請。" : "尚未新增報銷申請。"}</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("claimList", 8));

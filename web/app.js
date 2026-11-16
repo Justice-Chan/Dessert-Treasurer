@@ -2,8 +2,15 @@ const config = window.DASHBOARD_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat("zh-TW", { style: "currency", currency: "TWD", maximumFractionDigits: 0 });
 const roleText = { treasurer: "總務", officer: "幹部" };
+const reviewStatuses = ["待審核", "已核准", "退回", "已付款"];
+const nextStatuses = {
+  "待審核": ["已核准", "已付款", "退回"],
+  "已核准": ["已付款", "退回", "待審核"],
+  "退回": ["已核准", "待審核", "已付款"],
+  "已付款": ["已核准", "待審核", "退回"]
+};
 const statusClass = { "待審核": "pending", "已核准": "approved", "已付款": "paid", "退回": "rejected" };
-const viewLabels = { overview: "OVERVIEW", myClaims: "MY CLAIMS", claimForm: "NEW CLAIM", review: "REVIEW", detail: "CLAIM" };
+const viewLabels = { overview: "Overview", myClaims: "My claims", claimForm: "New claim", review: "Review", detail: "Claim" };
 // Summary rows with these labels feed the hero; every other row is a spending category.
 const balanceLabel = "帳面餘額";
 const expenseLabel = "本月支出";
@@ -21,6 +28,8 @@ const otherCategory = "其他";
 let idToken = "";
 let categories = {};
 let currentClaim = null;
+// The last review list from the backend; the position filter narrows it without a new request.
+let reviewClaims = [];
 let receiptUrls = [];
 let glyphField = null;
 let summary = { items: [] };
@@ -149,7 +158,8 @@ async function handleCredential(response) {
     const user = await callBackend("whoami");
     categories = user.categories || {};
     limits = { ...limits, ...user.limits };
-    $("#userLabel").textContent = roleText[user.role] || user.role;
+    $("#userRole").textContent = roleText[user.role] || user.role;
+    $("#userName").textContent = user.name || user.email.split("@")[0];
     $("#navReview").hidden = user.role !== "treasurer";
     fillParentOptions();
     show("overview");
@@ -267,7 +277,7 @@ function renderClaims(claims) {
     }
     return item;
   }));
-  $("#claimsEmpty").hidden = claims.length > 0;
+  $("#claimsSummary").textContent = claims.length ? `共 ${claims.length} 筆` : "還沒有送出過報帳。";
 }
 
 async function withdrawClaim(claim, button, afterwards = loadMyClaims) {
@@ -305,21 +315,37 @@ async function openReview() {
   show("review");
   showMessage("載入中…", false, true);
   try {
-    const claims = await callBackend("listAllRequests", { status: $("#reviewStatus").value });
-    $("#reviewList").replaceChildren(...claims.map((claim) => {
-      const row = element("button", "row");
-      row.type = "button";
-      row.append(...claimLines(claim, [claim.applicantName || claim.applicantEmail, claim.date]));
-      row.addEventListener("click", () => openDetail(claim));
-      const item = element("li");
-      item.append(row);
-      return item;
-    }));
-    $("#reviewSummary").textContent = claims.length ? `共 ${claims.length} 筆` : "沒有符合的申請。";
+    reviewClaims = await callBackend("listAllRequests", { status: $("#reviewStatus").value });
+    fillPositionOptions();
+    renderReview();
     showMessage("");
   } catch (error) {
     reportError(error);
   }
+}
+
+function fillPositionOptions() {
+  const select = $("#reviewPosition");
+  const chosen = select.value;
+  const positions = [...new Set(reviewClaims.map((claim) => claim.applicantPosition).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-Hant"));
+  select.replaceChildren(new Option("全部職位", ""), ...positions.map((position) => new Option(position, position)));
+  select.value = positions.includes(chosen) ? chosen : "";
+}
+
+function renderReview() {
+  const position = $("#reviewPosition").value;
+  const claims = reviewClaims.filter((claim) => !position || claim.applicantPosition === position);
+  $("#reviewList").replaceChildren(...claims.map((claim) => {
+    const row = element("button", "row");
+    row.type = "button";
+    const who = claim.applicantName || claim.applicantEmail;
+    row.append(...claimLines(claim, [claim.applicantPosition ? `${who}（${claim.applicantPosition}）` : who, claim.date]));
+    row.addEventListener("click", () => openDetail(claim));
+    const item = element("li");
+    item.append(row);
+    return item;
+  }));
+  $("#reviewSummary").textContent = claims.length ? `共 ${claims.length} 筆` : "沒有符合的申請。";
 }
 
 function openDetail(claim) {
@@ -339,11 +365,11 @@ function openDetail(claim) {
   ].filter(([, value]) => value);
   $("#detailFields").replaceChildren(...fields.flatMap(([label, value]) => [element("dt", "", label), element("dd", "", value)]));
   $("#reviewNote").value = "";
-  $("#approveClaim").hidden = !claim.canApprove;
-  $("#rejectClaim").hidden = !claim.canReject;
-  $("#reviewControls").hidden = !claim.canApprove && !claim.canReject;
+  // Every other status, the usual next step first.
+  const order = nextStatuses[claim.status] || reviewStatuses;
+  $("#reviewNextStatus").replaceChildren(...order.filter((status) => status !== claim.status).map((status) => new Option(status, status)));
+  showPaidHint();
   $("#withdrawFromDetail").hidden = !claim.canWithdraw;
-  $("#detailLocked").hidden = claim.canApprove || claim.canReject || claim.canWithdraw;
   showMessage("");
   show("detail");
   loadReceipts(claim);
@@ -389,16 +415,21 @@ async function loadReceipts(claim) {
   }
 }
 
-async function reviewClaim(decision) {
+function showPaidHint() {
+  $("#paidHint").hidden = $("#reviewNextStatus").value !== "已付款";
+}
+
+async function reviewClaim() {
   const claim = currentClaim;
   const note = $("#reviewNote").value.trim();
-  if (!claim) return;
-  if (decision === "reject" && !note) return showMessage("退回時請填寫審核備註，讓申請人知道原因。", true);
-  const buttons = [$("#approveClaim"), $("#rejectClaim")];
+  const status = $("#reviewNextStatus").value;
+  if (!claim || !status) return;
+  if (status === "退回" && !note) return showMessage("退回時請填寫審核備註，讓申請人知道原因。", true);
+  const buttons = [$("#applyStatus")];
   buttons.forEach((button) => { button.disabled = true; });
   showMessage("處理中…", false, true);
   try {
-    const result = await callBackend("reviewRequest", { id: claim.id, decision, note });
+    const result = await callBackend("reviewRequest", { id: claim.id, status, note });
     await openReview();
     showMessage(`已將申請改為「${result.status}」。`);
   } catch (error) {
@@ -636,9 +667,10 @@ $("#scrim").addEventListener("click", () => setDrawer(false));
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") setDrawer(false); });
 document.querySelectorAll("[data-nav]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.nav)));
 $("#reviewStatus").addEventListener("change", openReview);
+$("#reviewPosition").addEventListener("change", renderReview);
 $("#detailBack").addEventListener("click", openReview);
-$("#approveClaim").addEventListener("click", () => reviewClaim("approve"));
-$("#rejectClaim").addEventListener("click", () => reviewClaim("reject"));
+$("#applyStatus").addEventListener("click", reviewClaim);
+$("#reviewNextStatus").addEventListener("change", showPaidHint);
 $("#withdrawFromDetail").addEventListener("click", (event) => currentClaim && withdrawClaim(currentClaim, event.currentTarget, openReview));
 $("#claimParent").addEventListener("change", fillChildOptions);
 $("#claimParent").addEventListener("change", () => showOtherFields("claimParent"));

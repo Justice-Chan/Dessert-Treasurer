@@ -76,19 +76,23 @@ function appClaimFromWeb(remote) {
   };
 }
 
+// The backend issues ids with Utilities.getUuid(); anything else in the Sheet was edited by hand.
+const webClaimIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function isValidWebClaim(remote) {
-  return remote && typeof remote.id === "string" && remote.id
+  return remote && typeof remote.id === "string" && webClaimIdPattern.test(remote.id)
     && webStatusToApp[remote.status] && isValidDateValue(remote.date)
     && Number(remote.amount) > 0 && remote.parent && remote.child;
 }
 
 // Adds new web claims, follows review decisions on unpaid ones and drops withdrawn ones.
-// Returns the counts for the toast.
+// A claim marked 已付款 on the web becomes approved here with webPaid set: the payment still
+// has to be recorded in this app, with its date and account. Returns the counts for the toast.
 function mergeWebClaims(pulled) {
   const remoteClaims = (pulled.claims || []).filter(isValidWebClaim);
   const withdrawn = new Set(pulled.withdrawnIds || []);
   const trashedIds = new Set(state.trash.filter((item) => item.kind === "claim").map((item) => item.record?.id));
-  const counts = { added: 0, updated: 0, removed: 0 };
+  const counts = { added: 0, updated: 0, removed: 0, toRecord: 0 };
 
   const before = state.claims.length;
   state.claims = state.claims.filter((claim) => !(claim.source === "web" && withdrawn.has(claim.id) && claim.status !== "paid"));
@@ -96,16 +100,22 @@ function mergeWebClaims(pulled) {
 
   remoteClaims.forEach((remote) => {
     const local = state.claims.find((claim) => claim.id === remote.id);
-    if (!local) {
-      if (trashedIds.has(remote.id)) return;
-      state.claims.push(appClaimFromWeb(remote));
-      counts.added += 1;
-      return;
-    }
     const status = webStatusToApp[remote.status];
-    if (local.status === "paid" || status === "paid" || local.status === status) return;
-    local.status = status;
-    counts.updated += 1;
+    let claim = local;
+    if (!claim) {
+      if (trashedIds.has(remote.id)) return;
+      claim = appClaimFromWeb(remote);
+      state.claims.push(claim);
+      counts.added += 1;
+    } else if (claim.status !== "paid") {
+      const next = status === "paid" ? "approved" : status;
+      if (claim.status !== next) {
+        claim.status = next;
+        counts.updated += 1;
+      }
+    }
+    claim.webPaid = status === "paid" && claim.status !== "paid";
+    if (claim.webPaid) counts.toRecord += 1;
   });
   return counts;
 }
@@ -136,7 +146,8 @@ async function syncWebClaims() {
     state.webSync.lastSyncedAt = new Date().toISOString();
     saveState();
     renderWebSyncSettings();
-    toast(`同步完成：新增 ${counts.added} 筆、更新 ${counts.updated} 筆、移除撤銷 ${counts.removed} 筆，財務彙總已更新。`);
+    const reminder = counts.toRecord ? `有 ${counts.toRecord} 筆網頁已標記付款，請記錄付款。` : "財務彙總已更新。";
+    toast(`同步完成：新增 ${counts.added} 筆、更新 ${counts.updated} 筆、移除撤銷 ${counts.removed} 筆。${reminder}`);
   } catch (error) {
     toast(error.message || "同步失敗。");
   } finally {

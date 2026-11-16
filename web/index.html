@@ -7,6 +7,9 @@
   <title>甜點社報帳</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..600&display=swap">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -43,7 +46,7 @@
         <li id="navReview" hidden><button type="button" data-nav="review">審核報帳<span class="mono">Review</span></button></li>
       </ul>
       <div class="drawer-foot">
-        <p class="subtle" id="userLabel"></p>
+        <p class="user-label"><span class="subtle" id="userRole"></span><strong id="userName"></strong></p>
         <button type="button" class="mode-switch" id="themeToggle" role="switch" aria-label="深色模式" aria-checked="false">
           <span class="mode-thumb"></span>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -85,9 +88,12 @@
 
         <div id="myClaims" hidden>
           <section class="card" aria-labelledby="claimsTitle">
-            <h2 id="claimsTitle">我的申請<span class="mono">My claims</span></h2>
+            <div class="list-head">
+              <h2 id="claimsTitle">我的申請</h2>
+              <span class="mono" aria-hidden="true">My claims</span>
+              <p class="subtle" id="claimsSummary" aria-live="polite"></p>
+            </div>
             <ul class="claims" id="claimList"></ul>
-            <p class="subtle" id="claimsEmpty" hidden>還沒有送出過報帳。</p>
           </section>
         </div>
 
@@ -150,17 +156,20 @@
 
         <div id="review" hidden>
           <section class="card" aria-labelledby="reviewTitle">
-            <div class="review-head">
+            <div class="list-head">
               <h2 id="reviewTitle">報帳申請</h2>
               <span class="mono" aria-hidden="true">Review</span>
               <p class="subtle" id="reviewSummary" aria-live="polite"></p>
-              <select id="reviewStatus" aria-label="依狀態篩選">
-                <option value="待審核">待審核</option>
-                <option value="已核准">已核准</option>
-                <option value="退回">退回</option>
-                <option value="已付款">已付款</option>
-                <option value="">全部</option>
-              </select>
+              <div class="list-filters">
+                <select id="reviewPosition" aria-label="依職位篩選"><option value="">全部職位</option></select>
+                <select id="reviewStatus" aria-label="依狀態篩選">
+                  <option value="待審核">待審核</option>
+                  <option value="已核准">已核准</option>
+                  <option value="退回">退回</option>
+                  <option value="已付款">已付款</option>
+                  <option value="">全部</option>
+                </select>
+              </div>
             </div>
             <ul class="claims" id="reviewList"></ul>
           </section>
@@ -180,13 +189,14 @@
             <div id="reviewControls">
               <label for="reviewNote">審核備註<span class="subtle">（退回時必填）</span></label>
               <textarea id="reviewNote" maxlength="300" rows="2"></textarea>
-              <div class="actions">
-                <button type="button" id="rejectClaim">退回</button>
-                <button type="button" class="primary" id="approveClaim">核准</button>
+              <label for="reviewNextStatus">改為</label>
+              <div class="status-row">
+                <select id="reviewNextStatus"></select>
+                <button type="button" class="primary" id="applyStatus">更新狀態</button>
               </div>
+              <p class="subtle" id="paidHint" hidden>標記已付款後，記得在記帳 app 同步並記錄付款，帳面才會扣款。</p>
             </div>
             <button type="button" class="link danger" id="withdrawFromDetail">撤銷這筆申請</button>
-            <p class="subtle" id="detailLocked" hidden>這筆申請已付款，只能在記帳 app 裡調整。</p>
           </section>
         </div>
       </main>

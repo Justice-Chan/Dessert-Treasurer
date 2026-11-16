@@ -40,13 +40,14 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 
 - Statuses match the app: 待審核, 已核准, 已付款, 退回. Categories mirror the app's expense categories; 其他 accepts custom text.
 - Withdrawal: the applicant (own claims) or the treasurer (any claim) may withdraw while a claim is 待審核 or 退回. The row is deleted, receipts go to the Drive trash, and a row stays in 操作紀錄.
-- 已付款 is recorded only in the desktop app and is not written back; the web shows such a claim as 已核准.
+- The treasurer can move a claim to any status on the web, 已付款 included. That 已付款 is only a marker: on sync the app keeps the claim approved and flags it until the payment, with its date and account, is recorded in the app. The app never writes 已付款 back.
+- 權限表 columns: email, role (總務 or 幹部), name, and an optional position (職位) used by the review filter. Claims from people no longer listed are filed under 已離任.
 - 財務彙總 holds aggregates only, written by the app on sync. Member data stays in the app; the Sheet holds name, Gmail and role.
 - The app keeps a link to each receipt and does not download photos.
 - No bank details are collected.
 - Receipts are optional, for small purchases with no receipt or only a paper slip.
 - The overview shows when the app last synced (Script Property `SUMMARY_SYNCED_AT`, set by `syncPush`) and, for the treasurer, how many claims await review.
-- Sync: the web decides 待審核, 已核准 and 退回; the app decides 已付款. A claim the app has paid ignores later web status changes. A web claim deleted in the app stays in its trash and is not pulled again. The secret is stored in the app's data file and stripped from backups.
+- Sync: the web decides 待審核, 已核准 and 退回; only a payment recorded in the app makes a claim 已付款 there. Synced claim ids must be UUIDs, and the app runs under a content security policy. A claim the app has paid ignores later web status changes. A web claim deleted in the app stays in its trash and is not pulled again. The secret is stored in the app's data file and stripped from backups.
 
 ## Status
 

@@ -6,7 +6,7 @@
 //   DRIVE_FOLDER_ID  Drive folder holding the monthly (YYYY-MM) receipt folders
 //   SYNC_SECRET      Long random string the desktop app sends for syncPull and syncPush
 //
-// 權限表 is maintained by hand. The other tabs are created and written by this script.
+// 權限表 is maintained by hand: email, role (總務 or 幹部), name, and an optional position (職位). The other tabs are created and written by this script.
 
 const TIME_ZONE = "Asia/Taipei";
 const PERMISSION_SHEET = "權限表";
@@ -28,11 +28,12 @@ const STATUS_APPROVED = "已核准";
 const STATUS_REJECTED = "退回";
 // A claim can be withdrawn until it is approved; afterwards the treasurer handles it.
 const WITHDRAWABLE = [STATUS_PENDING, STATUS_REJECTED];
-// Review decisions and the statuses each may start from. Payment is tracked only in the app.
-const DECISIONS = {
-  approve: { from: [STATUS_PENDING, STATUS_REJECTED], to: STATUS_APPROVED },
-  reject: { from: [STATUS_PENDING, STATUS_APPROVED], to: STATUS_REJECTED }
-};
+const STATUS_PAID = "已付款";
+// The treasurer may move a claim to any of these. 已付款 here is a marker only: the app still
+// records the payment itself, and its sync reminds the treasurer to do so.
+const REVIEW_STATUSES = [STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED, STATUS_PAID];
+// Older pages send a decision instead of a status.
+const LEGACY_DECISIONS = { approve: STATUS_APPROVED, reject: STATUS_REJECTED };
 const OTHER_CATEGORY = "其他";
 
 // Mirrors the expense categories in frontend/js/core/state.js so synced claims fit the app.
@@ -181,15 +182,23 @@ function verifyIdToken(idToken) {
   return String(claims.email).trim().toLowerCase();
 }
 
-function authorize(idToken) {
-  const email = verifyIdToken(idToken);
+function permissionRows() {
   const tab = spreadsheet().getSheetByName(PERMISSION_SHEET);
   if (!tab) throw new Error(`Missing sheet: ${PERMISSION_SHEET}`);
-  const row = tab.getDataRange().getValues().slice(1)
-    .find((cells) => String(cells[0]).trim().toLowerCase() === email);
+  return tab.getDataRange().getValues().slice(1);
+}
+
+// The position column is optional; without it a person is listed under their role.
+function positionOf(row) {
+  return String(row[3] || "").trim() || String(row[1] || "").trim();
+}
+
+function authorize(idToken) {
+  const email = verifyIdToken(idToken);
+  const row = permissionRows().find((cells) => String(cells[0]).trim().toLowerCase() === email);
   const role = row ? ROLES[String(row[1]).trim()] : null;
   if (!role) throw appError("unauthorized", "無權限，請聯絡總務。");
-  return { email, role, name: String(row[2] || "").trim() };
+  return { email, role, name: String(row[2] || "").trim(), position: positionOf(row) };
 }
 
 // ---- Sheet access ----
@@ -417,6 +426,7 @@ function listMyRequests(user) {
 function listAllRequests(user, payload) {
   requireTreasurer(user);
   const status = typeof payload.status === "string" ? payload.status : "";
+  const positions = new Map(permissionRows().map((cells) => [String(cells[0]).trim().toLowerCase(), positionOf(cells)]));
   return dataRows(CLAIM_SHEET, CLAIM_HEADER.length)
     .filter((row) => !status || cellText(row[COL["狀態"]]) === status)
     .map((row) => {
@@ -425,10 +435,10 @@ function listAllRequests(user, payload) {
         ...claim,
         applicantEmail: cellText(row[COL["申請人 email"]]),
         applicantName: cellText(row[COL["申請人姓名"]]),
+        // People removed from 權限表 keep their claims, filed under 已離任.
+        applicantPosition: positions.get(cellText(row[COL["申請人 email"]]).toLowerCase()) || "已離任",
         reviewer: cellText(row[COL["審核人"]]),
-        reviewedAt: cellText(row[COL["審核時間"]]),
-        canApprove: DECISIONS.approve.from.includes(claim.status),
-        canReject: DECISIONS.reject.from.includes(claim.status)
+        reviewedAt: cellText(row[COL["審核時間"]])
       };
     })
     .sort(newestFirst);
@@ -437,21 +447,22 @@ function listAllRequests(user, payload) {
 function reviewRequest(user, payload) {
   requireTreasurer(user);
   const id = typeof payload.id === "string" ? payload.id.trim() : "";
-  const decision = Object.prototype.hasOwnProperty.call(DECISIONS, payload.decision) ? DECISIONS[payload.decision] : null;
-  if (!decision) throw appError("bad_request", "不支援的審核動作。");
-  const note = requiredText(payload.note, LIMITS.description, "審核備註", decision.to === STATUS_REJECTED);
+  const legacy = Object.prototype.hasOwnProperty.call(LEGACY_DECISIONS, payload.decision) ? LEGACY_DECISIONS[payload.decision] : "";
+  const target = legacy || (REVIEW_STATUSES.includes(payload.status) ? payload.status : "");
+  if (!target) throw appError("bad_request", "不支援的審核動作。");
+  const note = requiredText(payload.note, LIMITS.description, "審核備註", target === STATUS_REJECTED);
   return withLock(() => {
     const rows = dataRows(CLAIM_SHEET, CLAIM_HEADER.length);
     const index = rows.findIndex((row) => cellText(row[COL["id"]]) === id);
     if (!id || index < 0) throw missingClaim();
     const status = cellText(rows[index][COL["狀態"]]);
-    if (!decision.from.includes(status)) throw appError("invalid", `這筆申請目前是「${status}」，無法執行這個動作。`);
+    if (status === target) throw appError("invalid", `這筆申請已經是「${status}」。`);
     const now = new Date().toISOString();
     // 狀態 through 更新時間 are the last five columns, written as one range.
     tab(CLAIM_SHEET).getRange(index + 2, COL["狀態"] + 1, 1, 5)
-      .setValues([[decision.to, user.email, now, note, now].map(safeCell)]);
-    appendLog(user.email, `reviewRequest:${payload.decision}`, id);
-    return { id, status: decision.to };
+      .setValues([[target, user.email, now, note, now].map(safeCell)]);
+    appendLog(user.email, `reviewRequest:${target}`, id);
+    return { id, status: target };
   });
 }
 

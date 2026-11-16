@@ -1,6 +1,8 @@
 :root {
   --font: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Latin only: Chinese falls through to the system font in --font. */
+  --serif: "Source Serif 4", "Iowan Old Style", Georgia, var(--font);
   --drawer: 264px;
 }
 
@@ -54,6 +56,9 @@ body {
 
 h1, h2, p { margin: 0; }
 .mono { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.08em; color: var(--muted); }
+/* Signed in, the English labels and figures use a book serif; the landing page keeps its terminal look. */
+#app .mono { font-family: var(--serif); font-size: 0.9375rem; font-style: italic; letter-spacing: 0; }
+#app .hero-number, #app .stat strong, #app .stat .link, #app .claim-line strong { font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; }
 .subtle { color: var(--muted); font-size: 0.875rem; }
 .brand { font-weight: 700; letter-spacing: 0.04em; }
 
@@ -153,6 +158,9 @@ h1, h2, p { margin: 0; }
 #drawer li button .mono { letter-spacing: 0.04em; }
 .drawer-foot { margin-top: auto; display: flex; align-items: center; gap: 4px; padding: 0 8px; }
 .drawer-foot p { flex: 1; }
+.user-label { display: grid; line-height: 1.3; min-width: 0; }
+.user-label span { font-size: 0.8125rem; }
+.user-label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9375rem; }
 .drawer-foot { gap: 12px; }
 
 .mode-switch {
@@ -315,7 +323,11 @@ textarea { resize: vertical; }
 .calendar-day:disabled { opacity: 0.3; }
 .calendar-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
 .calendar-foot .link { min-height: 36px; }
-#reviewControls label { margin-top: 0; }
+#reviewControls > label:first-child { margin-top: 0; }
+.status-row { display: flex; gap: 8px; }
+.status-row select { flex: 1; }
+.status-row button { flex: none; border-radius: 999px; }
+#paidHint { margin-top: 8px; }
 #detailActions .link { margin-top: 8px; }
 
 /* ---- Overview ---- */
@@ -349,13 +361,14 @@ textarea { resize: vertical; }
 .card > :last-child { margin-bottom: 0; }
 .card h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; font-size: 1.0625rem; }
 /* Title and label share the first row, the count and the filter the second. */
-.review-head { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px; }
-.review-head p { line-height: 1.25; }
-.review-head h2 { margin: 0; }
-.review-head .mono { justify-self: end; }
-.review-head select { width: auto; min-height: 38px; padding: 6px 34px 6px 14px; border-radius: 999px; }
+.list-head { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px; }
+.list-head p { line-height: 1.25; }
+.list-head h2 { margin: 0; }
+.list-head .mono { justify-self: end; }
+.list-filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.list-head select { width: auto; min-height: 38px; padding: 6px 34px 6px 14px; border-radius: 999px; }
 /* A hairline sets the results apart from the controls above them. */
-#reviewList:not(:empty) { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.list-head + .claims:not(:empty) { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 
 .art-row { display: grid; gap: 18px; justify-items: center; }
 @media (min-width: 560px) { .art-row { grid-template-columns: auto 1fr; align-items: center; justify-items: stretch; } }

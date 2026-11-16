@@ -502,18 +502,19 @@ test("activity suffix aliases migrate, import and survive incomplete spreadsheet
 
 test("web sync adds claims, drops withdrawn ones and sends only the summary", async ({ page }) => {
   const backend = "https://script.google.com/macros/s/test-deployment/exec";
-  const remote = (id, status, extra = {}) => ({
-    id, createdAt: "2099-09-20T00:00:00Z", applicantEmail: `${id}@example.com`, applicantName: `幹部${id}`, date,
+  const uuid = (n) => `00000000-0000-4000-8000-00000000000${n}`;
+  const remote = (name, status, extra = {}) => ({
+    id: uuid(name.slice(1)), createdAt: "2099-09-20T00:00:00Z", applicantEmail: `${name}@example.com`, applicantName: `幹部${name}`, date,
     amount: 450, parent: "食材與耗材", child: "乳品", activity: "社課", vendor: "全聯", description: "鮮奶油",
     status, reviewNote: "", receiptLinks: ["https://drive.google.com/file/d/a/view", "https://drive.google.com/file/d/b/view"], ...extra
   });
-  let claims = [remote("w1", "待審核"), remote("w2", "已核准")];
+  let claims = [remote("w1", "待審核"), remote("w2", "已核准"), remote("w3", "待審核", { id: "<img src=x>" })];
   const pushes = [];
   await page.route(backend, async (route) => {
     const request = JSON.parse(route.request().postData());
     expect(request.secret).toBe("s".repeat(32));
     if (request.action === "syncPush") pushes.push(request.payload);
-    const data = request.action === "syncPull" ? { claims, withdrawnIds: ["w0"] } : { summaryRows: 4 };
+    const data = request.action === "syncPull" ? { claims, withdrawnIds: [uuid(0)] } : { summaryRows: 4 };
     await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
   });
 
@@ -524,12 +525,13 @@ test("web sync adds claims, drops withdrawn ones and sends only the summary", as
 
   await openSection(page, "報銷");
   await page.evaluate(() => {
-    state.claims.push({ id: "w0", source: "web", date: "2099-09-20", person: "撤銷者", title: "粉類", parent: "食材與耗材", child: "粉類", amount: 100, status: "pending", paymentDate: "", paymentAccountId: "", receipt: "", attachments: [], note: "" });
+    state.claims.push({ id: "00000000-0000-4000-8000-000000000000", source: "web", date: "2099-09-20", person: "撤銷者", title: "粉類", parent: "食材與耗材", child: "粉類", amount: 100, status: "pending", paymentDate: "", paymentAccountId: "", receipt: "", attachments: [], note: "" });
     renderClaims();
   });
   await page.locator("#syncWebClaims").click();
   await expect(page.locator("#claimRows")).toContainText("幹部w1");
   await expect(page.locator("#claimRows")).toContainText("幹部w2");
+  await expect(page.locator("#claimRows")).not.toContainText("幹部w3");
   await expect(page.locator("#claimRows")).not.toContainText("撤銷者");
   await expect(page.locator("#claimRows .cloud-link")).toHaveCount(4);
   expect(Object.keys(pushes[0])).toEqual(["summary"]);
@@ -538,9 +540,13 @@ test("web sync adds claims, drops withdrawn ones and sends only the summary", as
   await page.locator("[data-pay-claim]").click();
   await page.locator("#claimPaymentDate").fill(date);
   await page.getByRole("button", { name: "確認付款" }).click();
-  claims = [remote("w1", "退回", { reviewNote: "缺收據" }), remote("w2", "已核准")];
+  // The web marks w1 paid; the app keeps it approved and asks for the payment to be recorded.
+  claims = [remote("w1", "已付款"), remote("w2", "已核准")];
   await page.locator("#syncWebClaims").click();
   await expect.poll(() => pushes.length).toBe(2);
   expect(Object.keys(pushes[1])).toEqual(["summary"]);
-  await expect(page.locator("#claimRows")).toContainText("退回");
+  const w1 = page.locator("#claimRows tr", { hasText: "幹部w1" });
+  await expect(w1).toContainText("已核准");
+  await expect(w1).toContainText("網頁已標記付款");
+  await expect(page.locator("#claimRows tr", { hasText: "幹部w2" })).toContainText("已付款");
 });
