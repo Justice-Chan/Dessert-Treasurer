@@ -32,8 +32,6 @@ const STATUS_PAID = "已付款";
 // The treasurer may move a claim to any of these. 已付款 here is a marker only: the app still
 // records the payment itself, and its sync reminds the treasurer to do so.
 const REVIEW_STATUSES = [STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED, STATUS_PAID];
-// Older pages send a decision instead of a status.
-const LEGACY_DECISIONS = { approve: STATUS_APPROVED, reject: STATUS_REJECTED };
 const OTHER_CATEGORY = "其他";
 
 // Mirrors the expense categories in frontend/js/core/state.js so synced claims fit the app.
@@ -376,9 +374,7 @@ function resolveActivity(payload) {
     if (!match) throw appError("invalid", "這個活動資料夾已不存在，請重新選擇。");
     return { folder: match.folder, label: match.label };
   }
-  // Older pages send the activity as free text.
-  const typed = typeof payload.activityName === "string" ? payload.activityName : payload.activity;
-  const name = requiredText(typed, LIMITS.shortText, "活動／社課", true).replace(ACTIVITY_PREFIX, "");
+  const name = requiredText(payload.activityName, LIMITS.shortText, "活動／社課", true).replace(ACTIVITY_PREFIX, "");
   if (!name || /[\/\\]/.test(name)) throw appError("invalid", "活動名稱不能是空白，也不能包含斜線。");
   const sessions = existing.filter((item) => item.name === name).map((item) => item.session);
   const session = sessions.length ? Math.max(...sessions, 1) + 1 : 1;
@@ -503,8 +499,7 @@ function listAllRequests(user, payload) {
 function reviewRequest(user, payload) {
   requireTreasurer(user);
   const id = typeof payload.id === "string" ? payload.id.trim() : "";
-  const legacy = Object.prototype.hasOwnProperty.call(LEGACY_DECISIONS, payload.decision) ? LEGACY_DECISIONS[payload.decision] : "";
-  const target = legacy || (REVIEW_STATUSES.includes(payload.status) ? payload.status : "");
+  const target = REVIEW_STATUSES.includes(payload.status) ? payload.status : "";
   if (!target) throw appError("bad_request", "不支援的審核動作。");
   const note = requiredText(payload.note, LIMITS.description, "審核備註", target === STATUS_REJECTED);
   return withLock(() => {
