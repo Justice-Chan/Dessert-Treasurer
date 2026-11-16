@@ -435,10 +435,6 @@ button.withdraw::after { content: ""; position: absolute; inset: -8px -4px; }
 button.withdraw:hover, button.withdraw:focus-visible { border-color: var(--error); color: var(--error); background: color-mix(in srgb, var(--error) 10%, transparent); }
 .claim-note { margin-top: 4px; color: var(--error); font-size: 0.875rem; overflow-wrap: anywhere; }
 
-.pill { display: inline-block; padding: 0 8px; border: 1px solid currentColor; border-radius: 999px; font-size: 0.8125rem; white-space: nowrap; }
-.pill.pending { color: var(--warn); }
-.pill.approved, .pill.paid { color: var(--ok); }
-.pill.rejected { color: var(--error); }
 
 .fields { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
 .fields dt { color: var(--muted); white-space: nowrap; }

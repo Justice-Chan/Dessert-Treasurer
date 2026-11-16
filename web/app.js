@@ -29,11 +29,14 @@ const otherCategory = "其他";
 const tokenKey = "dashboard-id-token";
 // The page a reload returns to.
 const viewKey = "dashboard-view";
+// Role and name, so a reload draws the drawer at once; the backend still checks the role on every call.
+const userKey = "dashboard-user";
 let idToken = "";
 let categories = {};
 let currentClaim = null;
 // The last review list from the backend; the position filter narrows it without a new request.
 let reviewClaims = [];
+let reviewRequestCount = 0;
 let receiptUrls = [];
 let glyphField = null;
 let summary = { items: [] };
@@ -152,8 +155,17 @@ async function callBackend(action, payload = {}) {
 function rememberToken(token) {
   try {
     if (token) sessionStorage.setItem(tokenKey, token);
-    else sessionStorage.removeItem(tokenKey);
+    else {
+      sessionStorage.removeItem(tokenKey);
+      sessionStorage.removeItem(userKey);
+    }
   } catch (error) { /* storage blocked: sign-in lasts until reload */ }
+}
+
+function showUser(user) {
+  $("#userRole").textContent = roleText[user.role] || user.role || "";
+  $("#userName").textContent = user.name || (user.email || "").split("@")[0];
+  $("#navReview").hidden = user.role !== "treasurer";
 }
 
 // The stored token if it has more than a minute left; the expiry is read from its payload.
@@ -186,9 +198,8 @@ async function handleCredential(response, view = "overview") {
     const user = await callBackend("whoami");
     categories = user.categories || {};
     limits = { ...limits, ...user.limits };
-    $("#userRole").textContent = roleText[user.role] || user.role;
-    $("#userName").textContent = user.name || user.email.split("@")[0];
-    $("#navReview").hidden = user.role !== "treasurer";
+    showUser(user);
+    try { sessionStorage.setItem(userKey, JSON.stringify({ role: user.role, name: user.name, email: user.email })); } catch (error) { /* drawn after whoami instead */ }
     fillParentOptions();
     showMessage("");
     await navigate(view === "review" && user.role !== "treasurer" ? "overview" : view);
@@ -297,7 +308,7 @@ async function loadMyClaims() {
 function renderClaims(claims) {
   $("#claimList").replaceChildren(...claims.map((claim) => {
     // The amount alone holds the right edge; status joins the date as a coloured dot, and
-    // withdraw is a quiet text button that only turns red on hover.
+    // withdraw is a muted outline button that only turns red when aimed at.
     const top = element("div", "claim-line");
     top.append(element("span", "", `${claim.parent} / ${claim.child}`), element("strong", "claim-amount", `NT$ ${claim.amount.toLocaleString("zh-TW")}`));
     const bottom = element("div", "claim-line centered");
@@ -342,8 +353,12 @@ async function openReview() {
   clearReceipts();
   show("review");
   showMessage("載入中…", false, true);
+  // Switching the status filter quickly can return answers out of order; only the latest one draws.
+  const request = ++reviewRequestCount;
   try {
-    reviewClaims = await callBackend("listAllRequests", { status: $("#reviewStatus").value });
+    const claims = await callBackend("listAllRequests", { status: $("#reviewStatus").value });
+    if (request !== reviewRequestCount) return;
+    reviewClaims = claims;
     fillPositionOptions();
     renderReview();
     showMessage("");
@@ -818,6 +833,7 @@ function restoreSession() {
   let view = "overview";
   try { view = sessionStorage.getItem(viewKey) || view; } catch (error) { /* keep the overview */ }
   if (!Object.hasOwn(viewLabels, view) || view === "detail") view = "overview";
+  try { showUser(JSON.parse(sessionStorage.getItem(userKey)) || {}); } catch (error) { /* drawn after whoami */ }
   show(view);
   handleCredential({ credential: token }, view);
 }
