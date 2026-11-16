@@ -47,6 +47,7 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+:root[data-restoring] #signedOut { display: none !important; }
 
 body {
   margin: 0;

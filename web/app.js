@@ -27,6 +27,8 @@ const otherCategory = "其他";
 // Kept for this tab only (sessionStorage), so a reload stays signed in and closing the tab signs out.
 // Google's token expires after an hour; then auto sign-in fetches a fresh one.
 const tokenKey = "dashboard-id-token";
+// The page a reload returns to.
+const viewKey = "dashboard-view";
 let idToken = "";
 let categories = {};
 let currentClaim = null;
@@ -41,6 +43,10 @@ let limits = { files: 5, fileBytes: 5 * 1024 * 1024, category: 30 };
 // "signedOut" shows the landing page; any other view is shown inside the app shell.
 function show(view) {
   const signedOut = view === "signedOut";
+  delete document.documentElement.dataset.restoring;
+  if (!signedOut) {
+    try { sessionStorage.setItem(viewKey, view === "detail" ? "review" : view); } catch (error) { /* reload opens the overview */ }
+  }
   $("#signedOut").hidden = !signedOut;
   $("#app").hidden = signedOut;
   $("#glyphField").hidden = signedOut;
@@ -172,7 +178,7 @@ function reportError(error) {
 
 // ---- Sign-in ----
 
-async function handleCredential(response) {
+async function handleCredential(response, view = "overview") {
   idToken = response.credential;
   rememberToken(idToken);
   showMessage("登入中…", false, true);
@@ -184,9 +190,8 @@ async function handleCredential(response) {
     $("#userName").textContent = user.name || user.email.split("@")[0];
     $("#navReview").hidden = user.role !== "treasurer";
     fillParentOptions();
-    show("overview");
     showMessage("");
-    await loadOverview();
+    await navigate(view === "review" && user.role !== "treasurer" ? "overview" : view);
   } catch (error) {
     reportError(error);
   }
@@ -806,5 +811,14 @@ $("#claimForm").addEventListener("submit", submitClaim);
 glyphField = startGlyphField($("#glyphField"));
 renderMotes($("#landingMotes"));
 applyTheme();
-// A reload in the same tab picks up where it left off.
-if (storedToken()) handleCredential({ credential: storedToken() });
+// A reload in the same tab goes straight back to the page it was on, without the landing page.
+function restoreSession() {
+  const token = storedToken();
+  if (!token) return show("signedOut");
+  let view = "overview";
+  try { view = sessionStorage.getItem(viewKey) || view; } catch (error) { /* keep the overview */ }
+  if (!Object.hasOwn(viewLabels, view) || view === "detail") view = "overview";
+  show(view);
+  handleCredential({ credential: token }, view);
+}
+restoreSession();
