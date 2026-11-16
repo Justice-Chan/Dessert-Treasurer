@@ -24,7 +24,9 @@ const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 const imageLongSide = 1600;
 const otherCategory = "其他";
 
-// Kept in memory only, so closing the tab signs the user out.
+// Kept for this tab only (sessionStorage), so a reload stays signed in and closing the tab signs out.
+// Google's token expires after an hour; then auto sign-in fetches a fresh one.
+const tokenKey = "dashboard-id-token";
 let idToken = "";
 let categories = {};
 let currentClaim = null;
@@ -141,9 +143,28 @@ async function callBackend(action, payload = {}) {
   return result.data;
 }
 
+function rememberToken(token) {
+  try {
+    if (token) sessionStorage.setItem(tokenKey, token);
+    else sessionStorage.removeItem(tokenKey);
+  } catch (error) { /* storage blocked: sign-in lasts until reload */ }
+}
+
+// The stored token if it has more than a minute left; the expiry is read from its payload.
+function storedToken() {
+  try {
+    const token = sessionStorage.getItem(tokenKey) || "";
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return Number(payload.exp) * 1000 > Date.now() + 60000 ? token : "";
+  } catch (error) {
+    return "";
+  }
+}
+
 function reportError(error) {
   if (error.code === "unauthenticated" || error.code === "unauthorized") {
     idToken = "";
+    rememberToken("");
     show("signedOut");
   }
   showMessage(error.message, true);
@@ -153,6 +174,7 @@ function reportError(error) {
 
 async function handleCredential(response) {
   idToken = response.credential;
+  rememberToken(idToken);
   showMessage("登入中…", false, true);
   try {
     const user = await callBackend("whoami");
@@ -173,6 +195,7 @@ async function handleCredential(response) {
 function signOut() {
   window.google?.accounts.id.disableAutoSelect();
   idToken = "";
+  rememberToken("");
   show("signedOut");
   showMessage("已登出。");
 }
@@ -183,8 +206,10 @@ function startSignIn() {
     showMessage("尚未完成設定：請在 config.js 填入 oauthClientId 與 backendUrl。", true, true);
     return;
   }
-  google.accounts.id.initialize({ client_id: config.oauthClientId, callback: handleCredential });
+  // auto_select signs a returning user straight back in; signing out turns it off until the next manual sign-in.
+  google.accounts.id.initialize({ client_id: config.oauthClientId, callback: handleCredential, auto_select: true, use_fedcm_for_prompt: true });
   renderSignInButton();
+  if (!idToken) google.accounts.id.prompt();
 }
 
 function renderSignInButton() {
@@ -781,3 +806,5 @@ $("#claimForm").addEventListener("submit", submitClaim);
 glyphField = startGlyphField($("#glyphField"));
 renderMotes($("#landingMotes"));
 applyTheme();
+// A reload in the same tab picks up where it left off.
+if (storedToken()) handleCredential({ credential: storedToken() });
