@@ -3,6 +3,8 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   /* Latin only: Chinese falls through to the system font in --font. */
   --serif: "Source Serif 4", "Iowan Old Style", Georgia, var(--font);
+  /* Source Sans and Noto Sans TC (Source Han Sans) are one family, so Latin and Chinese match. */
+  --record: "Source Sans 3", "Noto Sans TC", var(--font);
   --drawer: 264px;
 }
 
@@ -56,9 +58,12 @@ body {
 
 h1, h2, p { margin: 0; }
 .mono { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.08em; color: var(--muted); }
-/* Signed in, the English labels and figures use a book serif; the landing page keeps its terminal look. */
-#app .mono { font-family: var(--serif); font-size: 0.9375rem; font-style: italic; letter-spacing: 0; }
-#app .hero-number, #app .stat strong, #app .stat .link, #app .claim-line strong { font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; }
+/* Signed in, page labels and headline figures use a book serif, and the records inside each list
+   use its sans sibling: related, but easy to tell apart. The drawer and landing keep the mono look. */
+main .mono, .topbar .mono { font-family: var(--serif); font-size: 0.9375rem; font-style: italic; letter-spacing: 0; }
+main .hero-number, main .stat strong, main .stat .link { font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; }
+#myClaims, #review, #detail, .legend { font-family: var(--record); font-variant-numeric: tabular-nums; }
+#myClaims select, #review select, #detail select, #detail textarea, #detail button { font-family: inherit; }
 .subtle { color: var(--muted); font-size: 0.875rem; }
 .brand { font-weight: 700; letter-spacing: 0.04em; }
 
@@ -327,8 +332,8 @@ textarea { resize: vertical; }
 .status-row { display: flex; gap: 8px; }
 .status-row select { flex: 1; }
 .status-row button { flex: none; border-radius: 999px; }
-#paidHint { margin-top: 8px; }
-#detailActions .link { margin-top: 8px; }
+#statusHint { margin-top: 8px; }
+button.danger-fill { border-color: var(--error); background: var(--error); color: var(--on-primary); }
 
 /* ---- Overview ---- */
 
@@ -368,7 +373,7 @@ textarea { resize: vertical; }
 .list-filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .list-head select { width: auto; min-height: 38px; padding: 6px 34px 6px 14px; border-radius: 999px; }
 /* A hairline sets the results apart from the controls above them. */
-.list-head + .claims:not(:empty) { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.list-head ~ .claims:not(:empty) { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 
 .art-row { display: grid; gap: 18px; justify-items: center; }
 @media (min-width: 560px) { .art-row { grid-template-columns: auto 1fr; align-items: center; justify-items: stretch; } }
@@ -406,6 +411,27 @@ textarea { resize: vertical; }
 .claim-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .claim-line strong { font-variant-numeric: tabular-nums; flex: none; }
 .claim-meta { color: var(--muted); font-size: 0.875rem; overflow-wrap: anywhere; }
+.claim-line.centered { align-items: center; margin-top: 4px; }
+
+/* My claims: one figure on the right, status as a dot beside the date. */
+.list-head .count { justify-self: end; color: var(--muted); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.claims-empty { margin-top: 14px; }
+.my-claims li { padding: 16px 0; }
+.my-claims li:first-child { padding-top: 0; }
+.my-claims li:last-child { padding-bottom: 0; }
+/* Rows with and without a withdraw button stay the same height. */
+.my-claims .claim-line.centered { min-height: 28px; }
+.claim-amount { font-size: 1.125rem; font-variant-numeric: tabular-nums; text-align: right; }
+.status-dot::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: currentColor; vertical-align: 0.1em; }
+.status-dot.pending { color: var(--warn); }
+.status-dot.approved { color: var(--ok); }
+.status-dot.rejected { color: var(--error); }
+.status-dot.paid { color: var(--muted); }
+/* A muted outline at rest; red only when aimed at. Square-ish corners keep it apart from status. */
+/* Drawn 28px tall; the ::after layer stretches the tap target to 44px without growing the row. */
+button.withdraw { position: relative; flex: none; min-height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--muted); font-size: 0.8rem; line-height: 1; }
+button.withdraw::after { content: ""; position: absolute; inset: -8px -4px; }
+button.withdraw:hover, button.withdraw:focus-visible { border-color: var(--error); color: var(--error); background: color-mix(in srgb, var(--error) 10%, transparent); }
 .claim-note { margin-top: 4px; color: var(--error); font-size: 0.875rem; overflow-wrap: anywhere; }
 
 .pill { display: inline-block; padding: 0 8px; border: 1px solid currentColor; border-radius: 999px; font-size: 0.8125rem; white-space: nowrap; }
@@ -438,3 +464,18 @@ textarea { resize: vertical; }
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 #message.error { border-color: var(--error); color: var(--error); }
+
+/* ---- Review list ---- */
+
+/* Title and filters on one line, the count under the title. */
+.review-head { grid-template-columns: 1fr auto; row-gap: 2px; }
+.review-head #reviewSummary { grid-column: 1 / -1; font-size: 0.8125rem; }
+.review-head select { min-height: 32px; padding: 4px 28px 4px 10px; border: 1px solid var(--line); border-radius: 8px; background-color: transparent; font-size: 0.85rem; background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; }
+.review-head select.active { border-color: var(--accent); color: var(--accent); }
+.review-claims .claim-amount { font-size: 1.25rem; }
+.review-claims li { padding: 0; }
+button.review-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 12px 8px; margin: 0 -8px; width: calc(100% + 16px); border-radius: 8px; }
+button.review-row:hover { background: var(--field); }
+.review-row .claim-meta { margin-top: 2px; }
+.chevron { color: var(--muted); opacity: 0.6; font-size: 1.25rem; line-height: 1; }
+.list-head ~ .review-claims:not(:empty) { padding-top: 2px; }

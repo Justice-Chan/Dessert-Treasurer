@@ -266,18 +266,27 @@ async function loadMyClaims() {
 
 function renderClaims(claims) {
   $("#claimList").replaceChildren(...claims.map((claim) => {
-    const item = element("li");
-    item.append(...claimLines(claim, [claim.date, claim.vendor, claim.activity, claim.description]));
-    if (claim.reviewNote) item.append(element("div", "claim-note", `審核備註：${claim.reviewNote}`));
+    // The amount alone holds the right edge; status joins the date as a coloured dot, and
+    // withdraw is a quiet text button that only turns red on hover.
+    const top = element("div", "claim-line");
+    top.append(element("span", "", `${claim.parent} / ${claim.child}`), element("strong", "claim-amount", `NT$ ${claim.amount.toLocaleString("zh-TW")}`));
+    const bottom = element("div", "claim-line centered");
+    const meta = element("span", "claim-meta");
+    meta.append(element("span", `status-dot ${statusClass[claim.status] || ""}`, claim.status), ` · ${[claim.date, claim.vendor, claim.activity, claim.description].filter(Boolean).join(" · ")}`);
+    bottom.append(meta);
     if (claim.canWithdraw) {
-      const button = element("button", "link danger", "撤銷這筆申請");
+      const button = element("button", "withdraw", "撤銷");
       button.type = "button";
       button.addEventListener("click", () => withdrawClaim(claim, button));
-      item.append(button);
+      bottom.append(button);
     }
+    const item = element("li");
+    item.append(top, bottom);
+    if (claim.reviewNote) item.append(element("div", "claim-note", `審核備註：${claim.reviewNote}`));
     return item;
   }));
-  $("#claimsSummary").textContent = claims.length ? `共 ${claims.length} 筆` : "還沒有送出過報帳。";
+  $("#claimsCount").textContent = `${claims.length} 筆`;
+  $("#claimsEmpty").hidden = claims.length > 0;
 }
 
 async function withdrawClaim(claim, button, afterwards = loadMyClaims) {
@@ -298,17 +307,6 @@ async function withdrawClaim(claim, button, afterwards = loadMyClaims) {
 }
 
 // ---- Treasurer review ----
-
-function claimLines(claim, metaParts) {
-  const top = element("div", "claim-line");
-  top.append(element("span", "", `${claim.parent} / ${claim.child}`), element("strong", "", money.format(claim.amount)));
-  const bottom = element("div", "claim-line");
-  bottom.append(
-    element("span", "claim-meta", metaParts.filter(Boolean).join("・")),
-    element("span", `pill ${statusClass[claim.status] || ""}`, claim.status)
-  );
-  return [top, bottom];
-}
 
 async function openReview() {
   clearReceipts();
@@ -334,12 +332,21 @@ function fillPositionOptions() {
 
 function renderReview() {
   const position = $("#reviewPosition").value;
+  $("#reviewPosition").classList.toggle("active", Boolean(position));
   const claims = reviewClaims.filter((claim) => !position || claim.applicantPosition === position);
+  // Pending claims are worked oldest first, so nobody waiting long gets buried; the rest stay newest first.
+  if ($("#reviewStatus").value === "待審核") claims.reverse();
   $("#reviewList").replaceChildren(...claims.map((claim) => {
-    const row = element("button", "row");
+    const row = element("button", "row review-row");
     row.type = "button";
     const who = claim.applicantName || claim.applicantEmail;
-    row.append(...claimLines(claim, [claim.applicantPosition ? `${who}（${claim.applicantPosition}）` : who, claim.date]));
+    const top = element("div", "claim-line");
+    top.append(element("span", "", `${claim.parent} / ${claim.child}`), element("strong", "claim-amount", money.format(claim.amount)));
+    const meta = element("div", "claim-meta");
+    meta.append(element("span", `status-dot ${statusClass[claim.status] || ""}`, claim.status), ` · ${claim.applicantPosition ? `${who}（${claim.applicantPosition}）` : who} · ${claim.date}`);
+    const body = element("div", "review-row-body");
+    body.append(top, meta);
+    row.append(body, element("span", "chevron", "›"));
     row.addEventListener("click", () => openDetail(claim));
     const item = element("li");
     item.append(row);
@@ -368,8 +375,9 @@ function openDetail(claim) {
   // Every other status, the usual next step first.
   const order = nextStatuses[claim.status] || reviewStatuses;
   $("#reviewNextStatus").replaceChildren(...order.filter((status) => status !== claim.status).map((status) => new Option(status, status)));
-  showPaidHint();
-  $("#withdrawFromDetail").hidden = !claim.canWithdraw;
+  // Withdrawing deletes the claim, so it sits last in the list rather than as a separate link.
+  if (claim.canWithdraw) $("#reviewNextStatus").append(new Option("撤銷申請", withdrawChoice));
+  showStatusHint();
   showMessage("");
   show("detail");
   loadReceipts(claim);
@@ -415,8 +423,18 @@ async function loadReceipts(claim) {
   }
 }
 
-function showPaidHint() {
-  $("#paidHint").hidden = $("#reviewNextStatus").value !== "已付款";
+const withdrawChoice = "withdraw";
+const statusHints = {
+  "已付款": "標記已付款後，記得在記帳 app 同步並記錄付款，帳面才會扣款。",
+  [withdrawChoice]: "撤銷會刪除這筆申請，收據移到雲端硬碟的垃圾桶。"
+};
+
+function showStatusHint() {
+  const choice = $("#reviewNextStatus").value;
+  $("#statusHint").textContent = statusHints[choice] || "";
+  $("#statusHint").hidden = !statusHints[choice];
+  $("#applyStatus").classList.toggle("danger-fill", choice === withdrawChoice);
+  $("#applyStatus").textContent = choice === withdrawChoice ? "撤銷申請" : "更新狀態";
 }
 
 async function reviewClaim() {
@@ -424,6 +442,7 @@ async function reviewClaim() {
   const note = $("#reviewNote").value.trim();
   const status = $("#reviewNextStatus").value;
   if (!claim || !status) return;
+  if (status === withdrawChoice) return withdrawClaim(claim, $("#applyStatus"), openReview);
   if (status === "退回" && !note) return showMessage("退回時請填寫審核備註，讓申請人知道原因。", true);
   const buttons = [$("#applyStatus")];
   buttons.forEach((button) => { button.disabled = true; });
@@ -670,8 +689,7 @@ $("#reviewStatus").addEventListener("change", openReview);
 $("#reviewPosition").addEventListener("change", renderReview);
 $("#detailBack").addEventListener("click", openReview);
 $("#applyStatus").addEventListener("click", reviewClaim);
-$("#reviewNextStatus").addEventListener("change", showPaidHint);
-$("#withdrawFromDetail").addEventListener("click", (event) => currentClaim && withdrawClaim(currentClaim, event.currentTarget, openReview));
+$("#reviewNextStatus").addEventListener("change", showStatusHint);
 $("#claimParent").addEventListener("change", fillChildOptions);
 $("#claimParent").addEventListener("change", () => showOtherFields("claimParent"));
 $("#claimChild").addEventListener("change", () => showOtherFields("claimChild"));
