@@ -594,6 +594,7 @@ function categoryValue(select, input) {
 
 function openClaimForm() {
   $("#claimForm").reset();
+  selectedFiles = [];
   fillParentOptions();
   setClaimDate(localToday());
   closeCalendar();
@@ -603,9 +604,78 @@ function openClaimForm() {
   loadActivities();
 }
 
+// ---- Receipt files ----
+// Picked files are kept here rather than in the file input, so each can be removed on its own
+// and later picks add to the list instead of replacing it.
+
+let selectedFiles = [];
+let fileUrls = [];
+
+function addFiles(files) {
+  const known = new Set(selectedFiles.map((file) => `${file.name}|${file.size}|${file.lastModified}`));
+  const fresh = Array.from(files).filter((file) => !known.has(`${file.name}|${file.size}|${file.lastModified}`));
+  const room = limits.files - selectedFiles.length;
+  if (fresh.length > room) showMessage(`一次最多上傳 ${limits.files} 個附件。`, true);
+  selectedFiles = [...selectedFiles, ...fresh.slice(0, Math.max(room, 0))];
+  showSelectedFiles();
+}
+
+// A plain page outline; static markup, no user data.
+const fileIcon = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 3h7l5 5v13H7z M14 3v5h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+
+function openFilePreview(url) {
+  $("#filePreviewImage").src = url;
+  $("#filePreview").showModal();
+}
+
+function removeFile(index) {
+  selectedFiles = selectedFiles.filter((_, position) => position !== index);
+  showSelectedFiles();
+}
+
 function showSelectedFiles() {
-  const count = $("#claimFiles").files.length;
-  $("#claimFilesHint").textContent = count ? `已選 ${count} 個檔案` : `最多 ${limits.files} 個檔案`;
+  fileUrls.forEach((url) => URL.revokeObjectURL(url));
+  fileUrls = [];
+  const megabytes = Math.round(limits.fileBytes / 1024 / 1024);
+  // At the limit the upload area greys out and stops taking files, instead of refusing after a pick.
+  const full = selectedFiles.length >= limits.files;
+  $("#claimDropzone").classList.toggle("full", full);
+  $("#claimFiles").disabled = full;
+  $("#claimDropzoneTitle").textContent = full ? `已達 ${limits.files} 個上限` : "拍照或選擇檔案";
+  $("#claimFilesHint").textContent = full
+    ? "移除其中一個才能再加"
+    : selectedFiles.length
+      ? `已選 ${selectedFiles.length} / ${limits.files} 個`
+      : `JPG、PNG、HEIC 或 PDF，最多 ${limits.files} 個，每個 ${megabytes} MB 內`;
+  $("#claimFileList").replaceChildren(...selectedFiles.map((file, index) => {
+    const item = element("li");
+    const url = URL.createObjectURL(file);
+    fileUrls.push(url);
+    // The thumbnail opens a larger view: photos in a lightbox, other files in a new tab.
+    const preview = element("button", "file-thumb");
+    preview.type = "button";
+    preview.setAttribute("aria-label", `預覽 ${file.name}`);
+    if (file.type === "image/jpeg" || file.type === "image/png") {
+      const image = element("img");
+      image.src = url;
+      image.alt = "";
+      preview.append(image);
+      preview.addEventListener("click", () => openFilePreview(url));
+    } else {
+      preview.classList.add("file-icon");
+      preview.innerHTML = fileIcon;
+      preview.append(element("span", "", file.type === "application/pdf" ? "PDF" : "HEIC"));
+      preview.addEventListener("click", () => window.open(url, "_blank", "noopener"));
+    }
+    const remove = element("button", "file-remove", "×");
+    remove.type = "button";
+    remove.setAttribute("aria-label", `移除 ${file.name}`);
+    remove.addEventListener("click", () => removeFile(index));
+    const name = element("span", "file-name", file.name);
+    name.title = file.name;
+    item.append(preview, name, remove);
+    return item;
+  }));
 }
 
 // ---- Date picker ----
@@ -730,7 +800,7 @@ async function prepareAttachment(file) {
 
 async function submitClaim(event) {
   event.preventDefault();
-  const files = Array.from($("#claimFiles").files);
+  const files = selectedFiles;
   const amount = Number($("#claimAmount").value);
   if (!$("#claimDate").value) return showMessage("請填寫消費日期。", true);
   if (!Number.isInteger(amount) || amount < 1) return showMessage("金額請填正整數。", true);
@@ -819,8 +889,27 @@ $("#claimCalendar").addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".date-field")) closeCalendar();
 });
-$("#claimFiles").addEventListener("change", showSelectedFiles);
-$("#claimCancel").addEventListener("click", () => navigate("overview"));
+$("#claimFiles").addEventListener("change", (event) => {
+  addFiles(event.target.files);
+  event.target.value = "";
+});
+// On a computer, files can also be dropped onto the upload area.
+$("#claimDropzone").addEventListener("dragover", (event) => {
+  event.preventDefault();
+  $("#claimDropzone").classList.add("dragging");
+});
+$("#claimDropzone").addEventListener("dragleave", () => $("#claimDropzone").classList.remove("dragging"));
+$("#claimDropzone").addEventListener("drop", (event) => {
+  event.preventDefault();
+  $("#claimDropzone").classList.remove("dragging");
+  addFiles(event.dataTransfer.files);
+});
+// Cancel clears the form and stays on it.
+$("#claimCancel").addEventListener("click", openClaimForm);
+$("#filePreviewClose").addEventListener("click", () => $("#filePreview").close());
+$("#filePreview").addEventListener("click", (event) => {
+  if (event.target === $("#filePreview")) $("#filePreview").close();
+});
 $("#claimForm").addEventListener("submit", submitClaim);
 
 glyphField = startGlyphField($("#glyphField"));
