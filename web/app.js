@@ -403,7 +403,9 @@ function renderReview() {
     item.append(row);
     return item;
   }));
-  $("#reviewSummary").textContent = claims.length ? `共 ${claims.length} 筆` : "沒有符合的申請。";
+  // The total covers exactly the rows shown, so it follows both filters.
+  const total = claims.reduce((sum, claim) => sum + Number(claim.amount || 0), 0);
+  $("#reviewSummary").textContent = claims.length ? `共 ${claims.length} 筆 · NT$ ${total.toLocaleString("zh-TW")}` : "沒有符合的申請。";
 }
 
 function openDetail(claim) {
