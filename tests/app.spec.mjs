@@ -556,3 +556,20 @@ test("web sync adds claims, drops withdrawn ones and sends only the summary", as
   await expect(page.locator("#claimRows tr", { hasText: "幹部w2" }).locator(".cloud-link")).toHaveCount(1);
   expect(await page.evaluate(() => state.entries.find((entry) => entry.claimId)?.child)).toBe("包材");
 });
+
+test("the app syncs web claims once when it opens", async ({ page }) => {
+  const backend = "https://script.google.com/macros/s/test-deployment/exec";
+  const actions = [];
+  await page.route(backend, async (route) => {
+    const { action } = JSON.parse(route.request().postData());
+    actions.push(action);
+    const claim = { id: "00000000-0000-4000-8000-000000000009", createdAt: "2099-09-20T00:00:00Z", applicantEmail: "a@example.com", applicantName: "開啟同步", date, amount: 60, parent: "行政庶務", child: "雜支", status: "待審核", receiptLinks: [] };
+    const data = action === "syncPull" ? { claims: [claim], withdrawnIds: [] } : { summaryRows: 4 };
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
+  });
+  await page.evaluate((url) => localStorage.setItem("dessertTreasurer.v1", JSON.stringify({ webSync: { url, secret: "s".repeat(32) } })), backend);
+  await page.reload();
+  await openSection(page, "報銷");
+  await expect(page.locator("#claimRows")).toContainText("開啟同步");
+  expect(actions).toEqual(["syncPull", "syncPush"]);
+});

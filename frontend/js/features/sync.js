@@ -136,10 +136,12 @@ function webSummaryRows() {
   ].slice(0, 50);
 }
 
-async function syncWebClaims() {
+// Pulls the web claims first, then writes this app's totals back, so the web overview reflects
+// the claims just taken in. On start-up (quiet) it stays silent unless something changed or failed.
+async function syncWebClaims({ quiet = false } = {}) {
   if (webSyncRunning) return;
   if (!state.webSync.url || !state.webSync.secret) {
-    toast("請先到「設定」填寫網頁報帳同步網址與金鑰。");
+    if (!quiet) toast("請先到「設定」填寫網頁報帳同步網址與金鑰。");
     return;
   }
   webSyncRunning = true;
@@ -152,9 +154,11 @@ async function syncWebClaims() {
     saveState();
     renderWebSyncSettings();
     const reminder = counts.toRecord ? `有 ${counts.toRecord} 筆網頁已標記付款，請記錄付款。` : "財務彙總已更新。";
-    toast(`同步完成：新增 ${counts.added} 筆、更新 ${counts.updated} 筆、移除撤銷 ${counts.removed} 筆。${reminder}`);
+    if (!quiet || counts.added || counts.updated || counts.removed || counts.toRecord) {
+      toast(`同步完成：新增 ${counts.added} 筆、更新 ${counts.updated} 筆、移除撤銷 ${counts.removed} 筆。${reminder}`);
+    }
   } catch (error) {
-    toast(error.message || "同步失敗。");
+    toast(`網頁報帳同步失敗：${error.message || "請稍後再試。"}`);
   } finally {
     webSyncRunning = false;
     $("#syncWebClaims").disabled = false;
