@@ -47,6 +47,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 - No bank details are collected.
 - Sign-in lasts for the tab: the Google ID token is kept in sessionStorage until it expires (one hour), then Google's auto sign-in renews it. Signing out clears it and turns auto sign-in off.
 - Receipts are optional, for small purchases with no receipt or only a paper slip.
+- Applicants can edit everything on their own claims in any status, the activity and receipts included, except the amount once 已付款. An approved or rejected claim returns to 待審核; a paid one keeps its status. Changing the activity moves the receipts into the new activity folder of the claim's month; removed receipts go to the Drive trash. The app's sync takes the edits, except the amount of a paid claim, and keeps a paid claim's ledger expense in the same category.
 - Every claim names an activity. The form lists the activity folders in this month's `YYYY-MM` folder by name without their `01_` prefix, adding the session when a name repeats; 其他 creates a new folder, numbered as the next session if the name already exists. Receipts go into that folder.
 - The overview shows when the app last synced (Script Property `SUMMARY_SYNCED_AT`, set by `syncPush`) and, for the treasurer, how many claims await review.
 - Sync: the web decides 待審核, 已核准 and 退回; only a payment recorded in the app makes a claim 已付款 there. Synced claim ids must be UUIDs, and the app runs under a content security policy. A claim the app has paid ignores later web status changes. A web claim deleted in the app stays in its trash and is not pulled again. The secret is stored in the app's data file and stripped from backups.
@@ -57,16 +58,15 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 | --- | --- |
 | 0 Technical validation | Done |
 | 1 Officer side: sign-in, submit, list, withdraw | Live, tested on a phone |
-| 2 Treasurer side: review, approve, reject, view receipts | Live; tested with stubbed data only, not yet with real claims |
+| 2 Treasurer side: review, set any status, withdraw, view receipts, position filter | Live, tested with real claims |
 | Redesign: overview first, side navigation, light and dark themes, ASCII landing art | Live; phone performance of the landing animation not yet confirmed |
-| 3 App sync | Built and tested with mocked responses; backend not yet deployed or tried against the real Sheet |
-| 4 Handover guide, monthly backup, optional email | Not started |
+| 3 App sync | Live, synced against the real Sheet |
+| Activity folders, receipts optional, sign-in kept per tab | Live, tested with real claims and officers |
+| 4 Handover guide, monthly backup, optional email | Backup and guide written; email not started |
 
 ## Remaining work
 
-**Phase 3, finish.** Set `SYNC_SECRET`, deploy the backend, enter the URL and secret in the app's 設定, and run a sync against real claims. `syncPull` returns every claim with Drive links plus the withdrawn ids from 操作紀錄; `syncPush` only replaces 財務彙總 with the current month's overview figures: 帳面餘額, 本月收入, 本月支出, 待處理報銷 and one row per spending parent category.
-
-**Phase 4.** A one-page, non-technical handover guide for the next treasurer; a monthly backup of the Sheet to Drive; optional email notifications.
+**Phase 4.** Run `setupMonthlyBackup` once in the Apps Script editor to start the monthly backup (it asks for permission to manage triggers). Email notifications are optional and not started. The handover guide is [HANDOVER.md](HANDOVER.md).
 
 ## Open items
 

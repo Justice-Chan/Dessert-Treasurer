@@ -30,6 +30,7 @@ const STATUS_APPROVED = "已核准";
 const STATUS_REJECTED = "退回";
 // A claim can be withdrawn until it is approved; afterwards the treasurer handles it.
 const WITHDRAWABLE = [STATUS_PENDING, STATUS_REJECTED];
+// The applicant may change anything on their claim, except the amount once it has been paid.
 const STATUS_PAID = "已付款";
 // The treasurer may move a claim to any of these. 已付款 here is a marker only: the app still
 // records the payment itself, and its sync reminds the treasurer to do so.
@@ -38,7 +39,7 @@ const OTHER_CATEGORY = "其他";
 
 // Mirrors the expense categories in frontend/js/core/state.js so synced claims fit the app.
 const CATEGORIES = {
-  "食材與耗材": ["乳品", "蛋與油脂", "粉類", "糖與巧克力", "水果與餡料", "包材"],
+  "食材與耗材": ["乳品", "蛋與油脂", "粉類", "糖與巧克力", "餡料與醬", "包材"],
   "器具與設備": ["烤模", "量測工具", "小型器具", "設備維修"],
   "活動與課程": ["講師費", "場地費", "佈置", "交通搬運"],
   "行政庶務": ["文具印刷", "平台手續費", "保險", "雜支"],
@@ -72,6 +73,7 @@ const ACTIONS = {
   submitRequest,
   listMyRequests,
   withdrawRequest,
+  editRequest,
   getAttachment,
   listAllRequests,
   reviewRequest,
@@ -145,6 +147,10 @@ function checkSetup() {
       return "OK";
     },
     "收據資料夾可開啟": () => DriveApp.getFolderById(property("DRIVE_FOLDER_ID")).getName(),
+    "每月備份已排程": () => {
+      if (!ScriptApp.getProjectTriggers().some((trigger) => trigger.getHandlerFunction() === "monthlyBackup")) throw new Error("請執行 setupMonthlyBackup");
+      return "OK";
+    },
     "SYNC_SECRET 已設定且夠長": () => {
       if (property("SYNC_SECRET").length < 32) throw new Error("至少需要 32 個字元");
       return "OK";
@@ -361,15 +367,17 @@ function activityFolders(month) {
 }
 
 // This month's activities, for the claim form.
-function listActivities() {
-  return activityFolders(findMonthFolder(currentMonth()))
+// A month's activities for the claim form: this month by default, or a claim's own month when editing.
+function listActivities(user, payload) {
+  const month = /^\d{4}-\d{2}$/.test(payload.month || "") ? payload.month : currentMonth();
+  return activityFolders(findMonthFolder(month))
     .map(({ id, name, label }) => ({ id, name, label }));
 }
 
 // Picks an existing activity folder by id, or creates one for a typed name. A typed name that
 // already exists becomes its next session. Call inside withLock.
-function resolveActivity(payload) {
-  const month = monthFolder(currentMonth());
+function resolveActivity(payload, monthName = currentMonth()) {
+  const month = monthFolder(monthName);
   const existing = activityFolders(month);
   const id = typeof payload.activityId === "string" ? payload.activityId.trim() : "";
   if (id) {
@@ -445,8 +453,16 @@ function claimFromRow(row) {
     attachmentCount: attachmentIds(row).length,
     status,
     canWithdraw: WITHDRAWABLE.includes(status),
+    editable: status === STATUS_PAID ? "fixedAmount" : "full",
+    // Receipts and activity folders live under the month the claim was submitted.
+    month: submittedMonth(row),
     reviewNote: cellText(row[COL["審核備註"]])
   };
+}
+
+function submittedMonth(row) {
+  const created = new Date(cellText(row[COL["建立時間"]]));
+  return Number.isNaN(created.getTime()) ? currentMonth() : Utilities.formatDate(created, TIME_ZONE, "yyyy-MM");
 }
 
 function attachmentIds(row) {
@@ -536,6 +552,84 @@ function getAttachment(user, payload) {
     throw appError("not_found", "附件已不在雲端硬碟，可能被移動或刪除。");
   }
   return { name: blob.getName(), type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) };
+}
+
+// The applicant edits their own claim: any field, the activity and the receipts. A paid claim keeps
+// its amount and status; an approved or rejected one goes back to 待審核 for another look.
+function editRequest(user, payload) {
+  const id = typeof payload.id === "string" ? payload.id.trim() : "";
+  const added = decodeAttachments(payload.attachments);
+  const owner = (user.name || user.email.split("@")[0]).replace(/[^\p{L}\p{N}_-]/gu, "") || "applicant";
+  const findRow = () => {
+    const rows = dataRows(CLAIM_SHEET, CLAIM_HEADER.length);
+    const index = rows.findIndex((row) => cellText(row[COL["id"]]) === id);
+    if (!id || index < 0 || !ownsRow(user, rows[index])) throw missingClaim();
+    return { index, row: rows[index] };
+  };
+
+  // First pass: check the claim and settle the folder, so files can be written outside the lock.
+  const plan = withLock(() => {
+    const { row } = findRow();
+    const current = attachmentIds(row);
+    const keep = Array.isArray(payload.keep) ? current.filter((_, position) => payload.keep.includes(position)) : current;
+    if (keep.length + added.length > LIMITS.files) throw appError("invalid", `一次最多上傳 ${LIMITS.files} 個附件。`);
+    const moving = Boolean(payload.activityId || payload.activityName);
+    const activity = moving ? resolveActivity(payload, submittedMonth(row)) : { folder: claimFolder(row, current), label: cellText(row[COL["活動／社課"]]) };
+    return { keep, removed: current.filter((fileId) => !keep.includes(fileId)), activity, moving };
+  });
+
+  const created = [];
+  try {
+    added.forEach((file, position) => {
+      const name = `${Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM-dd")}_${owner}_${id}_${Date.now()}_${position + 1}.${file.extension}`;
+      created.push(plan.activity.folder.createFile(Utilities.newBlob(file.bytes, file.mimeType, name)));
+    });
+    const result = withLock(() => {
+      const { index, row } = findRow();
+      const status = cellText(row[COL["狀態"]]);
+      const claim = validateClaim({ ...payload, amount: status === STATUS_PAID ? Number(row[COL["金額"]]) : payload.amount });
+      const next = row.slice();
+      next[COL["消費日期"]] = claim.date;
+      next[COL["金額"]] = claim.amount;
+      next[COL["主項目"]] = claim.parent;
+      next[COL["副項目"]] = claim.child;
+      next[COL["活動／社課"]] = plan.activity.label;
+      next[COL["店家"]] = claim.vendor;
+      next[COL["說明"]] = claim.description;
+      next[COL["附件"]] = [...plan.keep, ...created.map((file) => file.getId())].join(",");
+      if (status === STATUS_REJECTED || status === STATUS_APPROVED) next[COL["狀態"]] = STATUS_PENDING;
+      next[COL["更新時間"]] = new Date().toISOString();
+      tab(CLAIM_SHEET).getRange(index + 2, 1, 1, CLAIM_HEADER.length).setValues([next.map((cell) => safeCell(cellText(cell)))]);
+      appendLog(user.email, "editRequest", id);
+      return claimFromRow(next);
+    });
+    // Receipts follow a changed activity into its folder; removed ones go to the Drive trash.
+    if (plan.moving) plan.keep.forEach((fileId) => {
+      try { DriveApp.getFileById(fileId).moveTo(plan.activity.folder); } catch (error) { console.error(error); }
+    });
+    plan.removed.forEach((fileId) => {
+      try { DriveApp.getFileById(fileId).setTrashed(true); } catch (error) { console.error(error); }
+    });
+    return result;
+  } catch (error) {
+    created.forEach((file) => {
+      try { file.setTrashed(true); } catch (cleanupError) { console.error(cleanupError); }
+    });
+    throw error;
+  }
+}
+
+// The folder a claim's receipts live in: its first receipt's folder, else the activity folder of the
+// same name in its month, else the month folder itself. Call inside withLock.
+function claimFolder(row, fileIds) {
+  try {
+    if (fileIds.length) return DriveApp.getFileById(fileIds[0]).getParents().next();
+  } catch (error) {
+    console.error(error);
+  }
+  const month = monthFolder(submittedMonth(row));
+  const match = activityFolders(month).find((item) => item.label === cellText(row[COL["活動／社課"]]));
+  return match ? match.folder : month;
 }
 
 // Removes the claim row and moves its receipts to the Drive trash (recoverable for 30 days).
@@ -644,4 +738,37 @@ function syncPush(payload) {
     PropertiesService.getScriptProperties().setProperty(SYNCED_AT_PROPERTY, new Date().toISOString());
     return { summaryRows: summary.length };
   });
+}
+
+// ---- Monthly backup ----
+
+const BACKUP_FOLDER = "備份";
+const BACKUP_KEEP = 12;
+
+// Copies the whole spreadsheet into 備份 under the receipts folder, then keeps only the newest
+// BACKUP_KEEP copies. Runs on the 1st of each month once setupMonthlyBackup has been run.
+function monthlyBackup() {
+  const root = DriveApp.getFolderById(property("DRIVE_FOLDER_ID"));
+  const existing = root.getFoldersByName(BACKUP_FOLDER);
+  const folder = existing.hasNext() ? existing.next() : root.createFolder(BACKUP_FOLDER);
+  const name = `${spreadsheet().getName()} 備份`;
+  DriveApp.getFileById(property("SHEET_ID")).makeCopy(`${name} ${Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM-dd")}`, folder);
+  const copies = [];
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.getName().startsWith(name)) copies.push(file);
+  }
+  copies.sort((a, b) => b.getDateCreated() - a.getDateCreated()).slice(BACKUP_KEEP).forEach((file) => file.setTrashed(true));
+  console.log(`備份完成，保留 ${Math.min(copies.length, BACKUP_KEEP)} 份。`);
+}
+
+// Run once from the Apps Script editor. Replaces any earlier schedule, so running it again is safe.
+function setupMonthlyBackup() {
+  ScriptApp.getProjectTriggers()
+    .filter((trigger) => trigger.getHandlerFunction() === "monthlyBackup")
+    .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.newTrigger("monthlyBackup").timeBased().onMonthDay(1).atHour(3).inTimezone(TIME_ZONE).create();
+  monthlyBackup();
+  console.log("已排程：每月 1 日凌晨 3 點自動備份，並已先備份一次。");
 }

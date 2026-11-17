@@ -107,12 +107,17 @@ function mergeWebClaims(pulled) {
       claim = appClaimFromWeb(remote);
       state.claims.push(claim);
       counts.added += 1;
-    } else if (claim.status !== "paid") {
-      const next = status === "paid" ? "approved" : status;
-      if (claim.status !== next) {
-        claim.status = next;
-        counts.updated += 1;
-      }
+    } else {
+      // Applicants may edit on the web: an unpaid claim takes every field from there; a paid one
+      // keeps its amount and status, which this app recorded with the payment.
+      const fresh = appClaimFromWeb(remote);
+      const fields = claim.status === "paid" ? ["date", "parent", "child", "title", "note", "receipt"] : ["date", "amount", "parent", "child", "title", "note", "receipt", "status"];
+      const changed = fields.filter((field) => claim[field] !== fresh[field]);
+      changed.forEach((field) => { claim[field] = fresh[field]; });
+      if (changed.length) counts.updated += 1;
+      // A paid claim's ledger expense carries its category, so keep the two in step.
+      const entry = claim.status === "paid" && state.entries.find((item) => item.claimId === claim.id);
+      if (entry) Object.assign(entry, { parent: claim.parent, child: claim.child, title: `報銷：${claim.title}` });
     }
     claim.webPaid = status === "paid" && claim.status !== "paid";
     if (claim.webPaid) counts.toRecord += 1;

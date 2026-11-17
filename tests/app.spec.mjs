@@ -541,7 +541,8 @@ test("web sync adds claims, drops withdrawn ones and sends only the summary", as
   await page.locator("#claimPaymentDate").fill(date);
   await page.getByRole("button", { name: "確認付款" }).click();
   // The web marks w1 paid; the app keeps it approved and asks for the payment to be recorded.
-  claims = [remote("w1", "已付款"), remote("w2", "已核准")];
+  // w1 was edited on the web before being marked paid; w2 is already paid here, so its amount stays.
+  claims = [remote("w1", "已付款", { amount: 520 }), remote("w2", "已核准", { amount: 999, child: "包材", receiptLinks: ["https://drive.google.com/file/d/c/view"] })];
   await page.locator("#syncWebClaims").click();
   await expect.poll(() => pushes.length).toBe(2);
   expect(Object.keys(pushes[1])).toEqual(["summary"]);
@@ -549,4 +550,9 @@ test("web sync adds claims, drops withdrawn ones and sends only the summary", as
   await expect(w1).toContainText("已核准");
   await expect(w1).toContainText("網頁已標記付款");
   await expect(page.locator("#claimRows tr", { hasText: "幹部w2" })).toContainText("已付款");
+  await expect(w1).toContainText("$520");
+  await expect(page.locator("#claimRows tr", { hasText: "幹部w2" })).toContainText("$450");
+  await expect(page.locator("#claimRows tr", { hasText: "幹部w2" })).toContainText("包材");
+  await expect(page.locator("#claimRows tr", { hasText: "幹部w2" }).locator(".cloud-link")).toHaveCount(1);
+  expect(await page.evaluate(() => state.entries.find((entry) => entry.claimId)?.child)).toBe("包材");
 });

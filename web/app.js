@@ -315,12 +315,18 @@ function renderClaims(claims) {
     const meta = element("span", "claim-meta");
     meta.append(element("span", `status-dot ${statusClass[claim.status] || ""}`, claim.status), ` · ${[claim.date, claim.vendor, claim.activity, claim.description].filter(Boolean).join(" · ")}`);
     bottom.append(meta);
+    const actions = element("span", "row-actions");
+    const change = element("button", "row-action", "修改");
+    change.type = "button";
+    change.addEventListener("click", () => openEditForm(claim));
+    actions.append(change);
     if (claim.canWithdraw) {
-      const button = element("button", "withdraw", "撤銷");
+      const button = element("button", "row-action danger", "撤銷");
       button.type = "button";
       button.addEventListener("click", () => withdrawClaim(claim, button));
-      bottom.append(button);
+      actions.append(button);
     }
+    bottom.append(actions);
     const item = element("li");
     item.append(top, bottom);
     if (claim.reviewNote) item.append(element("div", "claim-note", `審核備註：${claim.reviewNote}`));
@@ -436,29 +442,37 @@ function clearReceipts() {
 }
 
 // Receipts come through the backend one at a time; a slow one does not block the others.
+// One saved receipt as a Blob, through the backend.
+async function fetchAttachment(claimId, index) {
+  const file = await callBackend("getAttachment", { id: claimId, index });
+  const blob = await (await fetch(`data:${file.type};base64,${file.data}`)).blob();
+  return { name: file.name, type: file.type, blob };
+}
+
+const isPhoto = (type) => type === "image/jpeg" || type === "image/png";
+
 async function loadReceipts(claim) {
   const container = $("#detailAttachments");
   container.replaceChildren(element("p", "subtle", claim.attachmentCount ? "載入收據中…" : "沒有附件。"));
   for (let index = 0; index < claim.attachmentCount; index += 1) {
     let node;
     try {
-      const file = await callBackend("getAttachment", { id: claim.id, index });
-      const blob = await (await fetch(`data:${file.type};base64,${file.data}`)).blob();
-      const url = URL.createObjectURL(blob);
+      const file = await fetchAttachment(claim.id, index);
+      const url = URL.createObjectURL(file.blob);
       receiptUrls.push(url);
-      node = element("a", "receipt");
-      node.href = url;
-      node.target = "_blank";
-      node.rel = "noopener";
-      if (file.type === "image/jpeg" || file.type === "image/png") {
+      // Receipts open over the page, not in a new tab.
+      node = element("button", "receipt");
+      node.type = "button";
+      if (isPhoto(file.type)) {
         const image = element("img");
         image.src = url;
         image.alt = `收據 ${index + 1}`;
         node.append(image);
       } else {
+        node.classList.add("receipt-file");
         node.textContent = `開啟附件 ${index + 1}（${file.name}）`;
-        node.download = file.name;
       }
+      node.addEventListener("click", () => openFilePreview(url, file.type));
     } catch (error) {
       node = element("p", "claim-note", `附件 ${index + 1} 載入失敗：${error.message}`);
     }
@@ -554,20 +568,36 @@ function showOtherFields(focusId) {
 
 let activityNames = new Set();
 
-async function loadActivities() {
+// When editing, the list is the claim's own month and starts on its current activity; an activity
+// no longer in that list stays selectable as "keep".
+let activityAtStart = "";
+
+async function loadActivities(month = "", current = "") {
   const select = $("#claimActivity");
   select.replaceChildren(new Option("載入中…", ""));
   select.disabled = true;
   let activities = [];
   try {
-    activities = await callBackend("listActivities");
+    activities = await callBackend("listActivities", month ? { month } : {});
   } catch (error) {
-    showMessage("讀不到本月的活動清單，可以直接輸入活動名稱。", true);
+    showMessage("讀不到活動清單，可以直接輸入活動名稱。", true);
   }
   activityNames = new Set(activities.map((activity) => activity.name));
-  select.replaceChildren(...activities.map((activity) => new Option(activity.label, activity.id)), new Option("其他（新活動）", pickers.claimActivity.custom));
+  const options = activities.map((activity) => new Option(activity.label, activity.id));
+  const match = activities.find((activity) => activity.label === current);
+  if (current && !match) options.unshift(new Option(current, "keep"));
+  select.replaceChildren(...options, new Option("其他（新活動）", pickers.claimActivity.custom));
+  select.value = current ? (match ? match.id : "keep") : select.options[0].value;
+  activityAtStart = current ? select.value : "";
   select.disabled = false;
   showOtherFields();
+}
+
+function chosenActivity() {
+  const select = $("#claimActivity");
+  if (select.value === pickers.claimActivity.custom) return { activityName: $("#claimActivityOther").value.trim() };
+  if (editingClaim && select.value === activityAtStart) return {};
+  return { activityId: select.value };
 }
 
 function showActivityHint() {
@@ -592,9 +622,25 @@ function categoryValue(select, input) {
   return $(select).value === otherCategory ? $(input).value.trim() : $(select).value;
 }
 
+// The claim being edited, or null when the form makes a new one.
+let editingClaim = null;
+
+function setFormMode(claim) {
+  editingClaim = claim;
+  const fixedAmount = Boolean(claim) && claim.editable !== "full";
+  $("#claimFormTitle").textContent = claim ? "修改報帳" : "新增報帳";
+  $("#claimSubmit").textContent = claim ? "儲存修改" : "送出";
+  $("#editNote").hidden = !claim;
+  const note = fixedAmount ? "這筆申請已付款，金額不能修改。" : claim?.status === "退回" || claim?.status === "已核准" ? "儲存後會重新送審。" : "";
+  $("#editNote").textContent = note;
+  $("#editNote").hidden = !note;
+  $("#claimAmount").disabled = fixedAmount;
+}
+
 function openClaimForm() {
   $("#claimForm").reset();
   selectedFiles = [];
+  setFormMode(null);
   fillParentOptions();
   setClaimDate(localToday());
   closeCalendar();
@@ -602,6 +648,61 @@ function openClaimForm() {
   showMessage("");
   show("claimForm");
   loadActivities();
+}
+
+// Picks a list value, or 其他 with the text filled in when the value is not in the list.
+function setCategory(id, value) {
+  const listed = [...$(`#${id}`).options].some((option) => option.value === value);
+  $(`#${id}`).value = listed ? value : otherCategory;
+  $(`#${id}Other`).value = listed ? "" : value;
+}
+
+// Saved receipts join the file list as entries with existingIndex; removing one drops it on save.
+async function loadSavedReceipts(claim) {
+  showSelectedFiles();
+  if (!claim.attachmentCount) return;
+  $("#claimFilesHint").textContent = "載入收據中…";
+  const saved = [];
+  for (let index = 0; index < claim.attachmentCount; index += 1) {
+    try {
+      const file = await fetchAttachment(claim.id, index);
+      saved.push({ ...file, size: file.blob.size, lastModified: -1 - index, existingIndex: index });
+    } catch (error) {
+      showMessage(`收據 ${index + 1} 載入失敗；儲存時會保留原檔。`, true);
+      saved.push({ name: `收據 ${index + 1}`, type: "", size: 0, lastModified: -1 - index, existingIndex: index, blob: new Blob() });
+    }
+  }
+  if (editingClaim !== claim) return;
+  selectedFiles = [...saved, ...selectedFiles];
+  showSelectedFiles();
+}
+
+function openEditForm(claim) {
+  $("#claimForm").reset();
+  selectedFiles = [];
+  fillParentOptions();
+  setCategory("claimParent", claim.parent);
+  fillChildOptions();
+  setCategory("claimChild", claim.child);
+  showOtherFields();
+  setCategory("claimParent", claim.parent);
+  setCategory("claimChild", claim.child);
+  setClaimDate(claim.date);
+  closeCalendar();
+  $("#claimAmount").value = claim.amount;
+  $("#claimVendor").value = claim.vendor;
+  $("#claimDescription").value = claim.description;
+  setFormMode(claim);
+  showMessage("");
+  show("claimForm");
+  loadActivities(claim.month, claim.activity);
+  loadSavedReceipts(claim);
+  // Editing belongs to My claims, so the drawer and top bar say so.
+  document.querySelectorAll("#drawer [data-nav]").forEach((button) => {
+    if (button.dataset.nav === "myClaims") button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  $("#viewLabel").textContent = "Edit claim";
 }
 
 // ---- Receipt files ----
@@ -623,8 +724,14 @@ function addFiles(files) {
 // A plain page outline; static markup, no user data.
 const fileIcon = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 3h7l5 5v13H7z M14 3v5h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
-function openFilePreview(url) {
-  $("#filePreviewImage").src = url;
+// Photos and PDFs open in a layer over the page with a close button.
+function openFilePreview(url, type = "image/jpeg") {
+  const photo = isPhoto(type) || !type;
+  $("#filePreviewImage").hidden = !photo;
+  $("#filePreviewFrame").hidden = photo;
+  if (photo) $("#filePreviewImage").src = url;
+  else $("#filePreviewFrame").src = url;
+  $("#filePreview").classList.toggle("document", !photo);
   $("#filePreview").showModal();
 }
 
@@ -649,23 +756,23 @@ function showSelectedFiles() {
       : `JPG、PNG、HEIC 或 PDF，最多 ${limits.files} 個，每個 ${megabytes} MB 內`;
   $("#claimFileList").replaceChildren(...selectedFiles.map((file, index) => {
     const item = element("li");
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(file.blob || file);
     fileUrls.push(url);
-    // The thumbnail opens a larger view: photos in a lightbox, other files in a new tab.
+    // The thumbnail opens a larger view over the page.
     const preview = element("button", "file-thumb");
     preview.type = "button";
     preview.setAttribute("aria-label", `預覽 ${file.name}`);
-    if (file.type === "image/jpeg" || file.type === "image/png") {
+    if (isPhoto(file.type)) {
       const image = element("img");
       image.src = url;
       image.alt = "";
       preview.append(image);
-      preview.addEventListener("click", () => openFilePreview(url));
+      preview.addEventListener("click", () => openFilePreview(url, file.type));
     } else {
       preview.classList.add("file-icon");
       preview.innerHTML = fileIcon;
       preview.append(element("span", "", file.type === "application/pdf" ? "PDF" : "HEIC"));
-      preview.addEventListener("click", () => window.open(url, "_blank", "noopener"));
+      preview.addEventListener("click", () => openFilePreview(url, file.type));
     }
     const remove = element("button", "file-remove", "×");
     remove.type = "button";
@@ -807,9 +914,10 @@ async function submitClaim(event) {
   const parent = categoryValue("#claimParent", "#claimParentOther");
   const child = categoryValue("#claimChild", "#claimChildOther");
   if (!parent || !child || parent === otherCategory || child === otherCategory) return showMessage("請選擇主項目與副項目；選「其他」時請填寫名稱。", true);
-  const newActivity = $("#claimActivity").value === pickers.claimActivity.custom;
-  const activity = newActivity ? { activityName: $("#claimActivityOther").value.trim() } : { activityId: $("#claimActivity").value };
-  if (!activity.activityName && !activity.activityId) return showMessage("請選擇活動／社課；新活動請填寫名稱。", true);
+  const activity = chosenActivity();
+  const activityMissing = $("#claimActivity").value === pickers.claimActivity.custom ? !activity.activityName : !$("#claimActivity").value;
+  if (activityMissing) return showMessage("請選擇活動／社課；新活動請填寫名稱。", true);
+  if (editingClaim) return saveEdit({ date: $("#claimDate").value, amount, parent, child, ...activity });
   if (files.length > limits.files) return showMessage(`一次最多上傳 ${limits.files} 個附件。`, true);
 
   const button = $("#claimSubmit");
@@ -835,6 +943,33 @@ async function submitClaim(event) {
   } finally {
     button.disabled = false;
     button.textContent = "送出";
+  }
+}
+
+async function saveEdit(fields) {
+  const button = $("#claimSubmit");
+  button.disabled = true;
+  button.textContent = "儲存中…";
+  showMessage("正在儲存，請不要關閉頁面。", false, true);
+  try {
+    const fresh = selectedFiles.filter((file) => file.existingIndex === undefined);
+    await callBackend("editRequest", {
+      id: editingClaim.id,
+      ...fields,
+      vendor: $("#claimVendor").value,
+      description: $("#claimDescription").value,
+      keep: selectedFiles.filter((file) => file.existingIndex !== undefined).map((file) => file.existingIndex),
+      attachments: await Promise.all(fresh.map(prepareAttachment))
+    });
+    setFormMode(null);
+    show("myClaims");
+    showMessage("已儲存修改。");
+    await loadMyClaims();
+  } catch (error) {
+    reportError(error);
+  } finally {
+    button.disabled = false;
+    button.textContent = editingClaim ? "儲存修改" : "送出";
   }
 }
 
@@ -905,7 +1040,7 @@ $("#claimDropzone").addEventListener("drop", (event) => {
   addFiles(event.dataTransfer.files);
 });
 // Cancel clears the form and stays on it.
-$("#claimCancel").addEventListener("click", openClaimForm);
+$("#claimCancel").addEventListener("click", () => (editingClaim ? (setFormMode(null), navigate("myClaims")) : openClaimForm()));
 $("#filePreviewClose").addEventListener("click", () => $("#filePreview").close());
 $("#filePreview").addEventListener("click", (event) => {
   if (event.target === $("#filePreview")) $("#filePreview").close();

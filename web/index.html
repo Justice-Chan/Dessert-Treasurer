@@ -108,7 +108,8 @@
         </div>
 
         <form class="card claim-form" id="claimForm" hidden novalidate>
-          <h2>新增報帳</h2>
+          <h2 id="claimFormTitle">新增報帳</h2>
+          <p class="subtle edit-note" id="editNote" hidden></p>
           <div class="field-row">
             <div class="field">
               <label for="claimDateButton">消費日期</label>
@@ -156,7 +157,7 @@
             </div>
           </div>
 
-          <div class="field">
+          <div class="field" id="activityField">
             <label for="claimActivity">活動／社課</label>
             <div class="picker">
               <select id="claimActivity" required></select>
@@ -176,7 +177,7 @@
             <textarea id="claimDescription" maxlength="300" rows="2"></textarea>
           </div>
 
-          <div class="field">
+          <div class="field" id="filesField">
             <label for="claimFiles">收據照片或 PDF<span class="subtle">（選填）</span></label>
             <label class="dropzone" id="claimDropzone" for="claimFiles">
               <strong id="claimDropzoneTitle">拍照或選擇檔案</strong>
@@ -240,7 +241,8 @@
   </div>
 
   <dialog class="file-preview" id="filePreview" aria-label="收據預覽">
-    <img id="filePreviewImage" alt="">
+    <img id="filePreviewImage" alt="" hidden>
+    <iframe id="filePreviewFrame" title="收據預覽" hidden></iframe>
     <button type="button" class="file-preview-close" id="filePreviewClose" aria-label="關閉預覽">×</button>
   </dialog>
   <p id="message" role="status" aria-live="polite" hidden></p>

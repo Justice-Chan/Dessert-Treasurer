@@ -428,9 +428,13 @@ button.danger-fill { border-color: var(--error); background: var(--error); color
 .status-dot.paid { color: var(--muted); }
 /* A muted outline at rest; red only when aimed at. Square-ish corners keep it apart from status. */
 /* Drawn 28px tall; the ::after layer stretches the tap target to 44px without growing the row. */
-button.withdraw { position: relative; flex: none; min-height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--muted); font-size: 0.8rem; line-height: 1; }
-button.withdraw::after { content: ""; position: absolute; inset: -8px -4px; }
-button.withdraw:hover, button.withdraw:focus-visible { border-color: var(--error); color: var(--error); background: color-mix(in srgb, var(--error) 10%, transparent); }
+.row-actions { display: flex; gap: 8px; flex: none; }
+button.row-action { position: relative; flex: none; min-height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--muted); font-size: 0.8rem; line-height: 1; }
+button.row-action::after { content: ""; position: absolute; inset: -8px -4px; }
+button.row-action:hover, button.row-action:focus-visible { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+button.row-action.danger:hover, button.row-action.danger:focus-visible { border-color: var(--error); color: var(--error); background: color-mix(in srgb, var(--error) 10%, transparent); }
+.edit-note { margin-top: 2px; }
+.claim-form :disabled { opacity: 0.55; cursor: not-allowed; }
 .claim-note { margin-top: 4px; color: var(--error); font-size: 0.875rem; overflow-wrap: anywhere; }
 
 
@@ -440,6 +444,10 @@ button.withdraw:hover, button.withdraw:focus-visible { border-color: var(--error
 
 .receipt { display: block; margin-bottom: 12px; color: var(--accent); }
 .receipt img { display: block; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+/* On a wide screen a receipt shows at half width; tapping it opens the full view. */
+button.receipt { display: block; min-height: 0; padding: 0; border: 0; background: none; cursor: zoom-in; text-align: left; }
+button.receipt-file { color: var(--accent); cursor: pointer; }
+@media (min-width: 720px) { button.receipt img { max-width: 50%; } }
 
 /* ---- Toast ---- */
 
@@ -509,6 +517,8 @@ button.file-remove:hover, button.file-remove:focus-visible { color: var(--error)
 .file-preview { max-width: min(92vw, 720px); padding: 0; border: 0; border-radius: 12px; background: var(--surface); }
 .file-preview::backdrop { background: rgba(0, 0, 0, 0.7); }
 .file-preview img { display: block; max-width: 100%; max-height: 82vh; }
+.file-preview.document { width: min(92vw, 860px); }
+.file-preview iframe { display: block; width: 100%; height: 82vh; border: 0; background: #fff; }
 .file-preview-close { position: absolute; top: 8px; right: 8px; width: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 999px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 1.25rem; }
 
 /* Signed in on a wide screen, messages centre on the content column rather than the whole window. */
