@@ -163,7 +163,7 @@ function rememberToken(token) {
 }
 
 function showUser(user) {
-  $("#userRole").textContent = roleText[user.role] || user.role || "";
+  $("#userRole").textContent = user.position || roleText[user.role] || "";
   $("#userName").textContent = user.name || (user.email || "").split("@")[0];
   $("#navReview").hidden = user.role !== "treasurer";
 }
@@ -199,7 +199,7 @@ async function handleCredential(response, view = "overview") {
     categories = user.categories || {};
     limits = { ...limits, ...user.limits };
     showUser(user);
-    try { sessionStorage.setItem(userKey, JSON.stringify({ role: user.role, name: user.name, email: user.email })); } catch (error) { /* drawn after whoami instead */ }
+    try { sessionStorage.setItem(userKey, JSON.stringify({ role: user.role, position: user.position, name: user.name, email: user.email })); } catch (error) { /* drawn after whoami instead */ }
     fillParentOptions();
     showMessage("");
     await navigate(view === "review" && user.role !== "treasurer" ? "overview" : view);

@@ -41,7 +41,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 - Statuses match the app: 待審核, 已核准, 已付款, 退回. Categories mirror the app's expense categories; 其他 accepts custom text.
 - Withdrawal: the applicant (own claims) or the treasurer (any claim) may withdraw while a claim is 待審核 or 退回. The row is deleted, receipts go to the Drive trash, and a row stays in 操作紀錄.
 - The treasurer can move a claim to any status on the web, 已付款 included. That 已付款 is only a marker: on sync the app keeps the claim approved and flags it until the payment, with its date and account, is recorded in the app. The app never writes 已付款 back.
-- 權限表 columns: email, role (總務 or 幹部), name, and an optional position (職位) used by the review filter. Claims from people no longer listed are filed under 已離任.
+- 權限表 columns: email, position (職位), name, note. Position 總務 has the treasurer's rights; any other position (活動, 教學…) is an officer, shown in the drawer and used by the review filter. An empty position means no access. The note is for people only. Claims from people no longer listed are filed under 已離任.
 - 財務彙總 holds aggregates only, written by the app on sync. Member data stays in the app; the Sheet holds name, Gmail and role.
 - The app keeps a link to each receipt and does not download photos.
 - No bank details are collected.

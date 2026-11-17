@@ -6,7 +6,9 @@
 //   DRIVE_FOLDER_ID  Drive folder holding the monthly (YYYY-MM) receipt folders
 //   SYNC_SECRET      Long random string the desktop app sends for syncPull and syncPush
 //
-// 權限表 is maintained by hand: email, role (總務 or 幹部), name, and an optional position (職位). The other tabs are created and written by this script.
+// 權限表 is maintained by hand: email, position (職位), name and a free-text note the script never reads.
+// Position 總務 gets the treasurer's rights; any other position is an officer. The other tabs are created
+// and written by this script.
 
 const TIME_ZONE = "Asia/Taipei";
 const PERMISSION_SHEET = "權限表";
@@ -21,7 +23,7 @@ const COL = Object.fromEntries(CLAIM_HEADER.map((name, index) => [name, index]))
 const SUMMARY_SHEET = "財務彙總";
 const SUMMARY_HEADER = ["項目", "金額"];
 
-const ROLES = { "總務": "treasurer", "幹部": "officer" };
+const TREASURER_POSITION = "總務";
 const TOKEN_ISSUERS = ["accounts.google.com", "https://accounts.google.com"];
 const STATUS_PENDING = "待審核";
 const STATUS_APPROVED = "已核准";
@@ -187,17 +189,18 @@ function permissionRows() {
   return tab.getDataRange().getValues().slice(1);
 }
 
-// The position column is optional; without it a person is listed under their role.
 function positionOf(row) {
-  return String(row[3] || "").trim() || String(row[1] || "").trim();
+  return String(row[1] || "").trim();
 }
 
 function authorize(idToken) {
   const email = verifyIdToken(idToken);
   const row = permissionRows().find((cells) => String(cells[0]).trim().toLowerCase() === email);
-  const role = row ? ROLES[String(row[1]).trim()] : null;
-  if (!role) throw appError("unauthorized", "無權限，請聯絡總務。");
-  return { email, role, name: String(row[2] || "").trim(), position: positionOf(row) };
+  // A listed email with any position may sign in; only 總務 may review.
+  const position = row ? positionOf(row) : "";
+  if (!position) throw appError("unauthorized", "無權限，請聯絡總務。");
+  const role = position === TREASURER_POSITION ? "treasurer" : "officer";
+  return { email, role, name: String(row[2] || "").trim(), position };
 }
 
 // ---- Sheet access ----
