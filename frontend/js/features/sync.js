@@ -98,6 +98,18 @@ function mergeWebClaims(pulled) {
   state.claims = state.claims.filter((claim) => !(claim.source === "web" && withdrawn.has(claim.id) && claim.status !== "paid"));
   counts.removed = before - state.claims.length;
 
+  // A claim deleted straight from the Sheet leaves no withdraw record. An unpaid one that is no
+  // longer on the web goes to this app's trash, where it can be restored for 30 days; a paid one
+  // stays, since it is already in the ledger.
+  if (Array.isArray(pulled.claims)) {
+    const onWeb = new Set(pulled.claims.map((claim) => claim?.id));
+    const gone = state.claims.filter((claim) => claim.source === "web" && claim.status !== "paid" && !onWeb.has(claim.id));
+    const deletedAt = new Date().toISOString();
+    gone.forEach((claim) => state.trash.push({ id: uid(), kind: "claim", deletedAt, record: claim }));
+    state.claims = state.claims.filter((claim) => !gone.includes(claim));
+    counts.removed += gone.length;
+  }
+
   remoteClaims.forEach((remote) => {
     const local = state.claims.find((claim) => claim.id === remote.id);
     const status = webStatusToApp[remote.status];
@@ -155,7 +167,7 @@ async function syncWebClaims({ quiet = false } = {}) {
     renderWebSyncSettings();
     const reminder = counts.toRecord ? `有 ${counts.toRecord} 筆網頁已標記付款，請記錄付款。` : "財務彙總已更新。";
     if (!quiet || counts.added || counts.updated || counts.removed || counts.toRecord) {
-      toast(`同步完成：新增 ${counts.added} 筆、更新 ${counts.updated} 筆、移除撤銷 ${counts.removed} 筆。${reminder}`);
+      toast(`同步完成：新增 ${counts.added} 筆、更新 ${counts.updated} 筆、移除 ${counts.removed} 筆。${reminder}`);
     }
   } catch (error) {
     toast(`網頁報帳同步失敗：${error.message || "請稍後再試。"}`);

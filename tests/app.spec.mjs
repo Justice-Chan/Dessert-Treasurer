@@ -573,3 +573,24 @@ test("the app syncs web claims once when it opens", async ({ page }) => {
   await expect(page.locator("#claimRows")).toContainText("開啟同步");
   expect(actions).toEqual(["syncPull", "syncPush"]);
 });
+
+test("web sync moves unpaid claims deleted from the Sheet to the trash", async ({ page }) => {
+  const backend = "https://script.google.com/macros/s/test-deployment/exec";
+  const claim = (id, name) => ({ id, createdAt: "2099-09-20T00:00:00Z", applicantEmail: "a@example.com", applicantName: name, date, amount: 60, parent: "行政庶務", child: "雜支", status: "待審核", receiptLinks: [] });
+  let claims = [claim("00000000-0000-4000-8000-000000000011", "留下"), claim("00000000-0000-4000-8000-000000000012", "被刪掉")];
+  await page.route(backend, async (route) => {
+    const { action } = JSON.parse(route.request().postData());
+    const data = action === "syncPull" ? { claims, withdrawnIds: [] } : { summaryRows: 4 };
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
+  });
+  await page.evaluate((url) => localStorage.setItem("dessertTreasurer.v1", JSON.stringify({ webSync: { url, secret: "s".repeat(32) } })), backend);
+  await page.reload();
+  await openSection(page, "報銷");
+  await expect(page.locator("#claimRows")).toContainText("被刪掉");
+
+  claims = [claims[0]];
+  await page.locator("#syncWebClaims").click();
+  await expect(page.locator("#claimRows")).not.toContainText("被刪掉");
+  await expect(page.locator("#claimRows")).toContainText("留下");
+  expect(await page.evaluate(() => state.trash.map((item) => item.record.person))).toEqual(["被刪掉"]);
+});
