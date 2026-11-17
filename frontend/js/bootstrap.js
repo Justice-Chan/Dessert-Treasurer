@@ -33,6 +33,7 @@ async function initializeApp() {
   bindEvents();
   render();
   scheduleMemberImportSync();
+  setDefaultBackupFolder();
   // Bring in the web's claims and refresh its overview each time the app opens.
   syncWebClaims({ quiet: true });
 }

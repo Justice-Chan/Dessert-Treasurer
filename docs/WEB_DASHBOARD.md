@@ -65,12 +65,11 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 | 3 App sync | Live, synced against the real Sheet |
 | Activity folders, receipts optional, sign-in kept per tab | Live, tested with real claims and officers |
 | Claim editing: any field, activity and receipts | Live; amount and folder moves tested |
-| 4 Handover guide, monthly backup, optional email | Guide written; backup scheduled and run once; email not started |
+| 4 Handover guide, monthly backup | Done; email notifications dropped, officers check the site and message each other |
 
 ## Remaining work
 
 - **Trial run.** A week of real use by a few officers, collecting what feels slow or unclear.
-- **Email notifications (optional).** Mail the treasurer on a new claim and the applicant on a review result, with the reason for 退回. Apps Script's MailApp allows 100 mails a day on a personal account.
 - **Yearly archive (later).** Move paid claims of a past school year to another tab or Sheet once the list grows.
 
 The handover guide for the next treasurer is [HANDOVER.md](HANDOVER.md).

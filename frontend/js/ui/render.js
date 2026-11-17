@@ -183,6 +183,7 @@ function renderCurrentSection(section = currentSection()) {
   else if (section === "settings") {
     renderImportSynonymSettings();
     renderWebSyncSettings();
+    renderAutoBackupSettings();
   }
 }
 

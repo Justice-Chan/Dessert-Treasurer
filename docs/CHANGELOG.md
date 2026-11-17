@@ -4,6 +4,8 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- Spreadsheet import for people and activity rosters is a dropdown (file or link) instead of a separate choice dialog.
+- Quitting the app writes a full JSON backup to a chosen folder, overwriting the last one; on first run it picks the Google Drive for desktop folder when there is one. Set or change it in 設定 → 自動備份.
 - The app syncs web claims once each time it opens, quietly unless something changed or the sync failed.
 - Web sync takes claim edits made on the web; a paid claim keeps its amount, and its ledger expense follows a category change. The 水果與餡料 subcategory is now 餡料與醬.
 - 報銷 has a 同步網頁報帳 button: it pulls web claims (receipts as Drive links), drops withdrawn ones, follows web review decisions, and writes back the overview totals; payments stay in the app. The backend URL and secret are set in 設定 and never enter backups.

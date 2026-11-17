@@ -13,7 +13,9 @@ const tauriCommandNames = {
   printMonthlyReport: "print_monthly_report",
   openExternalUrl: "open_external_url",
   parseMemberSpreadsheet: "parse_member_spreadsheet",
-  importMemberSpreadsheetUrl: "import_member_spreadsheet_url"
+  importMemberSpreadsheetUrl: "import_member_spreadsheet_url",
+  defaultBackupFolder: "default_backup_folder",
+  runAutoBackup: "run_auto_backup"
 };
 const nativeStorageCall = (action, payload = {}) => {
   if (!tauriStorageEnabled) return Promise.reject(new Error("native storage unavailable"));
@@ -305,6 +307,7 @@ function normalizeState(saved = {}) {
     memberImportLink,
     importSynonyms,
     webSync: normalizeWebSync(saved.webSync),
+    autoBackup: { folder: String(saved.autoBackup?.folder || "").trim().slice(0, 1000) },
     reconciliations: Array.isArray(saved.reconciliations) ? saved.reconciliations : [],
     lastBackupAt: typeof saved.lastBackupAt === "string" ? saved.lastBackupAt : "",
     lockedMonths: Array.isArray(saved.lockedMonths) ? [...new Set(saved.lockedMonths)] : []

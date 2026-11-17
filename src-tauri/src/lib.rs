@@ -22,6 +22,9 @@ const MAX_MEMBER_IMPORT_BYTES: usize = 5 * 1024 * 1024;
 const MAX_MEMBER_IMPORT_ROWS: usize = 10_000;
 const MAX_MEMBER_IMPORT_COLUMNS: usize = 32;
 const MAX_MEMBER_IMPORT_URL_LENGTH: usize = 2_048;
+// The automatic backup overwrites one file in the chosen folder each time the app quits.
+const AUTO_BACKUP_FILE: &str = "甜點社總務自動備份.json";
+const AUTO_BACKUP_FOLDER: &str = "甜點社總務備份";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -676,6 +679,70 @@ async fn import_member_spreadsheet_url(url: String) -> Result<SpreadsheetRows, S
         .map_err(error_text)?
 }
 
+// The same content as the full JSON backup the app downloads: state, receipts, no sync secret.
+fn write_auto_backup(storage: &AppStorage) -> Result<Option<PathBuf>, String> {
+    let mut state = storage.load_state()?;
+    let folder = state
+        .pointer("/autoBackup/folder")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if folder.is_empty() {
+        return Ok(None);
+    }
+    let receipts = storage.get_all_receipts()?;
+    let object = state.as_object_mut().ok_or("帳本資料格式無效")?;
+    if let Some(sync) = object.get_mut("webSync").and_then(Value::as_object_mut) {
+        sync.insert("secret".into(), Value::String(String::new()));
+    }
+    object.insert("backupVersion".into(), Value::from(3));
+    object.insert("attachments".into(), serde_json::to_value(receipts).map_err(error_text)?);
+    let folder = PathBuf::from(folder);
+    fs::create_dir_all(&folder).map_err(error_text)?;
+    let path = folder.join(AUTO_BACKUP_FILE);
+    write_atomic(&path, &serde_json::to_vec_pretty(&state).map_err(error_text)?)?;
+    Ok(Some(path))
+}
+
+// Google Drive for desktop mounts My Drive under ~/Library/CloudStorage on macOS and as a drive
+// letter on Windows; the backup goes into a folder of its own there.
+fn find_drive_backup_folder() -> Option<PathBuf> {
+    let names = ["我的雲端硬碟", "My Drive"];
+    let mut roots: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        if let Ok(entries) = fs::read_dir(PathBuf::from(home).join("Library/CloudStorage")) {
+            roots.extend(entries.flatten().map(|entry| entry.path()).filter(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with("GoogleDrive-"))
+            }));
+        }
+    }
+    if cfg!(windows) {
+        roots.extend(('D'..='Z').map(|letter| PathBuf::from(format!("{letter}:\\"))));
+    }
+    roots
+        .iter()
+        .flat_map(|root| names.iter().map(move |name| root.join(name)))
+        .find(|path| path.is_dir())
+        .map(|path| path.join(AUTO_BACKUP_FOLDER))
+}
+
+#[tauri::command]
+fn default_backup_folder() -> String {
+    find_drive_backup_folder()
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn run_auto_backup(storage: State<'_, AppStorage>) -> Result<String, String> {
+    write_auto_backup(&storage)?
+        .map(|path| path.to_string_lossy().into_owned())
+        .ok_or_else(|| "尚未設定備份資料夾".into())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -697,7 +764,9 @@ pub fn run() {
             print_monthly_report,
             open_external_url,
             parse_member_spreadsheet,
-            import_member_spreadsheet_url
+            import_member_spreadsheet_url,
+            default_backup_folder,
+            run_auto_backup
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -709,8 +778,18 @@ pub fn run() {
                 });
             }
         })
-        .run(tauri::generate_context!())
-        .expect("無法啟動甜點社總務");
+        .build(tauri::generate_context!())
+        .expect("無法啟動甜點社總務")
+        // Exit covers the close button, the menu and the Dock, so every way out leaves a backup.
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Some(storage) = app.try_state::<AppStorage>() {
+                    if let Err(error) = write_auto_backup(&storage) {
+                        eprintln!("自動備份失敗：{error}");
+                    }
+                }
+            }
+        });
 }
 
 #[cfg(test)]
@@ -732,6 +811,29 @@ mod tests {
             AppStorage::open(root.clone()).expect("open test store"),
             root,
         )
+    }
+
+    #[test]
+    fn auto_backup_overwrites_one_file_without_the_sync_secret() {
+        let (store, root) = temporary_store();
+        assert_eq!(write_auto_backup(&store).expect("no folder set"), None);
+        let folder = root.join("drive").join(AUTO_BACKUP_FOLDER);
+        let state = serde_json::json!({
+            "entries": [{ "id": "entry-1", "amount": 3000 }],
+            "webSync": { "url": "https://example.com", "secret": "s".repeat(32) },
+            "autoBackup": { "folder": folder.to_string_lossy() }
+        });
+        store.save_state(&state).expect("save state");
+        write_auto_backup(&store).expect("first backup");
+        let path = write_auto_backup(&store).expect("second backup").expect("backup path");
+        assert_eq!(fs::read_dir(&folder).expect("backup folder").count(), 1);
+        let backup: Value = serde_json::from_slice(&fs::read(path).expect("read backup")).expect("backup json");
+        assert_eq!(backup["backupVersion"], 3);
+        assert_eq!(backup["webSync"]["secret"], "");
+        assert_eq!(backup["entries"][0]["amount"], 3000);
+        assert!(backup["attachments"].is_array());
+        drop(store);
+        fs::remove_dir_all(root).expect("remove test store");
     }
 
     #[test]

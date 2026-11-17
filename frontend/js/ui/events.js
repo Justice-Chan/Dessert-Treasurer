@@ -85,24 +85,14 @@ function bindEvents() {
   bindAsyncSubmit($("#accountForm"), upsertAccount);
   bindAsyncSubmit($("#payeeForm"), upsertPayee);
   $("#personForm").addEventListener("submit", upsertPerson);
-  const closePersonImportDialog = () => { $("#personImportDialog").hidden = true; };
   const closePersonImportLinkDialog = () => { $("#personImportLinkDialog").hidden = true; };
-  $("#openPersonImportDialog").addEventListener("click", () => { $("#personImportDialog").hidden = false; });
-  $("#cancelPersonImportDialog").addEventListener("click", closePersonImportDialog);
-  $("#personImportDialog").addEventListener("click", (event) => {
-    if (event.target === $("#personImportDialog")) closePersonImportDialog();
-  });
   $("#cancelPersonImportLink").addEventListener("click", closePersonImportLinkDialog);
   $("#personImportLinkDialog").addEventListener("click", (event) => {
     if (event.target === $("#personImportLinkDialog")) closePersonImportLinkDialog();
   });
-  $("#choosePersonImport").addEventListener("click", () => {
-    closePersonImportDialog();
-    $("#personImportFile").click();
-  });
+  $("#choosePersonImport").addEventListener("click", () => $("#personImportFile").click());
   $("#personImportFile").addEventListener("change", () => readPersonImportFile($("#personImportFile").files[0]));
   $("#openPersonImportLink").addEventListener("click", () => {
-    closePersonImportDialog();
     $("#personImportLinkDialog").hidden = false;
     $("#personImportUrl").focus();
   });
@@ -128,6 +118,9 @@ function bindEvents() {
   });
   $("#importSynonymForm").addEventListener("submit", saveImportSynonyms);
   $("#webSyncForm").addEventListener("submit", saveWebSyncSettings);
+  $("#autoBackupForm").addEventListener("submit", saveAutoBackupSettings);
+  $("#autoBackupDetect").addEventListener("click", detectBackupFolder);
+  $("#autoBackupNow").addEventListener("click", backupNow);
   $("#syncWebClaims").addEventListener("click", () => syncWebClaims());
   $("#resetImportSynonyms").addEventListener("click", () => {
     requestAppActionConfirmation({
@@ -143,20 +136,14 @@ function bindEvents() {
     });
   });
   $("#activityForm").addEventListener("submit", upsertActivity);
-  $("#openActivityImport").addEventListener("click", () => {
-    if (!$("#activityId").value) return toast("請先選擇一個活動。", "error");
-    $("#activityImportDialog").hidden = false;
-  });
-  const closeActivityImportDialog = () => { $("#activityImportDialog").hidden = true; };
   const closeActivityImportLinkDialog = () => { $("#activityImportLinkDialog").hidden = true; };
-  $("#cancelActivityImportDialog").addEventListener("click", closeActivityImportDialog);
-  $("#activityImportDialog").addEventListener("click", (event) => { if (event.target === $("#activityImportDialog")) closeActivityImportDialog(); });
+  // Both import choices sit in the roster's menu; they need an activity to fill.
   $("#chooseActivityImport").addEventListener("click", () => {
-    closeActivityImportDialog();
+    if (!$("#activityId").value) return toast("請先選擇一個活動。", "error");
     $("#activityImportFile").click();
   });
   $("#openActivityImportLink").addEventListener("click", () => {
-    closeActivityImportDialog();
+    if (!$("#activityId").value) return toast("請先選擇一個活動。", "error");
     $("#activityImportLinkDialog").hidden = false;
     $("#activityImportUrl").focus();
   });
@@ -762,7 +749,7 @@ function bindEvents() {
     try {
       if (imported.scope === "complete") {
         // Backups never hold the sync secret, so keep this computer's sync settings.
-        state = normalizeState({ ...imported.data, webSync: previousState.webSync });
+        state = normalizeState({ ...imported.data, webSync: previousState.webSync, autoBackup: previousState.autoBackup });
         replacesAllReceipts = true;
       } else if (imported.scope === "entries") {
         const currentClaimIds = new Set(state.claims.map((claim) => claim.id));

@@ -308,3 +308,46 @@ function parseImportedContent(filename, text) {
 
   throw new Error("unsupported csv");
 }
+
+// ---- Automatic backup on quit (desktop app only) ----
+// The native side writes the file when the app exits; this panel only chooses the folder.
+
+function renderAutoBackupSettings() {
+  $("#autoBackupPanel").hidden = !tauriStorageEnabled;
+  $("#autoBackupFolder").value = state.autoBackup.folder;
+  $("#autoBackupStatus").textContent = state.autoBackup.folder ? "關閉 app 時會自動備份" : "尚未設定，不會自動備份";
+}
+
+function saveAutoBackupSettings(event) {
+  event.preventDefault();
+  state.autoBackup = { folder: $("#autoBackupFolder").value.trim() };
+  if (!saveState()) return;
+  renderAutoBackupSettings();
+  toast(state.autoBackup.folder ? "已設定自動備份資料夾。" : "已關閉自動備份。");
+}
+
+async function detectBackupFolder() {
+  const folder = await nativeStorageCall("defaultBackupFolder").catch(() => "");
+  if (!folder) return toast("找不到 Google 雲端硬碟電腦版的資料夾，請手動填寫路徑。");
+  $("#autoBackupFolder").value = folder;
+  toast("已填入雲端硬碟資料夾，按「儲存備份設定」後生效。");
+}
+
+async function backupNow() {
+  try {
+    await enqueueNativeSave(state, "儲存失敗，無法寫入本機資料夾。");
+    const path = await nativeStorageCall("runAutoBackup");
+    toast(`已備份到 ${path}`);
+  } catch (error) {
+    toast(`備份失敗：${error?.message || error}`);
+  }
+}
+
+// First run on a computer with Google Drive for desktop: pick its folder without asking.
+async function setDefaultBackupFolder() {
+  if (!tauriStorageEnabled || state.autoBackup.folder) return;
+  const folder = await nativeStorageCall("defaultBackupFolder").catch(() => "");
+  if (!folder) return;
+  state.autoBackup = { folder };
+  saveState();
+}

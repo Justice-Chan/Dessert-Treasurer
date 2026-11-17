@@ -397,7 +397,6 @@ function clearActivityImport() {
   $("#activityImportFile").value = "";
   $("#activityImportUrl").value = "";
   $("#enableActivityLink").checked = true;
-  $("#activityImportDialog").hidden = true;
   $("#activityImportLinkDialog").hidden = true;
   $("#activityImportPreview").hidden = true;
   $("#activityImportSummary").textContent = "";

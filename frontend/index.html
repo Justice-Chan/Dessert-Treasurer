@@ -484,7 +484,13 @@
                 <h2 id="personFormTitle">新增人員</h2>
                 <div>
                   <input id="personImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
-                  <button type="button" id="openPersonImportDialog">匯入</button>
+                  <div class="action-menu" data-action-menu>
+                    <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">匯入試算表 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <div class="action-menu-list" role="menu" hidden>
+                      <button type="button" role="menuitem" id="choosePersonImport">選擇檔案</button>
+                      <button type="button" role="menuitem" id="openPersonImportLink">貼上連結</button>
+                    </div>
+                  </div>
                 </div>
               </div>
               <input type="hidden" id="personId">
@@ -609,7 +615,8 @@
                   <div class="action-menu" data-action-menu>
                     <button type="button" class="primary action-menu-trigger" aria-haspopup="menu" aria-expanded="false">名單操作 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
                     <div class="action-menu-list" role="menu" hidden>
-                      <button type="button" role="menuitem" id="openActivityImport">匯入試算表</button>
+                      <button type="button" role="menuitem" id="chooseActivityImport">匯入試算表檔案</button>
+                      <button type="button" role="menuitem" id="openActivityImportLink">匯入試算表連結</button>
                       <button type="button" role="menuitem" id="exportActivityUnpaid">下載未繳名單</button>
                     </div>
                   </div>
@@ -728,6 +735,21 @@
       </section>
 
       <section class="section" id="settings" aria-labelledby="pageTitle">
+        <div class="panel" id="autoBackupPanel" hidden>
+          <h2>自動備份</h2>
+          <p class="subtle">每次關閉 app 時，把完整備份寫到這個資料夾，覆蓋上一份。放在 Google 雲端硬碟電腦版的資料夾裡，就會同步到雲端；雲端硬碟會保留舊版本，需要時可從檔案的「版本記錄」找回。</p>
+          <form id="autoBackupForm">
+            <div class="form-grid">
+              <div class="field full"><label for="autoBackupFolder">備份資料夾</label><input id="autoBackupFolder" maxlength="1000" autocomplete="off" placeholder="留空則不自動備份"></div>
+            </div>
+            <div class="form-actions account-form-actions">
+              <span class="subtle" id="autoBackupStatus"></span>
+              <button type="button" id="autoBackupDetect">使用 Google 雲端硬碟</button>
+              <button type="button" id="autoBackupNow">立即備份</button>
+              <button type="submit" class="primary">儲存備份設定</button>
+            </div>
+          </form>
+        </div>
         <div class="panel">
           <h2>網頁報帳同步</h2>
           <p class="subtle">從網頁報帳系統取回申請、移除已撤銷的申請，並回寫付款狀態與財務彙總。網址與金鑰向後端管理者索取；金鑰只存在這台電腦，不會寫入備份。</p>
@@ -824,15 +846,6 @@
       </div>
     </div>
   </div>
-  <div class="app-modal" id="personImportDialog" role="dialog" aria-modal="true" aria-labelledby="personImportDialogTitle" hidden>
-    <div class="app-modal-card">
-      <h2 id="personImportDialogTitle">匯入人員</h2>
-      <p class="confirmation-message">選擇試算表來源。</p>
-      <div class="form-actions dialog-actions">
-        <button type="button" id="cancelPersonImportDialog">取消</button>
-        <button type="button" id="choosePersonImport">匯入試算表</button>
-        <button type="button" class="primary" id="openPersonImportLink">匯入連結</button>
-      </div>
     </div>
   </div>
   <div class="app-modal" id="personImportLinkDialog" role="dialog" aria-modal="true" aria-labelledby="personImportLinkDialogTitle" hidden>
@@ -851,15 +864,6 @@
       </div>
     </div>
   </div>
-  <div class="app-modal" id="activityImportDialog" role="dialog" aria-modal="true" aria-labelledby="activityImportDialogTitle" hidden>
-    <div class="app-modal-card">
-      <h2 id="activityImportDialogTitle">匯入活動人員</h2>
-      <p class="confirmation-message">選擇試算表來源。</p>
-      <div class="form-actions dialog-actions">
-        <button type="button" id="cancelActivityImportDialog">取消</button>
-        <button type="button" id="chooseActivityImport">匯入試算表</button>
-        <button type="button" class="primary" id="openActivityImportLink">匯入連結</button>
-      </div>
     </div>
   </div>
   <div class="app-modal" id="activityImportLinkDialog" role="dialog" aria-modal="true" aria-labelledby="activityImportLinkDialogTitle" hidden>
