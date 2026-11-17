@@ -22,8 +22,9 @@ const MAX_MEMBER_IMPORT_BYTES: usize = 5 * 1024 * 1024;
 const MAX_MEMBER_IMPORT_ROWS: usize = 10_000;
 const MAX_MEMBER_IMPORT_COLUMNS: usize = 32;
 const MAX_MEMBER_IMPORT_URL_LENGTH: usize = 2_048;
-// The automatic backup overwrites one file in the chosen folder each time the app quits.
-const AUTO_BACKUP_FILE: &str = "甜點社總務自動備份.json";
+// The automatic backup keeps one file in the chosen folder, named for the day it was written
+// (a slash cannot appear in a file name, so the date reads MM-DD).
+const AUTO_BACKUP_PREFIX: &str = "甜點社帳務自動備份_";
 const AUTO_BACKUP_FOLDER: &str = "甜點社總務備份";
 
 #[derive(Serialize)]
@@ -700,8 +701,15 @@ fn write_auto_backup(storage: &AppStorage) -> Result<Option<PathBuf>, String> {
     object.insert("attachments".into(), serde_json::to_value(receipts).map_err(error_text)?);
     let folder = PathBuf::from(folder);
     fs::create_dir_all(&folder).map_err(error_text)?;
-    let path = folder.join(AUTO_BACKUP_FILE);
+    let path = folder.join(format!("{AUTO_BACKUP_PREFIX}{}.json", chrono::Local::now().format("%m-%d")));
     write_atomic(&path, &serde_json::to_vec_pretty(&state).map_err(error_text)?)?;
+    // The new file replaces every earlier one, so the folder holds only the latest backup.
+    for entry in fs::read_dir(&folder).map_err(error_text)?.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if entry.path() != path && name.starts_with(AUTO_BACKUP_PREFIX) && name.ends_with(".json") {
+            remove_if_present(&entry.path())?;
+        }
+    }
     Ok(Some(path))
 }
 
@@ -824,9 +832,13 @@ mod tests {
             "autoBackup": { "folder": folder.to_string_lossy() }
         });
         store.save_state(&state).expect("save state");
+        fs::create_dir_all(&folder).expect("backup folder");
+        fs::write(folder.join(format!("{AUTO_BACKUP_PREFIX}01-01.json")), b"{}").expect("older backup");
         write_auto_backup(&store).expect("first backup");
         let path = write_auto_backup(&store).expect("second backup").expect("backup path");
         assert_eq!(fs::read_dir(&folder).expect("backup folder").count(), 1);
+        let name = path.file_name().expect("file name").to_string_lossy().into_owned();
+        assert!(name.starts_with(AUTO_BACKUP_PREFIX) && name.ends_with(".json") && name.len() == AUTO_BACKUP_PREFIX.len() + "MM-DD.json".len());
         let backup: Value = serde_json::from_slice(&fs::read(path).expect("read backup")).expect("backup json");
         assert_eq!(backup["backupVersion"], 3);
         assert_eq!(backup["webSync"]["secret"], "");
