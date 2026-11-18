@@ -28,6 +28,7 @@ const categories = {
     "補助與贊助": ["學校補助", "系學會補助", "外部贊助"],
     "退款與調整": ["押金退回", "廠商退款", "帳務調整"]
   },
+  // Built-in until the first web sync; after that the backend's list, kept in state.expenseCategories.
   expense: {
     "食材與耗材": ["乳品", "蛋與油脂", "粉類", "糖與巧克力", "餡料與醬", "包材"],
     "器具與設備": ["烤模", "量測工具", "小型器具", "設備維修"],
@@ -308,10 +309,26 @@ function normalizeState(saved = {}) {
     importSynonyms,
     webSync: normalizeWebSync(saved.webSync),
     autoBackup: { folder: String(saved.autoBackup?.folder || "").trim().slice(0, 1000) },
+    expenseCategories: normalizeCategoryTree(saved.expenseCategories),
     reconciliations: Array.isArray(saved.reconciliations) ? saved.reconciliations : [],
     lastBackupAt: typeof saved.lastBackupAt === "string" ? saved.lastBackupAt : "",
     lockedMonths: Array.isArray(saved.lockedMonths) ? [...new Set(saved.lockedMonths)] : []
   };
+}
+
+// A parent → children list from the backend, or null when it is missing or malformed.
+function normalizeCategoryTree(tree) {
+  if (!tree || typeof tree !== "object" || Array.isArray(tree)) return null;
+  const clean = (value) => String(value || "").trim().slice(0, 30);
+  const entries = Object.entries(tree).slice(0, 30)
+    .map(([parent, children]) => [clean(parent), Array.isArray(children) ? [...new Set(children.map(clean).filter(Boolean))].slice(0, 30) : []])
+    .filter(([parent, children]) => parent && parent !== "其他" && children.length);
+  return entries.length ? Object.fromEntries(entries) : null;
+}
+
+// The app's expense lists follow what the last sync brought from the backend.
+function applyExpenseCategories() {
+  if (state.expenseCategories) categories.expense = state.expenseCategories;
 }
 
 function emptyImportSynonyms() {

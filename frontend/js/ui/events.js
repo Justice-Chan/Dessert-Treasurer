@@ -749,7 +749,7 @@ function bindEvents() {
     try {
       if (imported.scope === "complete") {
         // Backups never hold the sync secret, so keep this computer's sync settings.
-        state = normalizeState({ ...imported.data, webSync: previousState.webSync, autoBackup: previousState.autoBackup });
+        state = normalizeState({ ...imported.data, webSync: previousState.webSync, autoBackup: previousState.autoBackup, expenseCategories: previousState.expenseCategories });
         replacesAllReceipts = true;
       } else if (imported.scope === "entries") {
         const currentClaimIds = new Set(state.claims.map((claim) => claim.id));

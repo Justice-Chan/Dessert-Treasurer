@@ -159,7 +159,15 @@ async function syncWebClaims({ quiet = false } = {}) {
   webSyncRunning = true;
   $("#syncWebClaims").disabled = true;
   try {
-    const counts = mergeWebClaims(await callWebSync("syncPull"));
+    const pulled = await callWebSync("syncPull");
+    const counts = mergeWebClaims(pulled);
+    // The backend owns the expense categories; a change there redraws this app's category lists.
+    const fresh = normalizeCategoryTree(pulled.categories);
+    if (fresh && JSON.stringify(fresh) !== JSON.stringify(state.expenseCategories)) {
+      state.expenseCategories = fresh;
+      applyExpenseCategories();
+      setupCategorySelects();
+    }
     if (!saveState()) return;
     await callWebSync("syncPush", { summary: webSummaryRows() });
     state.webSync.lastSyncedAt = new Date().toISOString();

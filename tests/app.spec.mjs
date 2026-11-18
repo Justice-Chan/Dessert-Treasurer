@@ -564,7 +564,7 @@ test("the app syncs web claims once when it opens", async ({ page }) => {
     const { action } = JSON.parse(route.request().postData());
     actions.push(action);
     const claim = { id: "00000000-0000-4000-8000-000000000009", createdAt: "2099-09-20T00:00:00Z", applicantEmail: "a@example.com", applicantName: "開啟同步", date, amount: 60, parent: "行政庶務", child: "雜支", status: "待審核", receiptLinks: [] };
-    const data = action === "syncPull" ? { claims: [claim], withdrawnIds: [] } : { summaryRows: 4 };
+    const data = action === "syncPull" ? { claims: [claim], withdrawnIds: [], categories: { "行政庶務": ["雜支"], "新分類": ["新副項"] } } : { summaryRows: 4 };
     await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
   });
   await page.evaluate((url) => localStorage.setItem("dessertTreasurer.v1", JSON.stringify({ webSync: { url, secret: "s".repeat(32) } })), backend);
@@ -572,6 +572,11 @@ test("the app syncs web claims once when it opens", async ({ page }) => {
   await openSection(page, "報銷");
   await expect(page.locator("#claimRows")).toContainText("開啟同步");
   expect(actions).toEqual(["syncPull", "syncPush"]);
+  // Categories come from the backend and survive a reload.
+  await expect(page.locator("#claimParent option")).toContainText(["行政庶務", "新分類", "其他"]);
+  await page.reload();
+  await openSection(page, "報銷");
+  await expect(page.locator("#claimParent option", { hasText: "新分類" })).toHaveCount(1);
 });
 
 test("web sync moves unpaid claims deleted from the Sheet to the trash", async ({ page }) => {

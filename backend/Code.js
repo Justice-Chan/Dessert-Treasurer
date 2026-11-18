@@ -37,7 +37,7 @@ const STATUS_PAID = "已付款";
 const REVIEW_STATUSES = [STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED, STATUS_PAID];
 const OTHER_CATEGORY = "其他";
 
-// Mirrors the expense categories in frontend/js/core/state.js so synced claims fit the app.
+// The one list of expense categories: the web form shows it and the desktop app takes it on sync.
 const CATEGORIES = {
   "食材與耗材": ["乳品", "蛋與油脂", "粉類", "糖與巧克力", "餡料與醬", "包材"],
   "器具與設備": ["烤模", "量測工具", "小型器具", "設備維修"],
@@ -172,8 +172,25 @@ function checkSetup() {
 // ---- Identity and roles ----
 
 // Identity comes only from a Google-verified ID token; the caller cannot supply an email.
+// A verified token is remembered until it expires, under a hash of the token, so later calls in the
+// same sign-in skip the round trip to Google. Only the email is kept, never the token itself.
 function verifyIdToken(idToken) {
   if (typeof idToken !== "string" || !idToken || idToken.length > 4096) throw appError("unauthenticated", "請重新登入。");
+  const cache = CacheService.getScriptCache();
+  const key = `idt:${Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken))}`;
+  const known = JSON.parse(cache.get(key) || "null");
+  if (known && known.exp * 1000 > Date.now()) return known.email;
+  const email = checkIdTokenWithGoogle(idToken);
+  cacheVerifiedToken(cache, key, email);
+  return email.address;
+}
+
+function cacheVerifiedToken(cache, key, email) {
+  const seconds = Math.min(Math.floor(email.exp - Date.now() / 1000), 21600);
+  if (seconds > 0) cache.put(key, JSON.stringify({ email: email.address, exp: email.exp }), seconds);
+}
+
+function checkIdTokenWithGoogle(idToken) {
   const response = UrlFetchApp.fetch(
     `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
     { muteHttpExceptions: true }
@@ -186,7 +203,7 @@ function verifyIdToken(idToken) {
     && String(claims.email_verified) === "true"
     && claims.email;
   if (!valid) throw appError("unauthenticated", "登入已過期，請重新登入。");
-  return String(claims.email).trim().toLowerCase();
+  return { address: String(claims.email).trim().toLowerCase(), exp: Number(claims.exp) };
 }
 
 function permissionRows() {
@@ -713,7 +730,7 @@ function syncPull() {
     .filter((row) => cellText(row[2]) === "withdrawRequest")
     .map((row) => cellText(row[3]))
     .filter(Boolean);
-  return { claims, withdrawnIds: [...new Set(withdrawnIds)] };
+  return { claims, withdrawnIds: [...new Set(withdrawnIds)], categories: CATEGORIES };
 }
 
 function syncSummaryRows(value) {

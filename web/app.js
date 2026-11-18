@@ -453,13 +453,22 @@ async function fetchAttachment(claimId, index) {
 
 const isPhoto = (type) => type === "image/jpeg" || type === "image/png";
 
+// Every receipt of a claim is requested at once; each request settles to a file or an error.
+function fetchAllAttachments(claim) {
+  return Array.from({ length: claim.attachmentCount }, (_, index) =>
+    fetchAttachment(claim.id, index).then((file) => ({ file }), (error) => ({ error })));
+}
+
 async function loadReceipts(claim) {
   const container = $("#detailAttachments");
   container.replaceChildren(element("p", "subtle", claim.attachmentCount ? "載入收據中…" : "沒有附件。"));
-  for (let index = 0; index < claim.attachmentCount; index += 1) {
+  const requests = fetchAllAttachments(claim);
+  // Shown in order as they arrive: a slow first receipt holds back only the ones after it.
+  for (let index = 0; index < requests.length; index += 1) {
     let node;
+    const { file, error } = await requests[index];
     try {
-      const file = await fetchAttachment(claim.id, index);
+      if (error) throw error;
       const url = URL.createObjectURL(file.blob);
       receiptUrls.push(url);
       // Receipts open over the page, not in a new tab.
@@ -664,16 +673,12 @@ async function loadSavedReceipts(claim) {
   showSelectedFiles();
   if (!claim.attachmentCount) return;
   $("#claimFilesHint").textContent = "載入收據中…";
-  const saved = [];
-  for (let index = 0; index < claim.attachmentCount; index += 1) {
-    try {
-      const file = await fetchAttachment(claim.id, index);
-      saved.push({ ...file, size: file.blob.size, lastModified: -1 - index, existingIndex: index });
-    } catch (error) {
-      showMessage(`收據 ${index + 1} 載入失敗；儲存時會保留原檔。`, true);
-      saved.push({ name: `收據 ${index + 1}`, type: "", size: 0, lastModified: -1 - index, existingIndex: index, blob: new Blob() });
-    }
-  }
+  const results = await Promise.all(fetchAllAttachments(claim));
+  const saved = results.map(({ file, error }, index) => {
+    if (!error) return { ...file, size: file.blob.size, lastModified: -1 - index, existingIndex: index };
+    showMessage(`收據 ${index + 1} 載入失敗；儲存時會保留原檔。`, true);
+    return { name: `收據 ${index + 1}`, type: "", size: 0, lastModified: -1 - index, existingIndex: index, blob: new Blob() };
+  });
   if (editingClaim !== claim) return;
   selectedFiles = [...saved, ...selectedFiles];
   showSelectedFiles();

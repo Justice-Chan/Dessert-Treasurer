@@ -4,6 +4,7 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- Expense categories come from the web backend on each sync, so they are edited in one place.
 - Spreadsheet import for people and activity rosters is a dropdown (file or link) instead of a separate choice dialog.
 - Quitting the app writes a full JSON backup named 甜點社帳務自動備份_MM-DD.json to a chosen folder, replacing the last one; on first run it picks the Google Drive for desktop folder when there is one. Set or change it in 設定 → 自動備份.
 - The app syncs web claims once each time it opens, quietly unless something changed or the sync failed.

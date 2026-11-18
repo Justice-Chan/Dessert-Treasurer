@@ -13,7 +13,7 @@ Live site: <https://justice-chan.github.io/Dessert-Treasurer/>
 | Data | Google Sheet (tabs: 權限表, 報帳申請, 財務彙總, 操作紀錄) and a Drive folder holding receipts and monthly backups | The deploying account's Google Drive |
 | Desktop app | `frontend/`, `src-tauri/` | The treasurer's computer; rebuild after app changes with `npm run update:mac` |
 
-The dashboard posts `{action, idToken, payload}` to the backend. The backend verifies the Google ID token and checks the position in 權限表 on every call; the page hides controls only for convenience. The desktop app calls `syncPull` and `syncPush` with `SYNC_SECRET` instead.
+The dashboard posts `{action, idToken, payload}` to the backend. The backend verifies the Google ID token (cached by its hash until it expires) and checks the position in 權限表 on every call; the page hides controls only for convenience. The desktop app calls `syncPull` and `syncPush` with `SYNC_SECRET` instead.
 
 Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder: receipts go into `YYYY-MM/NN_activity` by submission month, backups into `備份`), `SYNC_SECRET` (at least 32 random characters). `SUMMARY_SYNCED_AT` is written by the script. Run `checkSetup` in the Apps Script editor to diagnose a wrong value or a missing backup schedule.
 
@@ -39,7 +39,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 
 ## Decisions
 
-- Statuses match the app: 待審核, 已核准, 已付款, 退回. Categories mirror the app's expense categories; 其他 accepts custom text.
+- Statuses match the app: 待審核, 已核准, 已付款, 退回. Expense categories live only in `CATEGORIES` in `backend/Code.js`: the web form reads them and the app takes them on each sync. 其他 accepts custom text.
 - Withdrawal: the applicant (own claims) or the treasurer (any claim) may withdraw while a claim is 待審核 or 退回. The row is deleted, receipts go to the Drive trash, and a row stays in 操作紀錄.
 - The treasurer can move a claim to any status on the web, 已付款 included. That 已付款 is only a marker: on sync the app keeps the claim approved and flags it until the payment, with its date and account, is recorded in the app. The app never writes 已付款 back.
 - 權限表 columns: email, position (職位), name, note. Position 總務 has the treasurer's rights; any other position (活動, 教學…) is an officer, shown in the drawer and used by the review filter. An empty position means no access. The note is for people only. Claims from people no longer listed are filed under 已離任.

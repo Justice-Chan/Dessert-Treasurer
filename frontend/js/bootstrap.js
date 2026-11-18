@@ -18,6 +18,7 @@ async function initializeApp() {
     }
   }
   purgeExpiredTrash();
+  applyExpenseCategories();
   setupDateControls();
   setupCategorySelects();
   refreshAccountSelects();
