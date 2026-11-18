@@ -385,10 +385,19 @@ function activityFolders(month) {
 
 // This month's activities, for the claim form.
 // A month's activities for the claim form: this month by default, or a claim's own month when editing.
+// Listing Drive folders is slow, so a month's list is kept for a few minutes. Creating an activity
+// clears it; a folder made or renamed by hand in Drive shows up once the cache runs out.
+const ACTIVITY_CACHE_SECONDS = 300;
+const activityCacheKey = (month) => `activities:${month}`;
+
 function listActivities(user, payload) {
   const month = /^\d{4}-\d{2}$/.test(payload.month || "") ? payload.month : currentMonth();
-  return activityFolders(findMonthFolder(month))
-    .map(({ id, name, label }) => ({ id, name, label }));
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(activityCacheKey(month));
+  if (cached) return JSON.parse(cached);
+  const activities = activityFolders(findMonthFolder(month)).map(({ id, name, label }) => ({ id, name, label }));
+  cache.put(activityCacheKey(month), JSON.stringify(activities), ACTIVITY_CACHE_SECONDS);
+  return activities;
 }
 
 // Picks an existing activity folder by id, or creates one for a typed name. A typed name that
@@ -407,6 +416,7 @@ function resolveActivity(payload, monthName = currentMonth()) {
   const sessions = existing.filter((item) => item.name === name).map((item) => item.session);
   const session = sessions.length ? Math.max(...sessions, 1) + 1 : 1;
   const folder = month.createFolder(`${String(session).padStart(2, "0")}_${name}`);
+  CacheService.getScriptCache().remove(activityCacheKey(monthName));
   return { folder, label: sessions.length ? `${name}（第 ${session} 堂）` : name };
 }
 
