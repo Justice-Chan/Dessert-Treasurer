@@ -698,11 +698,20 @@ fn write_auto_backup(storage: &AppStorage) -> Result<Option<PathBuf>, String> {
         sync.insert("secret".into(), Value::String(String::new()));
     }
     object.insert("backupVersion".into(), Value::from(3));
-    object.insert("attachments".into(), serde_json::to_value(receipts).map_err(error_text)?);
+    object.insert(
+        "attachments".into(),
+        serde_json::to_value(receipts).map_err(error_text)?,
+    );
     let folder = PathBuf::from(folder);
     fs::create_dir_all(&folder).map_err(error_text)?;
-    let path = folder.join(format!("{AUTO_BACKUP_PREFIX}{}.json", chrono::Local::now().format("%m-%d")));
-    write_atomic(&path, &serde_json::to_vec_pretty(&state).map_err(error_text)?)?;
+    let path = folder.join(format!(
+        "{AUTO_BACKUP_PREFIX}{}.json",
+        chrono::Local::now().format("%m-%d")
+    ));
+    write_atomic(
+        &path,
+        &serde_json::to_vec_pretty(&state).map_err(error_text)?,
+    )?;
     // The new file replaces every earlier one, so the folder holds only the latest backup.
     for entry in fs::read_dir(&folder).map_err(error_text)?.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -718,14 +727,14 @@ fn write_auto_backup(storage: &AppStorage) -> Result<Option<PathBuf>, String> {
 fn find_drive_backup_folder() -> Option<PathBuf> {
     let names = ["我的雲端硬碟", "My Drive"];
     let mut roots: Vec<PathBuf> = Vec::new();
-    if let Some(home) = std::env::var_os("HOME") {
-        if let Ok(entries) = fs::read_dir(PathBuf::from(home).join("Library/CloudStorage")) {
-            roots.extend(entries.flatten().map(|entry| entry.path()).filter(|path| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| name.starts_with("GoogleDrive-"))
-            }));
-        }
+    if let Some(home) = std::env::var_os("HOME")
+        && let Ok(entries) = fs::read_dir(PathBuf::from(home).join("Library/CloudStorage"))
+    {
+        roots.extend(entries.flatten().map(|entry| entry.path()).filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("GoogleDrive-"))
+        }));
     }
     if cfg!(windows) {
         roots.extend(('D'..='Z').map(|letter| PathBuf::from(format!("{letter}:\\"))));
@@ -790,12 +799,11 @@ pub fn run() {
         .expect("無法啟動甜點社總務")
         // Exit covers the close button, the menu and the Dock, so every way out leaves a backup.
         .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                if let Some(storage) = app.try_state::<AppStorage>() {
-                    if let Err(error) = write_auto_backup(&storage) {
-                        eprintln!("自動備份失敗：{error}");
-                    }
-                }
+            if let tauri::RunEvent::Exit = event
+                && let Some(storage) = app.try_state::<AppStorage>()
+                && let Err(error) = write_auto_backup(&storage)
+            {
+                eprintln!("自動備份失敗：{error}");
             }
         });
 }
@@ -833,13 +841,28 @@ mod tests {
         });
         store.save_state(&state).expect("save state");
         fs::create_dir_all(&folder).expect("backup folder");
-        fs::write(folder.join(format!("{AUTO_BACKUP_PREFIX}01-01.json")), b"{}").expect("older backup");
+        fs::write(
+            folder.join(format!("{AUTO_BACKUP_PREFIX}01-01.json")),
+            b"{}",
+        )
+        .expect("older backup");
         write_auto_backup(&store).expect("first backup");
-        let path = write_auto_backup(&store).expect("second backup").expect("backup path");
+        let path = write_auto_backup(&store)
+            .expect("second backup")
+            .expect("backup path");
         assert_eq!(fs::read_dir(&folder).expect("backup folder").count(), 1);
-        let name = path.file_name().expect("file name").to_string_lossy().into_owned();
-        assert!(name.starts_with(AUTO_BACKUP_PREFIX) && name.ends_with(".json") && name.len() == AUTO_BACKUP_PREFIX.len() + "MM-DD.json".len());
-        let backup: Value = serde_json::from_slice(&fs::read(path).expect("read backup")).expect("backup json");
+        let name = path
+            .file_name()
+            .expect("file name")
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            name.starts_with(AUTO_BACKUP_PREFIX)
+                && name.ends_with(".json")
+                && name.len() == AUTO_BACKUP_PREFIX.len() + "MM-DD.json".len()
+        );
+        let backup: Value =
+            serde_json::from_slice(&fs::read(path).expect("read backup")).expect("backup json");
         assert_eq!(backup["backupVersion"], 3);
         assert_eq!(backup["webSync"]["secret"], "");
         assert_eq!(backup["entries"][0]["amount"], 3000);
