@@ -13,6 +13,8 @@
     "build:dmg": "npm run tauri build -- --bundles dmg -- --locked",
     "build:windows": "node scripts/build-windows.mjs",
     "test:build": "node --test tests/build.mjs",
+    "test:backend": "node --test tests/backend.mjs",
+    "check:web": "node scripts/check-syntax.mjs web backend",
     "test:ui": "playwright test"
   },
   "devDependencies": {

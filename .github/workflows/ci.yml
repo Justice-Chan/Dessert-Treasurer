@@ -26,6 +26,8 @@ jobs:
       - run: npx playwright install chromium
       - run: npm run build:web
       - run: npm run test:build
+      - run: npm run check:web
+      - run: npm run test:backend
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="styles.css">
   <script>
     // Runs before the first paint: picks the theme, and hides the landing page while a tab that is
-    // still signed in restores itself. Keys match themeKey and tokenKey in app.js.
+    // still signed in restores itself. Keys match themeKey and tokenKey in core.js.
     try {
       var theme = localStorage.getItem("dashboard-theme-override");
       document.documentElement.dataset.theme = theme === "dark" || theme === "cake" ? theme
@@ -249,7 +249,11 @@
 
   <script src="config.js"></script>
   <script src="art.js"></script>
-  <script src="app.js"></script>
+  <script src="core.js"></script>
+  <script src="overview.js"></script>
+  <script src="claims.js"></script>
+  <script src="form.js"></script>
+  <script src="main.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer onload="startSignIn()"></script>
 </body>
 </html>

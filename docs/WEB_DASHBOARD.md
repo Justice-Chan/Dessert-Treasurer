@@ -8,8 +8,8 @@ Live site: <https://justice-chan.github.io/Dessert-Treasurer/>
 
 | Part | Location | Hosted on |
 | --- | --- | --- |
-| Dashboard (plain HTML/CSS/JS, no build step) | `web/` | GitHub Pages, deployed by `.github/workflows/deploy-pages.yml` on pushes that touch `web/` |
-| Backend | `backend/Code.js`, `backend/appsscript.json` | Google Apps Script web app, runs as the deploying account |
+| Dashboard (plain HTML/CSS/JS, no build step; scripts load in order, `main.js` last) | `web/` | GitHub Pages, deployed by `.github/workflows/deploy-pages.yml` on pushes that touch `web/` |
+| Backend (`Code.js` handles requests; `Sheet`, `Claims`, `Review`, `Sync`, `Backup` by feature) | `backend/*.js`, `backend/appsscript.json` | Google Apps Script web app, runs as the deploying account |
 | Data | Google Sheet (tabs: 權限表, 報帳申請, 財務彙總, 操作紀錄) and a Drive folder holding receipts and monthly backups | The deploying account's Google Drive |
 | Desktop app | `frontend/`, `src-tauri/` | The treasurer's computer; rebuild after app changes with `npm run update:mac` |
 
@@ -25,7 +25,7 @@ Preview the dashboard at `http://localhost:8080/` and the desktop app's UI at `/
 node scripts/dev-server.mjs
 ```
 
-Google sign-in works locally only from an origin listed on the OAuth client.
+Google sign-in works locally only from an origin listed on the OAuth client. `npm run check:web` parses every dashboard and backend file, and `npm run test:backend` runs the backend's unit tests in Node; CI runs both.
 
 Deploy the backend (needs `backend/.clasp.json`, copied from `.clasp.json.example`, and a `clasp login`):
 
