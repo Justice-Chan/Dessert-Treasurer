@@ -455,7 +455,7 @@ async function saveEdit(fields) {
       attachments: await Promise.all(fresh.map(prepareAttachment))
     });
     setFormMode(null);
-    await showOwnClaims("已儲存修改。");
+    await leaveEdit("已儲存修改。", true);
   } catch (error) {
     reportError(error);
   } finally {

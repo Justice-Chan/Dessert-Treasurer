@@ -6,7 +6,7 @@ All notable user-facing changes are recorded here.
 
 - 我的申請 rows open the claim for editing; 撤銷申請 moved to the edit form's title row, as 刪除 did on the entry form. A claim's 修改 button sits beside its last detail row.
 - Edited claims whose receipt folder was deleted by hand in Drive put new receipts in the month's folder instead of the trash.
-- The treasurer's drawer reads 總覽, 記帳, 新增報帳, 審核報帳. My claims is for officers only; the treasurer's own claims are marked 本人 in the review list and edited from their detail page.
+- The treasurer's drawer reads 總覽, 記帳, 新增報帳, 審核報帳. My claims is for officers only; the treasurer's own claims are marked 本人 in the review list and edited from their detail page, which saving or cancelling returns to.
 - The books live in a shared cloud ledger: the app uploads each change and takes the web's changes when it opens, after edits and when its window regains focus. People and activities stay in the app. If the web changed the books first, the app's upload is refused and it takes the cloud copy. The first sync uploads the app's existing books.
 - The web has a 記帳 page for the treasurer: a month's entries and month-end balances, and adding, editing or deleting entries. Choosing 已付款 on a claim records its payment with a date and account; leaving 已付款 removes it.
 - The web overview's totals come straight from the ledger, so they no longer wait for the app; the 財務彙總 tab is no longer used.

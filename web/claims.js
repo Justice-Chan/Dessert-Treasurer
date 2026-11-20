@@ -2,6 +2,28 @@
 
 // ---- My claims ----
 
+// The treasurer edits their own claim from its detail page, and saving or cancelling returns there,
+// where its status can then be changed. This holds that claim's id while its form is open.
+let editReturnId = "";
+
+async function leaveEdit(message, saved) {
+  const id = editReturnId;
+  editReturnId = "";
+  if (!id) return showOwnClaims(message);
+  if (!saved) return show("detail");
+  showMessage("載入中…", false, true);
+  try {
+    // Saving may have sent it back to 待審核, so it is looked up whatever the list filter shows.
+    const claim = (await callBackend("listAllRequests", {})).find((item) => item.id === id);
+    if (!claim) return showOwnClaims(message);
+    clearReceipts();
+    openDetail(claim);
+    showMessage(message);
+  } catch (error) {
+    reportError(error);
+  }
+}
+
 // Where your own claims are listed: My claims for an officer, the review list for the treasurer.
 async function showOwnClaims(message) {
   if (currentUser.role === "treasurer") await openReview();

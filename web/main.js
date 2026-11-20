@@ -71,11 +71,15 @@ $("#claimDropzone").addEventListener("drop", (event) => {
   addFiles(event.dataTransfer.files);
 });
 // Cancel clears the form and stays on it.
-$("#claimCancel").addEventListener("click", () => (editingClaim ? (setFormMode(null), showOwnClaims("")) : openClaimForm()));
-$("#detailEdit button").addEventListener("click", () => openEditForm(currentClaim));
+$("#claimCancel").addEventListener("click", () => (editingClaim ? (setFormMode(null), leaveEdit("", false)) : openClaimForm()));
+$("#detailEdit button").addEventListener("click", () => {
+  editReturnId = currentClaim.id;
+  openEditForm(currentClaim);
+});
+// A withdrawn claim is gone, so this returns to the list rather than its detail page.
 $("#claimWithdraw").addEventListener("click", () => {
   const claim = editingClaim;
-  withdrawClaim(claim, $("#claimWithdraw"), () => (setFormMode(null), showOwnClaims("")));
+  withdrawClaim(claim, $("#claimWithdraw"), () => (setFormMode(null), (editReturnId = ""), showOwnClaims("")));
 });
 $("#filePreviewClose").addEventListener("click", () => $("#filePreview").close());
 $("#filePreview").addEventListener("click", (event) => {
