@@ -179,11 +179,10 @@ function renderCurrentSection(section = currentSection()) {
   else if (section === "people") renderPeople();
   else if (section === "categories") renderCategories();
   else if (section === "trash") renderTrash();
-  else if (section === "backup") renderBackupHealth();
+  else if (section === "backup") renderBackupPage();
   else if (section === "settings") {
     renderImportSynonymSettings();
     renderWebSyncSettings();
-    renderAutoBackupSettings();
   }
 }
 
@@ -199,20 +198,6 @@ function scheduleMemberImportSync() {
   }, 250);
   if ("requestIdleCallback" in window) window.requestIdleCallback(synchronize, { timeout: 1600 });
   else requestAnimationFrame(synchronize);
-}
-
-function renderBackupHealth() {
-  const node = $("#backupHealth");
-  if (!node) return;
-  if (!state.lastBackupAt) {
-    node.textContent = "尚未建立完整備份";
-    node.title = "建議在正式記帳前先建立一份 JSON 完整備份。";
-    return;
-  }
-  const elapsedDays = Math.floor((Date.now() - new Date(state.lastBackupAt).getTime()) / dayMs);
-  const date = new Date(state.lastBackupAt).toLocaleDateString("zh-TW");
-  node.textContent = elapsedDays >= 30 ? `上次完整備份：${date}，建議更新` : `上次完整備份：${date}（${elapsedDays} 天前）`;
-  node.title = elapsedDays >= 30 ? `距今 ${elapsedDays} 天，建議立即下載新的 JSON 完整備份。` : "JSON 完整備份可在需要時還原全部資料。";
 }
 
 // The overview figures for one month; the web sync sends the same numbers to 財務彙總.

@@ -1,11 +1,3 @@
-function updateExportUi() {
-  const isJson = selectedExportFormat === "json";
-  $("#exportComplete").textContent = isJson ? "下載完整備份" : "下載合併報表";
-  $("#exportDescription").textContent = isJson
-    ? "JSON 完整備份可供日後還原，並包含帳戶、月結、人員、活動與收據附件。"
-    : "CSV 合併報表以一般欄位整理收入、支出與報銷，已付款報銷只列一次；完整還原請使用 JSON。";
-}
-
 function download(filename, content, type) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -110,35 +102,26 @@ function claimsCsvRows() {
   return [["申請日期", "申請人", "用途", "主項目", "副項目", "金額", "狀態", "憑證", "附件", "備註"], ...state.claims.map((claim) => [claim.date, claim.person, claim.title, claim.parent, claim.child, claim.amount, statusText[claim.status], claim.receipt, (claim.attachments || []).map((attachment) => attachment.name).join("、"), claim.note])];
 }
 
+// A full JSON copy for restoring or handing over; the automatic backup writes the same content.
 async function exportComplete() {
-  if (selectedExportFormat === "json") {
-    const attachments = await exportReceipts();
-    download(`甜點社總務完整備份-${today()}.json`, JSON.stringify({ backupVersion: 3, ...state, webSync: { ...state.webSync, secret: "" }, attachments }, null, 2), "application/json");
-    state.lastBackupAt = new Date().toISOString();
-    saveState();
-    toast("完整備份已開始下載。");
-  } else {
-    download(`甜點社收支報銷合併報表-${today()}.csv`, "\ufeff" + csv(combinedReportCsvRows()), "text/csv;charset=utf-8");
-    toast("合併報表已開始下載。");
-  }
+  const attachments = await exportReceipts();
+  download(`甜點社總務完整備份-${today()}.json`, JSON.stringify({ backupVersion: 3, ...state, webSync: { ...state.webSync, secret: "" }, attachments }, null, 2), "application/json");
+  state.lastBackupAt = new Date().toISOString();
+  saveState();
+  toast("完整備份已開始下載。");
+}
+
+// Reports for people to read; restoring always uses the JSON backup.
+function exportCombined() {
+  download(`甜點社收支報銷合併報表-${today()}.csv`, "\ufeff" + csv(combinedReportCsvRows()), "text/csv;charset=utf-8");
 }
 
 function exportLedger() {
-  if (selectedExportFormat === "json") {
-    download(`甜點社收支明細-${today()}.json`, JSON.stringify({ exportType: "entries", entries: state.entries }, null, 2), "application/json");
-  } else {
-    download(`甜點社收支明細-${today()}.csv`, "\ufeff" + csv(ledgerCsvRows()), "text/csv;charset=utf-8");
-  }
+  download(`甜點社收支明細-${today()}.csv`, "\ufeff" + csv(ledgerCsvRows()), "text/csv;charset=utf-8");
 }
 
-async function exportClaims() {
-  if (selectedExportFormat === "json") {
-    const attachments = await exportReceipts(state.claims.map((claim) => claim.id));
-    const linkedEntries = state.entries.filter((entry) => entry.claimId);
-    download(`甜點社報銷明細-${today()}.json`, JSON.stringify({ exportType: "claims", claims: state.claims, linkedEntries, attachments }, null, 2), "application/json");
-  } else {
-    download(`甜點社報銷明細-${today()}.csv`, "\ufeff" + csv(claimsCsvRows()), "text/csv;charset=utf-8");
-  }
+function exportClaims() {
+  download(`甜點社報銷明細-${today()}.csv`, "\ufeff" + csv(claimsCsvRows()), "text/csv;charset=utf-8");
 }
 
 function validateImportedState(data) {
@@ -309,20 +292,47 @@ function parseImportedContent(filename, text) {
   throw new Error("unsupported csv");
 }
 
-// ---- Automatic backup on quit (desktop app only) ----
-// The native side writes the file when the app exits; this panel only chooses the folder.
+// ---- Backup card ----
+// In the desktop app the native side writes a backup on quit; this card shows when that last
+// happened and where. The browser version has no automatic backup, only "另存一份".
 
-function renderAutoBackupSettings() {
-  $("#autoBackupPanel").hidden = !tauriStorageEnabled;
+const backupTimeFormat = new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+
+async function renderBackupPage() {
+  const folder = state.autoBackup.folder;
+  $("#autoBackupNow").hidden = !tauriStorageEnabled || !folder;
+  $("#autoBackupEdit").hidden = !tauriStorageEnabled;
+  $("#autoBackupEdit").textContent = folder ? "變更位置" : "設定自動備份";
+  $("#autoBackupForm").hidden = true;
+  // Shown from the Drive folder down; the full path is in the tooltip.
+  $("#backupFolder").textContent = folder.replace(/^.*?(我的雲端硬碟|My Drive)/, (match, drive) => drive);
+  $("#backupFolder").title = folder;
+  if (!tauriStorageEnabled) {
+    const last = state.lastBackupAt ? `；上次另存：${new Date(state.lastBackupAt).toLocaleDateString("zh-TW")}` : "，請定期另存一份。";
+    return setBackupStatus("warn", `瀏覽器版不會自動備份${last}`);
+  }
+  if (!folder) return setBackupStatus("warn", "尚未設定自動備份。");
+  const info = await nativeStorageCall("autoBackupInfo", { folder }).catch(() => null);
+  if (state.autoBackup.folder !== folder) return;
+  if (info) setBackupStatus("ok", `上次備份 ${backupTimeFormat.format(new Date(info.modifiedAt))}`);
+  else setBackupStatus("warn", "還沒有備份，關閉 app 時會自動備份。");
+}
+
+function setBackupStatus(level, text) {
+  $("#backupStatus").textContent = text;
+  $("#backupStatus").dataset.level = level;
+}
+
+function editBackupFolder() {
   $("#autoBackupFolder").value = state.autoBackup.folder;
-  $("#autoBackupStatus").textContent = state.autoBackup.folder ? "關閉 app 時會自動備份" : "尚未設定，不會自動備份";
+  $("#autoBackupForm").hidden = false;
+  $("#autoBackupFolder").focus();
 }
 
 function saveAutoBackupSettings(event) {
   event.preventDefault();
   state.autoBackup = { folder: $("#autoBackupFolder").value.trim() };
   if (!saveState()) return;
-  renderAutoBackupSettings();
   toast(state.autoBackup.folder ? "已設定自動備份資料夾。" : "已關閉自動備份。");
 }
 
@@ -330,14 +340,14 @@ async function detectBackupFolder() {
   const folder = await nativeStorageCall("defaultBackupFolder").catch(() => "");
   if (!folder) return toast("找不到 Google 雲端硬碟電腦版的資料夾，請手動填寫路徑。");
   $("#autoBackupFolder").value = folder;
-  toast("已填入雲端硬碟資料夾，按「儲存備份設定」後生效。");
 }
 
 async function backupNow() {
   try {
     await enqueueNativeSave(state, "儲存失敗，無法寫入本機資料夾。");
-    const path = await nativeStorageCall("runAutoBackup");
-    toast(`已備份到 ${path}`);
+    await nativeStorageCall("runAutoBackup");
+    toast("已完成備份。");
+    renderBackupPage();
   } catch (error) {
     toast(`備份失敗：${error?.message || error}`);
   }

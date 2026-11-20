@@ -30,7 +30,6 @@ async function initializeApp() {
   resetActivityForm();
   $("#reconcileMonth").value = selectedMonth;
   loadReconciliationForm();
-  updateExportUi();
   bindEvents();
   render();
   scheduleMemberImportSync();

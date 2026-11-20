@@ -753,6 +753,31 @@ fn default_backup_folder() -> String {
         .unwrap_or_default()
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AutoBackupInfo {
+    path: String,
+    modified_at: String,
+}
+
+// The newest automatic backup in a folder, so the backup page can say when it last ran.
+#[tauri::command]
+fn auto_backup_info(folder: String) -> Option<AutoBackupInfo> {
+    fs::read_dir(folder.trim())
+        .ok()?
+        .flatten()
+        .filter(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            name.starts_with(AUTO_BACKUP_PREFIX) && name.ends_with(".json")
+        })
+        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
+        .max_by_key(|(modified, _)| *modified)
+        .map(|(modified, path)| AutoBackupInfo {
+            path: path.to_string_lossy().into_owned(),
+            modified_at: chrono::DateTime::<chrono::Local>::from(modified).to_rfc3339(),
+        })
+}
+
 #[tauri::command]
 fn run_auto_backup(storage: State<'_, AppStorage>) -> Result<String, String> {
     write_auto_backup(&storage)?
@@ -783,6 +808,7 @@ pub fn run() {
             parse_member_spreadsheet,
             import_member_spreadsheet_url,
             default_backup_folder,
+            auto_backup_info,
             run_auto_backup
         ])
         .on_window_event(|window, event| {
@@ -861,6 +887,9 @@ mod tests {
                 && name.ends_with(".json")
                 && name.len() == AUTO_BACKUP_PREFIX.len() + "MM-DD.json".len()
         );
+        let info = auto_backup_info(folder.to_string_lossy().into_owned()).expect("backup info");
+        assert_eq!(PathBuf::from(&info.path), path);
+        assert!(!info.modified_at.is_empty());
         let backup: Value =
             serde_json::from_slice(&fs::read(path).expect("read backup")).expect("backup json");
         assert_eq!(backup["backupVersion"], 3);

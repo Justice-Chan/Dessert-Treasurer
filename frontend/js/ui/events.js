@@ -121,6 +121,8 @@ function bindEvents() {
   $("#autoBackupForm").addEventListener("submit", saveAutoBackupSettings);
   $("#autoBackupDetect").addEventListener("click", detectBackupFolder);
   $("#autoBackupNow").addEventListener("click", backupNow);
+  $("#autoBackupEdit").addEventListener("click", editBackupFolder);
+  $("#autoBackupCancel").addEventListener("click", () => { $("#autoBackupForm").hidden = true; });
   $("#syncWebClaims").addEventListener("click", () => syncWebClaims());
   $("#resetImportSynonyms").addEventListener("click", () => {
     requestAppActionConfirmation({
@@ -421,11 +423,6 @@ function bindEvents() {
       action: () => permanentlyDeleteTrashItems([...selectedTrashIds])
     });
   });
-  $$('[data-export-format]').forEach((button) => button.addEventListener('click', () => {
-    selectedExportFormat = button.dataset.exportFormat;
-    $$('[data-export-format]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-    updateExportUi();
-  }));
   $("#previousYear").addEventListener("click", () => {
     displayedYear -= 1;
     selectedMonth = `${displayedYear}-${selectedMonth.slice(5)}`;
@@ -700,6 +697,7 @@ function bindEvents() {
   $("#exportComplete").addEventListener("click", exportComplete);
   $("#exportLedger").addEventListener("click", exportLedger);
   $("#exportClaims").addEventListener("click", exportClaims);
+  $("#exportCombined").addEventListener("click", exportCombined);
   $("#exportActivityUnpaid").addEventListener("click", exportActivityUnpaid);
   $("#importFile").addEventListener("change", (event) => {
     const file = event.target.files[0];

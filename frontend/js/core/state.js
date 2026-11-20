@@ -15,7 +15,8 @@ const tauriCommandNames = {
   parseMemberSpreadsheet: "parse_member_spreadsheet",
   importMemberSpreadsheetUrl: "import_member_spreadsheet_url",
   defaultBackupFolder: "default_backup_folder",
-  runAutoBackup: "run_auto_backup"
+  runAutoBackup: "run_auto_backup",
+  autoBackupInfo: "auto_backup_info"
 };
 const nativeStorageCall = (action, payload = {}) => {
   if (!tauriStorageEnabled) return Promise.reject(new Error("native storage unavailable"));
@@ -53,7 +54,7 @@ const sectionMeta = {
   people: ["人員", "管理社員名單、活動參加與繳費狀態。"],
   categories: ["分類", "依甜點社常見情境整理主項目與副項目。"],
   trash: ["垃圾桶", "刪除項目保留 30 天，可在到期前還原。"],
-  backup: ["備份", "以 JSON 或 CSV 下載、還原帳務資料。"],
+  backup: ["備份", "自動備份、另存完整備份，或匯出 CSV 報表。"],
   settings: ["設定", "設定網頁報帳同步，以及匯入試算表時可辨識的欄位同義詞。"]
 };
 
@@ -370,7 +371,6 @@ function matchesSearch(values, query) {
 let state = loadState();
 let selectedMonth = today().slice(0, 7);
 let displayedYear = Number(selectedMonth.slice(0, 4));
-let selectedExportFormat = "json";
 let removeAccountQr = false;
 let pendingAccountQrDataUrl = "";
 let removePayeeQr = false;

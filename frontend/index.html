@@ -705,51 +705,47 @@
       <section class="section" id="backup" aria-labelledby="pageTitle">
         <div class="grid backup-grid">
           <div class="panel">
-            <div class="backup-heading"><h2>資料匯出</h2><p class="subtle" id="backupHealth"></p></div>
-            <p class="subtle" id="exportDescription">JSON 完整備份可供日後還原，並包含帳戶、月結、人員、活動與收據附件。</p>
-            <div class="export-tools">
-              <div class="format-field">
-                <label>檔案類型</label>
-                <div class="segmented" id="exportFormat" role="group" aria-label="匯出檔案類型">
-                  <button type="button" data-export-format="json" aria-pressed="true">JSON</button>
-                  <button type="button" data-export-format="csv" aria-pressed="false">CSV</button>
-                </div>
+            <h2>備份</h2>
+            <p class="backup-status" id="backupStatus"></p>
+            <p class="subtle backup-folder" id="backupFolder"></p>
+            <form class="backup-folder-form" id="autoBackupForm" hidden>
+              <label for="autoBackupFolder">備份資料夾</label>
+              <input id="autoBackupFolder" maxlength="1000" autocomplete="off" placeholder="留空則不自動備份">
+              <p class="subtle">每次關閉 app 時寫入「甜點社帳務自動備份_月-日.json」，只保留最新一份。放在 Google 雲端硬碟電腦版的資料夾裡會同步到雲端，舊版本可從檔案的「版本記錄」找回。</p>
+              <div class="form-actions">
+                <button type="button" id="autoBackupDetect">使用 Google 雲端硬碟</button>
+                <button type="button" id="autoBackupCancel">取消</button>
+                <button type="submit" class="primary">儲存</button>
               </div>
-              <div class="export-actions">
-                <button type="button" id="exportComplete" class="primary export-button">下載完整備份</button>
-                <button type="button" id="exportLedger" class="export-button">下載收支明細</button>
-                <button type="button" id="exportClaims" class="export-button">下載報銷明細</button>
-              </div>
+            </form>
+            <div class="backup-actions">
+              <button type="button" class="primary" id="autoBackupNow">立即備份</button>
+              <button type="button" id="exportComplete">另存一份…</button>
+              <button type="button" id="autoBackupEdit">變更位置</button>
             </div>
+            <details class="restore">
+              <summary>從備份檔還原…</summary>
+              <p class="subtle">還原會取代目前資料，建議先另存一份。支援本程式匯出的 JSON 完整備份，以及收支或報銷 CSV；合併報表僅供閱讀。</p>
+              <div class="file-picker">
+                <label class="file-button" for="importFile">選取備份檔案</label>
+                <input id="importFile" type="file" accept="application/json,text/csv,.json,.csv">
+                <span class="file-name" id="importFileName">尚未選取檔案</span>
+              </div>
+            </details>
           </div>
           <div class="panel">
-            <h2>還原備份</h2>
-            <p class="subtle">還原會取代目前資料，建議先下載 JSON 完整備份。支援本程式匯出的 JSON、收支或報銷 CSV；合併報表僅供閱讀。</p>
-            <div class="file-picker">
-              <label class="file-button" for="importFile">選取備份檔案</label>
-              <input id="importFile" type="file" accept="application/json,text/csv,.json,.csv">
-              <span class="file-name" id="importFileName">尚未選取檔案</span>
+            <h2>匯出報表</h2>
+            <p class="subtle">CSV 檔，可用 Excel 或 Google 試算表開啟，交給社長或學校時使用。</p>
+            <div class="export-actions">
+              <button type="button" id="exportLedger">收支明細</button>
+              <button type="button" id="exportClaims">報銷明細</button>
+              <button type="button" id="exportCombined">收支＋報銷合併</button>
             </div>
           </div>
         </div>
       </section>
 
       <section class="section" id="settings" aria-labelledby="pageTitle">
-        <div class="panel" id="autoBackupPanel" hidden>
-          <h2>自動備份</h2>
-          <p class="subtle">每次關閉 app 時，把完整備份寫到這個資料夾，檔名是「甜點社帳務自動備份_月-日.json」，只保留最新一份。放在 Google 雲端硬碟電腦版的資料夾裡，就會同步到雲端；雲端硬碟會保留舊版本，需要時可從檔案的「版本記錄」找回。</p>
-          <form id="autoBackupForm">
-            <div class="form-grid">
-              <div class="field full"><label for="autoBackupFolder">備份資料夾</label><input id="autoBackupFolder" maxlength="1000" autocomplete="off" placeholder="留空則不自動備份"></div>
-            </div>
-            <div class="form-actions account-form-actions">
-              <span class="subtle" id="autoBackupStatus"></span>
-              <button type="button" id="autoBackupDetect">使用 Google 雲端硬碟</button>
-              <button type="button" id="autoBackupNow">立即備份</button>
-              <button type="submit" class="primary">儲存備份設定</button>
-            </div>
-          </form>
-        </div>
         <div class="panel">
           <h2>網頁報帳同步</h2>
           <p class="subtle">從網頁報帳系統取回申請、移除已撤銷的申請，並回寫付款狀態與財務彙總。網址與金鑰向後端管理者索取；金鑰只存在這台電腦，不會寫入備份。</p>
