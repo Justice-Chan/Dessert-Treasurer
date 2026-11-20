@@ -336,7 +336,8 @@ button.danger-fill { border-color: var(--error); background: var(--error); color
 
 /* ---- Overview ---- */
 
-.hero { padding: 28px 4px 36px; }
+/* Lined up with the text inside the cards below: their padding plus border. */
+.hero { padding: 28px 17px 36px; }
 .hero-number {
   font-size: clamp(3rem, 15vw, 5.5rem);
   font-weight: 700;
@@ -472,10 +473,11 @@ button.receipt-file { color: var(--accent); cursor: pointer; }
 .review-head select.active { border-color: var(--accent); color: var(--accent); }
 .review-claims .claim-amount { font-size: 1.25rem; }
 .review-claims li { padding: 0; }
-button.review-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 12px 8px; margin: 0 -8px; width: calc(100% + 16px); border-radius: 8px; }
+button.review-row { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 12px; padding: 12px 8px; margin: 0 -8px; width: calc(100% + 16px); border-radius: 8px; }
 button.review-row:hover { background: var(--field); }
 .review-row .claim-meta { margin-top: 2px; }
-.chevron { color: var(--muted); opacity: 0.6; font-size: 1.25rem; line-height: 1; }
+/* As tall as the first line, so the chevron sits level with the amount. */
+.chevron { color: var(--muted); opacity: 0.6; font-size: 1.25rem; line-height: 1.6; }
 .list-head ~ .review-claims:not(:empty) { padding-top: 2px; }
 
 .field-hint { margin-top: 6px; color: var(--warn); }
@@ -523,11 +525,26 @@ button.file-remove:hover, button.file-remove:focus-visible { color: var(--error)
 
 .ledger-hero { padding-top: 8px; }
 .month-switch { display: flex; align-items: center; gap: 2px; margin: 0 0 14px -12px; font-weight: 600; }
+/* No later month to show: the arrow keeps its place but is not drawn. */
+.month-switch .icon:disabled { visibility: hidden; }
+.stat strong.income { color: var(--ok); }
 .month-switch .icon { width: 36px; min-height: 36px; font-size: 1.375rem; line-height: 1; }
 .month-switch span { min-width: 7.5em; text-align: center; font-variant-numeric: tabular-nums; }
 #ledgerAccounts { margin-top: 6px; }
 .claim-amount.income { color: var(--ok); }
-button.small { min-height: 36px; padding: 0 14px; font-size: 0.875rem; }
+.ledger-head { grid-template-columns: 1fr auto; row-gap: 10px; }
+.ledger-head .filter-chips { grid-column: 1 / -1; }
+.filter-chips { display: flex; gap: 6px; }
+.filter-chips button { min-height: 32px; padding: 0 14px; border-radius: 999px; color: var(--muted); font-size: 0.875rem; }
+.filter-chips button[aria-pressed="true"] { border-color: var(--text); color: var(--text); font-weight: 600; }
+.ledger-days { list-style: none; margin: 14px 0 0; padding: 0; }
+.ledger-days:empty { display: none; }
+.ledger-days > li + li { margin-top: 10px; }
+/* Each day's header stays under the top bar until its last row scrolls past. */
+.ledger-day { position: sticky; top: var(--topbar, 0px); z-index: 1; display: flex; justify-content: space-between; margin: 0 -16px; padding: 6px 16px; background: var(--surface); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ledger-day + .claims { padding-top: 2px; }
+.ledger-day + .claims li:first-child { border-top: 0; }
+.fab { position: fixed; right: 20px; bottom: 24px; z-index: 15; min-height: 48px; padding: 0 20px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
 .segmented { display: inline-flex; margin-top: 14px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; }
 .segmented label { margin: 0; font-weight: 600; }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }

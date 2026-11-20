@@ -268,19 +268,27 @@
             <p class="hero-number" id="ledgerBalance">—</p>
             <p class="subtle" id="ledgerAccounts"></p>
             <div class="stats">
-              <div class="stat"><span>收入</span><strong id="ledgerIncome"></strong></div>
+              <div class="stat"><span>收入</span><strong class="income" id="ledgerIncome"></strong></div>
               <div class="stat"><span>支出</span><strong id="ledgerExpense"></strong></div>
+              <div class="stat"><span>淨額</span><strong id="ledgerNet"></strong></div>
             </div>
           </section>
           <section class="card" aria-labelledby="ledgerTitle">
-            <div class="list-head">
+            <div class="list-head ledger-head">
               <h2 id="ledgerTitle">收支紀錄</h2>
-              <button type="button" class="primary small" id="newEntry">新增收支</button>
+              <span class="count" id="ledgerCount" aria-live="polite"></span>
+              <div class="filter-chips" role="group" aria-label="篩選收支">
+                <button type="button" data-ledger-filter="" aria-pressed="true">全部</button>
+                <button type="button" data-ledger-filter="income" aria-pressed="false">收入</button>
+                <button type="button" data-ledger-filter="expense" aria-pressed="false">支出</button>
+              </div>
             </div>
             <p class="subtle claims-empty" id="ledgerLocked" hidden>這個月已鎖定，要修改請先在記帳 app 的「對帳」解鎖。</p>
             <p class="subtle claims-empty" id="ledgerEmpty" hidden>這個月還沒有收支紀錄。</p>
-            <ul class="claims review-claims" id="ledgerList"></ul>
+            <ul class="ledger-days" id="ledgerList"></ul>
           </section>
+          <!-- Floats over the list so it stays in reach however far the month scrolls. -->
+          <button type="button" class="primary fab" id="newEntry"><span aria-hidden="true">＋</span> 新增收支</button>
         </div>
 
         <form class="card claim-form" id="entryForm" hidden novalidate>

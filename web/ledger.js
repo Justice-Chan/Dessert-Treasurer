@@ -6,6 +6,10 @@
 let ledger = null;
 let ledgerMonth = localToday().slice(0, 7);
 let editingEntry = null;
+// "" for every entry, or "income" / "expense".
+let ledgerFilter = "";
+const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+const signed = (amount) => `${amount < 0 ? "−" : "+"}${money.format(Math.abs(amount))}`;
 
 async function loadLedger() {
   ledger = await callBackend("getLedger");
@@ -65,29 +69,56 @@ function renderLedger() {
   $("#ledgerBalance").textContent = money.format(balances.reduce((sum, item) => sum + item.amount, 0));
   $("#ledgerAccounts").textContent = balances.map((item) => `${item.name} ${money.format(item.amount)}`).join(" · ");
 
-  const entries = ledger.entries.filter((entry) => entry.date.startsWith(ledgerMonth))
-    .sort((a, b) => b.date.localeCompare(a.date));
-  const total = (type) => entries.filter((entry) => entry.type === type).reduce((sum, entry) => sum + entry.amount, 0);
+  const monthEntries = ledger.entries.filter((entry) => entry.date.startsWith(ledgerMonth));
+  const total = (type) => monthEntries.filter((entry) => entry.type === type).reduce((sum, entry) => sum + entry.amount, 0);
+  const net = total("income") - total("expense");
   $("#ledgerIncome").textContent = money.format(total("income"));
   $("#ledgerExpense").textContent = money.format(total("expense"));
+  $("#ledgerNet").textContent = signed(net);
+  $("#ledgerNet").className = net < 0 ? "expense" : "income";
   $("#ledgerLocked").hidden = !isLockedDate(end);
 
-  $("#ledgerList").replaceChildren(...entries.map((entry) => {
-    const row = element("button", "row review-row");
-    row.type = "button";
-    const top = element("div", "claim-line");
-    const sign = entry.type === "income" ? "+" : "−";
-    top.append(element("span", "", `${entry.parent} / ${entry.child}`), element("strong", `claim-amount ${entry.type}`, `${sign}${money.format(entry.amount)}`));
-    const meta = element("div", "claim-meta", [entry.claimId ? "報銷付款" : "", entry.date, accountName(entry.accountId), entry.note].filter(Boolean).join(" · "));
-    const body = element("div", "review-row-body");
-    body.append(top, meta);
-    row.append(body, element("span", "chevron", "›"));
-    row.addEventListener("click", () => openEntry(entry));
-    const item = element("li");
-    item.append(row);
-    return item;
+  const entries = monthEntries.filter((entry) => !ledgerFilter || entry.type === ledgerFilter)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  document.querySelectorAll("[data-ledger-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.ledgerFilter === ledgerFilter)));
+  $("#ledgerCount").textContent = `${entries.length} 筆`;
+  // One group per day, newest first, under a header that stays in view while its day scrolls by.
+  const days = [...new Set(entries.map((entry) => entry.date))];
+  $("#ledgerList").replaceChildren(...days.map((date) => {
+    const dayEntries = entries.filter((entry) => entry.date === date);
+    const dayNet = dayEntries.reduce((sum, entry) => sum + (entry.type === "income" ? entry.amount : -entry.amount), 0);
+    const [, month, day] = date.split("-").map(Number);
+    const head = element("div", "ledger-day");
+    head.append(element("span", "", `${month}/${day} 週${weekdays[new Date(`${date}T00:00:00Z`).getUTCDay()]}`), element("span", "", signed(dayNet)));
+    const rows = element("ul", "claims review-claims");
+    rows.append(...dayEntries.map(entryRow));
+    const group = element("li");
+    group.append(head, rows);
+    return group;
   }));
   $("#ledgerEmpty").hidden = entries.length > 0;
+  $("#ledgerEmpty").textContent = monthEntries.length ? "沒有符合的紀錄。" : "這個月還沒有收支紀錄。";
+}
+
+// The date is in the day's header, so a row shows only where the money went and why.
+function entryRow(entry) {
+  const row = element("button", "row review-row");
+  row.type = "button";
+  const top = element("div", "claim-line");
+  top.append(element("span", "", `${entry.parent} / ${entry.child}`), element("strong", `claim-amount ${entry.type}`, signed(entry.type === "income" ? entry.amount : -entry.amount)));
+  const meta = element("div", "claim-meta", [entry.claimId ? "報銷付款" : "", accountName(entry.accountId), entry.note].filter(Boolean).join(" · "));
+  const body = element("div", "review-row-body");
+  body.append(top, meta);
+  row.append(body, element("span", "chevron", "›"));
+  row.addEventListener("click", () => openEntry(entry));
+  const item = element("li");
+  item.append(row);
+  return item;
+}
+
+function filterLedger(type) {
+  ledgerFilter = type;
+  renderLedger();
 }
 
 function stepLedgerMonth(direction) {

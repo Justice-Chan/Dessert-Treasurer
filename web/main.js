@@ -89,6 +89,10 @@ $("#claimForm").addEventListener("submit", submitClaim);
 $("#ledgerPrev").addEventListener("click", () => stepLedgerMonth(-1));
 $("#ledgerNext").addEventListener("click", () => stepLedgerMonth(1));
 $("#newEntry").addEventListener("click", () => openEntryForm());
+document.querySelectorAll("[data-ledger-filter]").forEach((button) => button.addEventListener("click", () => filterLedger(button.dataset.ledgerFilter)));
+// Sticky headers sit just under the top bar, whose height differs between phone and computer.
+const measureTopbar = () => document.documentElement.style.setProperty("--topbar", `${document.querySelector(".topbar").offsetHeight}px`);
+window.addEventListener("resize", measureTopbar);
 document.querySelectorAll('input[name="entryType"]').forEach((input) => input.addEventListener("change", changeEntryType));
 $("#entryParent").addEventListener("change", () => fillChildOptions("entry"));
 $("#entryParent").addEventListener("change", () => showOtherFields("entryParent"));
@@ -112,3 +116,4 @@ function restoreSession() {
   handleCredential({ credential: token }, view);
 }
 restoreSession();
+measureTopbar();

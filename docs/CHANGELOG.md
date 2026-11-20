@@ -4,6 +4,7 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- The 記帳 page groups a month's entries by day under headers that stay in view, with each day's net; filters for income or expense; shows the month's net beside income and expense; and keeps 新增收支 as a floating button. Row chevrons sit level with the amount, and the overview figures line up with the cards.
 - 我的申請 rows open the claim for editing; 撤銷申請 moved to the edit form's title row, as 刪除 did on the entry form. A claim's 修改 button sits beside its last detail row.
 - Edited claims whose receipt folder was deleted by hand in Drive put new receipts in the month's folder instead of the trash.
 - The treasurer's drawer reads 總覽, 記帳, 新增報帳, 審核報帳. My claims is for officers only; the treasurer's own claims are marked 本人 in the review list and edited from their detail page, which saving or cancelling returns to.
