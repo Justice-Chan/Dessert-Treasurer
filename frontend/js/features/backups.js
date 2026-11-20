@@ -314,6 +314,7 @@ async function renderBackupPage() {
   if (!folder) return setBackupStatus("warn", "尚未設定自動備份。");
   const info = await nativeStorageCall("autoBackupInfo", { folder }).catch(() => null);
   if (state.autoBackup.folder !== folder) return;
+  // A backup is only rewritten when the books change, so this is also when they last changed.
   if (info) setBackupStatus("ok", `上次備份 ${backupTimeFormat.format(new Date(info.modifiedAt))}`);
   else setBackupStatus("warn", "還沒有備份，關閉 app 時會自動備份。");
 }

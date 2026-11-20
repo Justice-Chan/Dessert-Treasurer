@@ -36,6 +36,8 @@ struct SpreadsheetRows {
 struct AppStorage {
     connection: Mutex<Connection>,
     attachments_dir: PathBuf,
+    // Kept on this computer: the hash and path of the last automatic backup written.
+    backup_marker: PathBuf,
 }
 
 #[derive(Clone, Deserialize)]
@@ -104,6 +106,7 @@ impl AppStorage {
         Ok(Self {
             connection: Mutex::new(connection),
             attachments_dir,
+            backup_marker: root_dir.join("last-auto-backup.txt"),
         })
     }
 
@@ -680,8 +683,16 @@ async fn import_member_spreadsheet_url(url: String) -> Result<SpreadsheetRows, S
         .map_err(error_text)?
 }
 
-// The same content as the full JSON backup the app downloads: state, receipts, no sync secret.
-fn write_auto_backup(storage: &AppStorage) -> Result<Option<PathBuf>, String> {
+#[derive(Debug, PartialEq)]
+enum BackupOutcome {
+    NoFolder,
+    Written(PathBuf),
+    Unchanged(PathBuf),
+}
+
+// The same content as the full JSON backup the app downloads: state, receipts, no sync secret, and
+// none of the timestamps that change without the books changing.
+fn auto_backup_content(storage: &AppStorage) -> Result<Option<(PathBuf, Vec<u8>)>, String> {
     let mut state = storage.load_state()?;
     let folder = state
         .pointer("/autoBackup/folder")
@@ -696,22 +707,46 @@ fn write_auto_backup(storage: &AppStorage) -> Result<Option<PathBuf>, String> {
     let object = state.as_object_mut().ok_or("帳本資料格式無效")?;
     if let Some(sync) = object.get_mut("webSync").and_then(Value::as_object_mut) {
         sync.insert("secret".into(), Value::String(String::new()));
+        sync.insert("lastSyncedAt".into(), Value::String(String::new()));
     }
+    object.insert("lastBackupAt".into(), Value::String(String::new()));
     object.insert("backupVersion".into(), Value::from(3));
     object.insert(
         "attachments".into(),
         serde_json::to_value(receipts).map_err(error_text)?,
     );
-    let folder = PathBuf::from(folder);
+    let bytes = serde_json::to_vec_pretty(&state).map_err(error_text)?;
+    Ok(Some((PathBuf::from(folder), bytes)))
+}
+
+fn content_hash(bytes: &[u8]) -> String {
+    use std::hash::{DefaultHasher, Hasher};
+    let mut hasher = DefaultHasher::new();
+    hasher.write(bytes);
+    format!("{:016x}", hasher.finish())
+}
+
+// On quit the backup is skipped when the books match the last one written and that file is still
+// there; only the local marker is read, never the file in Drive, which may live only online.
+// `force` writes regardless, for the 立即備份 button.
+fn write_auto_backup(storage: &AppStorage, force: bool) -> Result<BackupOutcome, String> {
+    let Some((folder, bytes)) = auto_backup_content(storage)? else {
+        return Ok(BackupOutcome::NoFolder);
+    };
+    let hash = content_hash(&bytes);
+    let marker = fs::read_to_string(&storage.backup_marker).unwrap_or_default();
+    if let Some((last_hash, last_path)) = marker.split_once('\n') {
+        let last_path = PathBuf::from(last_path);
+        if !force && last_hash == hash && last_path.starts_with(&folder) && last_path.exists() {
+            return Ok(BackupOutcome::Unchanged(last_path));
+        }
+    }
     fs::create_dir_all(&folder).map_err(error_text)?;
     let path = folder.join(format!(
         "{AUTO_BACKUP_PREFIX}{}.json",
         chrono::Local::now().format("%m-%d")
     ));
-    write_atomic(
-        &path,
-        &serde_json::to_vec_pretty(&state).map_err(error_text)?,
-    )?;
+    write_atomic(&path, &bytes)?;
     // The new file replaces every earlier one, so the folder holds only the latest backup.
     for entry in fs::read_dir(&folder).map_err(error_text)?.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -719,7 +754,11 @@ fn write_auto_backup(storage: &AppStorage) -> Result<Option<PathBuf>, String> {
             remove_if_present(&entry.path())?;
         }
     }
-    Ok(Some(path))
+    write_atomic(
+        &storage.backup_marker,
+        format!("{hash}\n{}", path.to_string_lossy()).as_bytes(),
+    )?;
+    Ok(BackupOutcome::Written(path))
 }
 
 // Google Drive for desktop mounts My Drive under ~/Library/CloudStorage on macOS and as a drive
@@ -780,9 +819,12 @@ fn auto_backup_info(folder: String) -> Option<AutoBackupInfo> {
 
 #[tauri::command]
 fn run_auto_backup(storage: State<'_, AppStorage>) -> Result<String, String> {
-    write_auto_backup(&storage)?
-        .map(|path| path.to_string_lossy().into_owned())
-        .ok_or_else(|| "尚未設定備份資料夾".into())
+    match write_auto_backup(&storage, true)? {
+        BackupOutcome::Written(path) | BackupOutcome::Unchanged(path) => {
+            Ok(path.to_string_lossy().into_owned())
+        }
+        BackupOutcome::NoFolder => Err("尚未設定備份資料夾".into()),
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -827,7 +869,7 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event
                 && let Some(storage) = app.try_state::<AppStorage>()
-                && let Err(error) = write_auto_backup(&storage)
+                && let Err(error) = write_auto_backup(&storage, false)
             {
                 eprintln!("自動備份失敗：{error}");
             }
@@ -856,9 +898,12 @@ mod tests {
     }
 
     #[test]
-    fn auto_backup_overwrites_one_file_without_the_sync_secret() {
+    fn auto_backup_keeps_one_file_and_skips_unchanged_books() {
         let (store, root) = temporary_store();
-        assert_eq!(write_auto_backup(&store).expect("no folder set"), None);
+        assert_eq!(
+            write_auto_backup(&store, false).expect("no folder set"),
+            BackupOutcome::NoFolder
+        );
         let folder = root.join("drive").join(AUTO_BACKUP_FOLDER);
         let state = serde_json::json!({
             "entries": [{ "id": "entry-1", "amount": 3000 }],
@@ -872,10 +917,10 @@ mod tests {
             b"{}",
         )
         .expect("older backup");
-        write_auto_backup(&store).expect("first backup");
-        let path = write_auto_backup(&store)
-            .expect("second backup")
-            .expect("backup path");
+        let BackupOutcome::Written(path) = write_auto_backup(&store, false).expect("first backup")
+        else {
+            panic!("first backup should be written");
+        };
         assert_eq!(fs::read_dir(&folder).expect("backup folder").count(), 1);
         let name = path
             .file_name()
@@ -891,11 +936,41 @@ mod tests {
         assert_eq!(PathBuf::from(&info.path), path);
         assert!(!info.modified_at.is_empty());
         let backup: Value =
-            serde_json::from_slice(&fs::read(path).expect("read backup")).expect("backup json");
+            serde_json::from_slice(&fs::read(&path).expect("read backup")).expect("backup json");
         assert_eq!(backup["backupVersion"], 3);
         assert_eq!(backup["webSync"]["secret"], "");
         assert_eq!(backup["entries"][0]["amount"], 3000);
         assert!(backup["attachments"].is_array());
+
+        // Unchanged books, or only a new sync time, leave the file alone.
+        assert!(matches!(
+            write_auto_backup(&store, false),
+            Ok(BackupOutcome::Unchanged(_))
+        ));
+        let mut synced = state.clone();
+        synced["webSync"]["lastSyncedAt"] = Value::from("2026-11-20T00:00:00Z");
+        store.save_state(&synced).expect("save sync time");
+        assert!(matches!(
+            write_auto_backup(&store, false),
+            Ok(BackupOutcome::Unchanged(_))
+        ));
+        // The button writes anyway; a real change or a missing file writes on quit.
+        assert!(matches!(
+            write_auto_backup(&store, true),
+            Ok(BackupOutcome::Written(_))
+        ));
+        let mut changed = state.clone();
+        changed["entries"][0]["amount"] = Value::from(3500);
+        store.save_state(&changed).expect("save change");
+        assert!(matches!(
+            write_auto_backup(&store, false),
+            Ok(BackupOutcome::Written(_))
+        ));
+        remove_if_present(&path).expect("remove backup");
+        assert!(matches!(
+            write_auto_backup(&store, false),
+            Ok(BackupOutcome::Written(_))
+        ));
         drop(store);
         fs::remove_dir_all(root).expect("remove test store");
     }

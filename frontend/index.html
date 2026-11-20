@@ -711,7 +711,7 @@
             <form class="backup-folder-form" id="autoBackupForm" hidden>
               <label for="autoBackupFolder">備份資料夾</label>
               <input id="autoBackupFolder" maxlength="1000" autocomplete="off" placeholder="留空則不自動備份">
-              <p class="subtle">每次關閉 app 時寫入「甜點社帳務自動備份_月-日.json」，只保留最新一份。放在 Google 雲端硬碟電腦版的資料夾裡會同步到雲端，舊版本可從檔案的「版本記錄」找回。</p>
+              <p class="subtle">關閉 app 時，若帳務有變動就寫入「甜點社帳務自動備份_月-日.json」，只保留最新一份；沒有變動不會重寫。放在 Google 雲端硬碟電腦版的資料夾裡會同步到雲端，舊版本可從檔案的「版本記錄」找回。</p>
               <div class="form-actions">
                 <button type="button" id="autoBackupDetect">使用 Google 雲端硬碟</button>
                 <button type="button" id="autoBackupCancel">取消</button>

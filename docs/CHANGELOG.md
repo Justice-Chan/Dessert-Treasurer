@@ -4,6 +4,7 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- Quitting rewrites the automatic backup only when the books changed (sync times aside), so Google Drive keeps fewer identical versions. 立即備份 always writes.
 - The 備份 page leads with the automatic backup: when it last ran, where, back up now, save a copy or change the folder. Reports export as CSV only, and restoring sits behind a link.
 - Expense categories come from the web backend on each sync, so they are edited in one place.
 - Spreadsheet import for people and activity rosters is a dropdown (file or link) instead of a separate choice dialog.
