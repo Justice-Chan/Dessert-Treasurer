@@ -16,6 +16,8 @@ const viewLabels = { overview: "Overview", myClaims: "My claims", claimForm: "Ne
 // Pages inside a section: the drawer highlights, and a reload returns to, the section's own page.
 const sectionOf = { detail: "review", entryForm: "ledger" };
 const treasurerViews = ["review", "detail", "ledger", "entryForm"];
+// The treasurer reviews their own claims along with everyone else's, so has no My claims page.
+const officerViews = ["myClaims"];
 // Summary rows with these labels feed the hero; every other row is a spending category.
 const balanceLabel = "帳面餘額";
 const expenseLabel = "本月支出";
@@ -47,6 +49,7 @@ let glyphField = null;
 let summary = { items: [] };
 let messageTimer = 0;
 let limits = { files: 5, fileBytes: 5 * 1024 * 1024, category: 30 };
+let currentUser = {};
 
 // "signedOut" shows the landing page; any other view is shown inside the app shell.
 function show(view) {
@@ -170,10 +173,12 @@ function rememberToken(token) {
 }
 
 function showUser(user) {
+  currentUser = user;
   $("#userRole").textContent = user.position || roleText[user.role] || "";
   $("#userName").textContent = user.name || (user.email || "").split("@")[0];
   $("#navReview").hidden = user.role !== "treasurer";
   $("#navLedger").hidden = user.role !== "treasurer";
+  $("#navMyClaims").hidden = user.role === "treasurer";
 }
 
 // The stored token if it has more than a minute left; the expiry is read from its payload.
@@ -210,7 +215,8 @@ async function handleCredential(response, view = "overview") {
     try { sessionStorage.setItem(userKey, JSON.stringify({ role: user.role, position: user.position, name: user.name, email: user.email })); } catch (error) { /* drawn after whoami instead */ }
     fillParentOptions();
     showMessage("");
-    await navigate(treasurerViews.includes(view) && user.role !== "treasurer" ? "overview" : view);
+    const allowed = user.role === "treasurer" ? !officerViews.includes(view) : !treasurerViews.includes(view);
+    await navigate(allowed ? view : "overview");
   } catch (error) {
     reportError(error);
   }

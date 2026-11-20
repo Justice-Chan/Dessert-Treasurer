@@ -117,6 +117,7 @@ function setFormMode(claim) {
   editingClaim = claim;
   const fixedAmount = Boolean(claim) && claim.editable !== "full";
   $("#claimFormTitle").textContent = claim ? "修改報帳" : "新增報帳";
+  $("#claimWithdraw").hidden = !claim?.canWithdraw;
   $("#claimSubmit").textContent = claim ? "儲存修改" : "送出";
   $("#editNote").hidden = !claim;
   const note = fixedAmount ? "這筆申請已付款，金額不能修改。" : claim?.status === "退回" || claim?.status === "已核准" ? "儲存後會重新送審。" : "";
@@ -181,9 +182,10 @@ function openEditForm(claim) {
   show("claimForm");
   loadActivities(claim.month, claim.activity);
   loadSavedReceipts(claim);
-  // Editing belongs to My claims, so the drawer and top bar say so.
+  // Editing belongs to where the claim was opened from, so the drawer and top bar say so.
+  const section = currentUser.role === "treasurer" ? "review" : "myClaims";
   document.querySelectorAll("#drawer [data-nav]").forEach((button) => {
-    if (button.dataset.nav === "myClaims") button.setAttribute("aria-current", "page");
+    if (button.dataset.nav === section) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });
   $("#viewLabel").textContent = "Edit claim";
@@ -428,9 +430,7 @@ async function submitClaim(event) {
       description: $("#claimDescription").value,
       attachments: await Promise.all(files.map(prepareAttachment))
     });
-    show("myClaims");
-    showMessage("報帳已送出，等待總務審核。");
-    await loadMyClaims();
+    await showOwnClaims(currentUser.role === "treasurer" ? "報帳已送出。" : "報帳已送出，等待總務審核。");
   } catch (error) {
     reportError(error);
   } finally {
@@ -455,9 +455,7 @@ async function saveEdit(fields) {
       attachments: await Promise.all(fresh.map(prepareAttachment))
     });
     setFormMode(null);
-    show("myClaims");
-    showMessage("已儲存修改。");
-    await loadMyClaims();
+    await showOwnClaims("已儲存修改。");
   } catch (error) {
     reportError(error);
   } finally {

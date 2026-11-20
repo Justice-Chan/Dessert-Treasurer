@@ -71,7 +71,12 @@ $("#claimDropzone").addEventListener("drop", (event) => {
   addFiles(event.dataTransfer.files);
 });
 // Cancel clears the form and stays on it.
-$("#claimCancel").addEventListener("click", () => (editingClaim ? (setFormMode(null), navigate("myClaims")) : openClaimForm()));
+$("#claimCancel").addEventListener("click", () => (editingClaim ? (setFormMode(null), showOwnClaims("")) : openClaimForm()));
+$("#detailEdit button").addEventListener("click", () => openEditForm(currentClaim));
+$("#claimWithdraw").addEventListener("click", () => {
+  const claim = editingClaim;
+  withdrawClaim(claim, $("#claimWithdraw"), () => (setFormMode(null), showOwnClaims("")));
+});
 $("#filePreviewClose").addEventListener("click", () => $("#filePreview").close());
 $("#filePreview").addEventListener("click", (event) => {
   if (event.target === $("#filePreview")) $("#filePreview").close();

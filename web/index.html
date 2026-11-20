@@ -51,10 +51,10 @@
       </div>
       <ul>
         <li><button type="button" data-nav="overview">總覽<span class="mono">Overview</span></button></li>
-        <li><button type="button" data-nav="myClaims">我的申請<span class="mono">My claims</span></button></li>
+        <li id="navMyClaims"><button type="button" data-nav="myClaims">我的申請<span class="mono">My claims</span></button></li>
+        <li id="navLedger" hidden><button type="button" data-nav="ledger">記帳<span class="mono">Ledger</span></button></li>
         <li><button type="button" data-nav="claimForm">新增報帳<span class="mono">New claim</span></button></li>
         <li id="navReview" hidden><button type="button" data-nav="review">審核報帳<span class="mono">Review</span></button></li>
-        <li id="navLedger" hidden><button type="button" data-nav="ledger">記帳<span class="mono">Ledger</span></button></li>
       </ul>
       <div class="drawer-foot">
         <p class="user-label"><span class="subtle" id="userRole"></span><strong id="userName"></strong></p>
@@ -104,12 +104,15 @@
               <span class="count" id="claimsCount" aria-live="polite"></span>
             </div>
             <p class="subtle claims-empty" id="claimsEmpty" hidden>還沒有送出過報帳。</p>
-            <ul class="claims my-claims" id="claimList"></ul>
+            <ul class="claims review-claims" id="claimList"></ul>
           </section>
         </div>
 
         <form class="card claim-form" id="claimForm" hidden novalidate>
-          <h2 id="claimFormTitle">新增報帳</h2>
+          <div class="form-head">
+            <h2 id="claimFormTitle">新增報帳</h2>
+            <button type="button" class="text-danger" id="claimWithdraw" hidden><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>撤銷申請</button>
+          </div>
           <p class="subtle edit-note" id="editNote" hidden></p>
           <div class="field-row">
             <div class="field">
@@ -218,7 +221,10 @@
           <button type="button" class="link back" id="detailBack">‹ 返回清單</button>
           <section class="card" aria-labelledby="detailTitle">
             <h2 id="detailTitle">申請內容<span class="mono">Claim</span></h2>
-            <dl class="fields" id="detailFields"></dl>
+            <div class="detail-body">
+              <dl class="fields" id="detailFields"></dl>
+              <div class="detail-edit" id="detailEdit" hidden><button type="button" class="row-action">修改</button></div>
+            </div>
           </section>
           <section class="card" aria-labelledby="receiptsTitle">
             <h2 id="receiptsTitle">收據<span class="mono">Receipts</span></h2>
@@ -278,7 +284,10 @@
         </div>
 
         <form class="card claim-form" id="entryForm" hidden novalidate>
-          <h2 id="entryFormTitle">新增收支</h2>
+          <div class="form-head">
+            <h2 id="entryFormTitle">新增收支</h2>
+            <button type="button" class="text-danger" id="entryDelete" hidden><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>刪除</button>
+          </div>
           <div class="segmented" role="radiogroup" aria-label="收支類型">
             <label><input type="radio" name="entryType" value="expense" checked><span>支出</span></label>
             <label><input type="radio" name="entryType" value="income"><span>收入</span></label>
@@ -326,7 +335,6 @@
             <textarea id="entryNote" maxlength="300" rows="2"></textarea>
           </div>
           <div class="actions">
-            <button type="button" class="danger" id="entryDelete" hidden>刪除</button>
             <button type="button" id="entryCancel">取消</button>
             <button type="submit" class="primary" id="entrySubmit">儲存</button>
           </div>

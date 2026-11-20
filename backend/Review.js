@@ -134,10 +134,14 @@ function editRequest(user, payload) {
 }
 
 // The folder a claim's receipts live in: its first receipt's folder, else the activity folder of the
-// same name in its month, else the month folder itself. Call inside withLock.
+// same name in its month, else the month folder itself. A folder deleted by hand in Drive is skipped,
+// so new receipts never land in the trash. Call inside withLock.
 function claimFolder(row, fileIds) {
   try {
-    if (fileIds.length) return DriveApp.getFileById(fileIds[0]).getParents().next();
+    if (fileIds.length) {
+      const folder = DriveApp.getFileById(fileIds[0]).getParents().next();
+      if (!folder.isTrashed()) return folder;
+    }
   } catch (error) {
     console.error(error);
   }

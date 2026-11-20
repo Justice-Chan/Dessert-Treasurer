@@ -2,6 +2,16 @@
 
 // ---- My claims ----
 
+// Where your own claims are listed: My claims for an officer, the review list for the treasurer.
+async function showOwnClaims(message) {
+  if (currentUser.role === "treasurer") await openReview();
+  else {
+    show("myClaims");
+    await loadMyClaims();
+  }
+  showMessage(message);
+}
+
 async function loadMyClaims() {
   try {
     renderClaims(await callBackend("listMyRequests"));
@@ -10,31 +20,22 @@ async function loadMyClaims() {
   }
 }
 
+// Each row opens the claim for editing, where it can also be withdrawn; the chevron says it opens.
 function renderClaims(claims) {
   $("#claimList").replaceChildren(...claims.map((claim) => {
-    // The amount alone holds the right edge; status joins the date as a coloured dot, and
-    // withdraw is a muted outline button that only turns red when aimed at.
+    const row = element("button", "row review-row");
+    row.type = "button";
     const top = element("div", "claim-line");
     top.append(element("span", "", `${claim.parent} / ${claim.child}`), element("strong", "claim-amount", `NT$ ${claim.amount.toLocaleString("zh-TW")}`));
-    const bottom = element("div", "claim-line centered");
-    const meta = element("span", "claim-meta");
+    const meta = element("div", "claim-meta");
     meta.append(element("span", `status-dot ${statusClass[claim.status] || ""}`, claim.status), ` · ${[claim.date, claim.vendor, claim.activity, claim.description].filter(Boolean).join(" · ")}`);
-    bottom.append(meta);
-    const actions = element("span", "row-actions");
-    const change = element("button", "row-action", "修改");
-    change.type = "button";
-    change.addEventListener("click", () => openEditForm(claim));
-    actions.append(change);
-    if (claim.canWithdraw) {
-      const button = element("button", "row-action danger", "撤銷");
-      button.type = "button";
-      button.addEventListener("click", () => withdrawClaim(claim, button));
-      actions.append(button);
-    }
-    bottom.append(actions);
+    const body = element("div", "review-row-body");
+    body.append(top, meta);
+    if (claim.reviewNote) body.append(element("div", "claim-note", `審核備註：${claim.reviewNote}`));
+    row.append(body, element("span", "chevron", "›"));
+    row.addEventListener("click", () => openEditForm(claim));
     const item = element("li");
-    item.append(top, bottom);
-    if (claim.reviewNote) item.append(element("div", "claim-note", `審核備註：${claim.reviewNote}`));
+    item.append(row);
     return item;
   }));
   $("#claimsCount").textContent = `${claims.length} 筆`;
@@ -95,11 +96,11 @@ function renderReview() {
   $("#reviewList").replaceChildren(...claims.map((claim) => {
     const row = element("button", "row review-row");
     row.type = "button";
-    const who = claim.applicantName || claim.applicantEmail;
+    const who = isOwnClaim(claim) ? "本人" : claim.applicantName || claim.applicantEmail;
     const top = element("div", "claim-line");
     top.append(element("span", "", `${claim.parent} / ${claim.child}`), element("strong", "claim-amount", money.format(claim.amount)));
     const meta = element("div", "claim-meta");
-    meta.append(element("span", `status-dot ${statusClass[claim.status] || ""}`, claim.status), ` · ${claim.applicantPosition ? `${who}（${claim.applicantPosition}）` : who} · ${claim.date}`);
+    meta.append(element("span", `status-dot ${statusClass[claim.status] || ""}`, claim.status), ` · ${claim.applicantPosition && !isOwnClaim(claim) ? `${who}（${claim.applicantPosition}）` : who} · ${claim.date}`);
     const body = element("div", "review-row-body");
     body.append(top, meta);
     row.append(body, element("span", "chevron", "›"));
@@ -113,8 +114,14 @@ function renderReview() {
   $("#reviewSummary").textContent = claims.length ? `共 ${claims.length} 筆 · NT$ ${total.toLocaleString("zh-TW")}` : "沒有符合的申請。";
 }
 
+function isOwnClaim(claim) {
+  return claim.applicantEmail.toLowerCase() === currentUser.email;
+}
+
 function openDetail(claim) {
   currentClaim = claim;
+  // The treasurer edits their own claims from here.
+  $("#detailEdit").hidden = !isOwnClaim(claim);
   const applicant = claim.applicantName ? `${claim.applicantName}（${claim.applicantEmail}）` : claim.applicantEmail;
   const fields = [
     ["申請人", applicant],
