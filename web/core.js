@@ -12,7 +12,10 @@ const nextStatuses = {
   "已付款": ["已核准", "待審核", "退回"]
 };
 const statusClass = { "待審核": "pending", "已核准": "approved", "已付款": "paid", "退回": "rejected" };
-const viewLabels = { overview: "Overview", myClaims: "My claims", claimForm: "New claim", review: "Review", detail: "Claim" };
+const viewLabels = { overview: "Overview", myClaims: "My claims", claimForm: "New claim", review: "Review", detail: "Claim", ledger: "Ledger", entryForm: "Entry" };
+// Pages inside a section: the drawer highlights, and a reload returns to, the section's own page.
+const sectionOf = { detail: "review", entryForm: "ledger" };
+const treasurerViews = ["review", "detail", "ledger", "entryForm"];
 // Summary rows with these labels feed the hero; every other row is a spending category.
 const balanceLabel = "帳面餘額";
 const expenseLabel = "本月支出";
@@ -50,13 +53,13 @@ function show(view) {
   const signedOut = view === "signedOut";
   delete document.documentElement.dataset.restoring;
   if (!signedOut) {
-    try { sessionStorage.setItem(viewKey, view === "detail" ? "review" : view); } catch (error) { /* reload opens the overview */ }
+    try { sessionStorage.setItem(viewKey, sectionOf[view] || view); } catch (error) { /* reload opens the overview */ }
   }
   $("#signedOut").hidden = !signedOut;
   $("#app").hidden = signedOut;
   $("#glyphField").hidden = signedOut;
   Object.keys(viewLabels).forEach((id) => { $(`#${id}`).hidden = id !== view; });
-  const section = view === "detail" ? "review" : view;
+  const section = sectionOf[view] || view;
   document.querySelectorAll("#drawer [data-nav]").forEach((button) => {
     if (button.dataset.nav === section) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
@@ -77,6 +80,8 @@ function navigate(view) {
   showMessage("");
   if (view === "claimForm") return openClaimForm();
   if (view === "review") return openReview();
+  if (view === "ledger") return openLedger();
+  if (view === "entryForm") return openEntryForm();
   clearReceipts();
   show(view);
   return view === "myClaims" ? loadMyClaims() : loadOverview();
@@ -168,6 +173,7 @@ function showUser(user) {
   $("#userRole").textContent = user.position || roleText[user.role] || "";
   $("#userName").textContent = user.name || (user.email || "").split("@")[0];
   $("#navReview").hidden = user.role !== "treasurer";
+  $("#navLedger").hidden = user.role !== "treasurer";
 }
 
 // The stored token if it has more than a minute left; the expiry is read from its payload.
@@ -204,7 +210,7 @@ async function handleCredential(response, view = "overview") {
     try { sessionStorage.setItem(userKey, JSON.stringify({ role: user.role, position: user.position, name: user.name, email: user.email })); } catch (error) { /* drawn after whoami instead */ }
     fillParentOptions();
     showMessage("");
-    await navigate(view === "review" && user.role !== "treasurer" ? "overview" : view);
+    await navigate(treasurerViews.includes(view) && user.role !== "treasurer" ? "overview" : view);
   } catch (error) {
     reportError(error);
   }

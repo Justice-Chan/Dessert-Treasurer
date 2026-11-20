@@ -17,6 +17,7 @@ async function initializeApp() {
       }
     }
   }
+  agreedLedgerJson = state.ledgerSync.dirty ? null : ledgerJson();
   purgeExpiredTrash();
   applyExpenseCategories();
   setupDateControls();
@@ -34,8 +35,8 @@ async function initializeApp() {
   render();
   scheduleMemberImportSync();
   setDefaultBackupFolder();
-  // Bring in the web's claims and refresh its overview each time the app opens.
-  syncWebClaims({ quiet: true });
+  // Take the cloud ledger, with the web's claims merged in, each time the app opens.
+  startLedgerSync();
 }
 
 initializeApp();

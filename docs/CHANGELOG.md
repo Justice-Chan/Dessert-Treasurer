@@ -4,6 +4,9 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- The books live in a shared cloud ledger: the app uploads each change and takes the web's changes when it opens, after edits and when its window regains focus. People and activities stay in the app. If the web changed the books first, the app's upload is refused and it takes the cloud copy. The first sync uploads the app's existing books.
+- The web has a 記帳 page for the treasurer: a month's entries and month-end balances, and adding, editing or deleting entries. Choosing 已付款 on a claim records its payment with a date and account; leaving 已付款 removes it.
+- The web overview's totals come straight from the ledger, so they no longer wait for the app; the 財務彙總 tab is no longer used.
 - Quitting rewrites the automatic backup only when the books changed (sync times aside), so Google Drive keeps fewer identical versions. 立即備份 always writes.
 - The 備份 page leads with the automatic backup: when it last ran, where, back up now, save a copy or change the folder. Reports export as CSV only, and restoring sits behind a link.
 - Expense categories come from the web backend on each sync, so they are edited in one place.

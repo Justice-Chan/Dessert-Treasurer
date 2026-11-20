@@ -130,6 +130,7 @@ function openDetail(claim) {
   ].filter(([, value]) => value);
   $("#detailFields").replaceChildren(...fields.flatMap(([label, value]) => [element("dt", "", label), element("dd", "", value)]));
   $("#reviewNote").value = "";
+  setDateField("pay", localToday());
   // Every other status, the usual next step first.
   const order = nextStatuses[claim.status] || reviewStatuses;
   $("#reviewNextStatus").replaceChildren(...order.filter((status) => status !== claim.status).map((status) => new Option(status, status)));
@@ -139,12 +140,34 @@ function openDetail(claim) {
   showMessage("");
   show("detail");
   loadReceipts(claim);
+  showPayment(claim);
+}
+
+// The payment as the ledger recorded it, from the web or from the desktop app.
+async function showPayment(claim) {
+  try {
+    if (!ledger) await loadLedger();
+  } catch (error) {
+    return;
+  }
+  const payment = ledger.payments.find((item) => item.id === claim.id);
+  if (currentClaim !== claim || !payment) return;
+  $("#detailFields").append(element("dt", "", "付款"), element("dd", "", `${payment.date} · ${accountName(payment.accountId)}`));
+}
+
+function fillPayAccounts() {
+  const accounts = (ledger?.accounts || []).filter((account) => !account.deletedAt);
+  $("#payAccount").replaceChildren(...accounts.map((account) => new Option(account.name, account.id)));
+  // Claims are usually paid by transfer from the club account.
+  const bank = accounts.find((account) => account.type === "bank");
+  if (bank) $("#payAccount").value = bank.id;
 }
 
 function clearReceipts() {
   receiptUrls.forEach((url) => URL.revokeObjectURL(url));
   receiptUrls = [];
   currentClaim = null;
+  $("#payAccount").replaceChildren();
   $("#detailAttachments").replaceChildren();
 }
 
@@ -200,16 +223,28 @@ async function loadReceipts(claim) {
 
 const withdrawChoice = "withdraw";
 const statusHints = {
-  "已付款": "標記已付款後，記得在記帳 app 同步並記錄付款，帳面才會扣款。",
+  "已付款": "會在帳本記一筆支出，從所選帳戶扣款。",
   [withdrawChoice]: "撤銷會刪除這筆申請，收據移到雲端硬碟的垃圾桶。"
 };
 
-function showStatusHint() {
+async function showStatusHint() {
   const choice = $("#reviewNextStatus").value;
-  $("#statusHint").textContent = statusHints[choice] || "";
-  $("#statusHint").hidden = !statusHints[choice];
+  const paying = choice === "已付款";
+  const hint = currentClaim?.status === "已付款" && choice !== withdrawChoice ? "帳本裡的這筆付款也會一併刪除。" : statusHints[choice];
+  $("#statusHint").textContent = hint || "";
+  $("#statusHint").hidden = !hint;
+  $("#payFields").hidden = !paying;
   $("#applyStatus").classList.toggle("danger-fill", choice === withdrawChoice);
-  $("#applyStatus").textContent = choice === withdrawChoice ? "撤銷申請" : "更新狀態";
+  $("#applyStatus").textContent = choice === withdrawChoice ? "撤銷申請" : paying ? "記錄付款" : "更新狀態";
+  if (!paying) return;
+  if (!ledger) {
+    try {
+      await loadLedger();
+    } catch (error) {
+      return reportError(error);
+    }
+  }
+  if (!$("#payAccount").options.length) fillPayAccounts();
 }
 
 async function reviewClaim() {
@@ -219,11 +254,21 @@ async function reviewClaim() {
   if (!claim || !status) return;
   if (status === withdrawChoice) return withdrawClaim(claim, $("#applyStatus"), openReview);
   if (status === "退回" && !note) return showMessage("退回時請填寫審核備註，讓申請人知道原因。", true);
+  const paying = status === "已付款";
+  if (paying && (!$("#payDate").value || !$("#payAccount").value)) return showMessage("請選擇付款日期與帳戶。", true);
   const buttons = [$("#applyStatus")];
   buttons.forEach((button) => { button.disabled = true; });
   showMessage("處理中…", false, true);
   try {
+    if (paying) {
+      ledger = await callBackend("payClaim", { id: claim.id, date: $("#payDate").value, accountId: $("#payAccount").value, note });
+      await openReview();
+      showMessage("已記錄付款，帳本已扣款。");
+      return;
+    }
     const result = await callBackend("reviewRequest", { id: claim.id, status, note });
+    // Leaving 已付款 changed the ledger; it is read again when next needed.
+    if (claim.status === "已付款") ledger = null;
     await openReview();
     showMessage(`已將申請改為「${result.status}」。`);
   } catch (error) {

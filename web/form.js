@@ -11,15 +11,18 @@ function setOptions(select, values) {
   select.replaceChildren(...values.map((value) => new Option(value, value)));
 }
 
-function fillParentOptions() {
-  setOptions($("#claimParent"), [...Object.keys(categories), otherCategory]);
-  fillChildOptions();
+// The claim form lists expense categories; the ledger's entry form lists those of its type.
+const categoryTree = (form) => (form === "entry" ? entryCategories() : categories);
+
+function fillParentOptions(form = "claim") {
+  setOptions($(`#${form}Parent`), [...Object.keys(categoryTree(form)), otherCategory]);
+  fillChildOptions(form);
 }
 
 // Same rule as the desktop app, except 其他 turns the dropdown itself into a text field.
-function fillChildOptions() {
-  const parent = $("#claimParent").value;
-  setOptions($("#claimChild"), parent === otherCategory ? [otherCategory] : [...(categories[parent] || []), otherCategory]);
+function fillChildOptions(form = "claim") {
+  const parent = $(`#${form}Parent`).value;
+  setOptions($(`#${form}Child`), parent === otherCategory ? [otherCategory] : [...(categoryTree(form)[parent] || []), otherCategory]);
   showOtherFields();
 }
 
@@ -28,7 +31,9 @@ function fillChildOptions() {
 const pickers = {
   claimParent: { custom: otherCategory, maxLength: () => limits.category },
   claimChild: { custom: otherCategory, maxLength: () => limits.category },
-  claimActivity: { custom: "new", maxLength: () => 60 }
+  claimActivity: { custom: "new", maxLength: () => 60 },
+  entryParent: { custom: otherCategory, maxLength: () => limits.category },
+  entryChild: { custom: otherCategory, maxLength: () => limits.category }
 };
 
 function showOtherFields(focusId) {
@@ -96,7 +101,7 @@ function leaveCustomCategory(id) {
     showOtherFields();
     return $(`#${id}`).focus();
   }
-  if (id === "claimParent") fillChildOptions();
+  if (id.endsWith("Parent")) fillChildOptions(id.replace(/Parent$/, ""));
   else showOtherFields();
   $(`#${id}`).focus();
 }
@@ -125,7 +130,7 @@ function openClaimForm() {
   selectedFiles = [];
   setFormMode(null);
   fillParentOptions();
-  setClaimDate(localToday());
+  setDateField("claim", localToday());
   closeCalendar();
   showSelectedFiles();
   showMessage("");
@@ -166,7 +171,7 @@ function openEditForm(claim) {
   showOtherFields();
   setCategory("claimParent", claim.parent);
   setCategory("claimChild", claim.child);
-  setClaimDate(claim.date);
+  setDateField("claim", claim.date);
   closeCalendar();
   $("#claimAmount").value = claim.amount;
   $("#claimVendor").value = claim.vendor;
@@ -266,15 +271,20 @@ function showSelectedFiles() {
 
 // ---- Date picker ----
 // A small calendar drawn with the page's own colours; the browser's picker ignores the theme.
+// One calendar serves every date field (claim, entry, pay): each is a hidden #<name>Date input
+// with a #<name>DateButton, and the calendar moves next to the field it opens for.
 
 const earliestClaimDate = "2020-01-01";
 let calendarMonth = "";
 // "days" shows one month; "months" shows the twelve months of calendarMonth's year.
 let calendarView = "days";
+let calendarTarget = "claim";
+const dateInput = () => $(`#${calendarTarget}Date`);
+const dateButton = () => $(`#${calendarTarget}DateButton`);
 
-function setClaimDate(value) {
-  $("#claimDate").value = value;
-  $("#claimDateButton").textContent = value.replaceAll("-", "/");
+function setDateField(name, value) {
+  $(`#${name}Date`).value = value;
+  $(`#${name}DateButton`).textContent = value.replaceAll("-", "/");
 }
 
 function shiftMonth(month, delta) {
@@ -303,7 +313,7 @@ function renderCalendar() {
       button.type = "button";
       button.dataset.month = value;
       button.disabled = value > today.slice(0, 7) || value < earliestClaimDate.slice(0, 7);
-      if (value === ($("#claimDate").value || today).slice(0, 7)) button.setAttribute("aria-pressed", "true");
+      if (value === (dateInput().value || today).slice(0, 7)) button.setAttribute("aria-pressed", "true");
       return button;
     }));
     return;
@@ -323,30 +333,34 @@ function renderCalendar() {
     button.dataset.date = value;
     button.disabled = value > today || value < earliestClaimDate;
     if (value === today) button.classList.add("today");
-    if (value === $("#claimDate").value) button.setAttribute("aria-pressed", "true");
+    if (value === dateInput().value) button.setAttribute("aria-pressed", "true");
     cells.push(button);
   }
   $("#calendarDays").replaceChildren(...cells);
 }
 
-function openCalendar() {
-  calendarMonth = ($("#claimDate").value || localToday()).slice(0, 7);
+function openCalendar(name) {
+  closeCalendar();
+  calendarTarget = name;
+  dateButton().after($("#calendar"));
+  $("#calendar").setAttribute("aria-label", `選擇${dateButton().dataset.label || "日期"}`);
+  calendarMonth = (dateInput().value || localToday()).slice(0, 7);
   calendarView = "days";
   renderCalendar();
-  $("#claimCalendar").hidden = false;
-  $("#claimDateButton").setAttribute("aria-expanded", "true");
+  $("#calendar").hidden = false;
+  dateButton().setAttribute("aria-expanded", "true");
   ($("#calendarDays [aria-pressed='true']") || $("#calendarDays button:not(:disabled)"))?.focus();
 }
 
 function closeCalendar(returnFocus) {
-  if ($("#claimCalendar").hidden) return;
-  $("#claimCalendar").hidden = true;
-  $("#claimDateButton").setAttribute("aria-expanded", "false");
-  if (returnFocus) $("#claimDateButton").focus();
+  if ($("#calendar").hidden) return;
+  $("#calendar").hidden = true;
+  dateButton().setAttribute("aria-expanded", "false");
+  if (returnFocus) dateButton().focus();
 }
 
 function pickDate(value) {
-  setClaimDate(value);
+  setDateField(calendarTarget, value);
   closeCalendar(true);
 }
 

@@ -55,7 +55,7 @@ const sectionMeta = {
   categories: ["分類", "依甜點社常見情境整理主項目與副項目。"],
   trash: ["垃圾桶", "刪除項目保留 30 天，可在到期前還原。"],
   backup: ["備份", "自動備份、另存完整備份，或匯出 CSV 報表。"],
-  settings: ["設定", "設定網頁報帳同步，以及匯入試算表時可辨識的欄位同義詞。"]
+  settings: ["設定", "設定雲端帳本同步，以及匯入試算表時可辨識的欄位同義詞。"]
 };
 
 // Built-in spreadsheet header aliases. Settings store only the aliases added to or removed from these lists,
@@ -309,6 +309,11 @@ function normalizeState(saved = {}) {
     memberImportLink,
     importSynonyms,
     webSync: normalizeWebSync(saved.webSync),
+    // The cloud ledger version these books are based on, and whether they hold unsent changes.
+    ledgerSync: {
+      version: Number.isInteger(saved.ledgerSync?.version) && saved.ledgerSync.version > 0 ? saved.ledgerSync.version : 0,
+      dirty: Boolean(saved.ledgerSync?.dirty)
+    },
     autoBackup: { folder: String(saved.autoBackup?.folder || "").trim().slice(0, 1000) },
     expenseCategories: normalizeCategoryTree(saved.expenseCategories),
     reconciliations: Array.isArray(saved.reconciliations) ? saved.reconciliations : [],

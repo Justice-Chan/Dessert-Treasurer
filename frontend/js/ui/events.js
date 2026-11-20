@@ -123,7 +123,7 @@ function bindEvents() {
   $("#autoBackupNow").addEventListener("click", backupNow);
   $("#autoBackupEdit").addEventListener("click", editBackupFolder);
   $("#autoBackupCancel").addEventListener("click", () => { $("#autoBackupForm").hidden = true; });
-  $("#syncWebClaims").addEventListener("click", () => syncWebClaims());
+  $("#syncWebClaims").addEventListener("click", () => syncLedger());
   $("#resetImportSynonyms").addEventListener("click", () => {
     requestAppActionConfirmation({
       title: "還原預設同義詞",
@@ -746,8 +746,9 @@ function bindEvents() {
     let replacedClaimIds = null;
     try {
       if (imported.scope === "complete") {
-        // Backups never hold the sync secret, so keep this computer's sync settings.
-        state = normalizeState({ ...imported.data, webSync: previousState.webSync, autoBackup: previousState.autoBackup, expenseCategories: previousState.expenseCategories });
+        // Backups never hold the sync secret, so keep this computer's sync settings. The restored
+        // books are then uploaded on top of the cloud ledger this computer last saw.
+        state = normalizeState({ ...imported.data, webSync: previousState.webSync, ledgerSync: previousState.ledgerSync, autoBackup: previousState.autoBackup, expenseCategories: previousState.expenseCategories });
         replacesAllReceipts = true;
       } else if (imported.scope === "entries") {
         const currentClaimIds = new Set(state.claims.map((claim) => claim.id));

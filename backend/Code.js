@@ -4,7 +4,8 @@
 //   OAUTH_CLIENT_ID  Google OAuth client ID used by web/ for sign-in
 //   SHEET_ID         Spreadsheet holding the tabs below
 //   DRIVE_FOLDER_ID  Drive folder holding the monthly (YYYY-MM) receipt folders
-//   SYNC_SECRET      Long random string the desktop app sends for syncPull and syncPush
+//   SYNC_SECRET      Long random string the desktop app sends with syncLedger
+// LEDGER_FILE_ID is written by the script when the app first uploads the shared ledger (Ledger.js).
 //
 // 權限表 is maintained by hand: email, position (職位), name and a free-text note the script never reads.
 // Position 總務 gets the treasurer's rights; any other position is an officer. The other tabs are created
@@ -20,8 +21,6 @@ const CLAIM_HEADER = [
   "店家", "說明", "附件", "狀態", "審核人", "審核時間", "審核備註", "更新時間"
 ];
 const COL = Object.fromEntries(CLAIM_HEADER.map((name, index) => [name, index]));
-const SUMMARY_SHEET = "財務彙總";
-const SUMMARY_HEADER = ["項目", "金額"];
 
 const TREASURER_POSITION = "總務";
 const TOKEN_ISSUERS = ["accounts.google.com", "https://accounts.google.com"];
@@ -32,10 +31,17 @@ const STATUS_REJECTED = "退回";
 const WITHDRAWABLE = [STATUS_PENDING, STATUS_REJECTED];
 // The applicant may change anything on their claim, except the amount once it has been paid.
 const STATUS_PAID = "已付款";
-// The treasurer may move a claim to any of these. 已付款 here is a marker only: the app still
-// records the payment itself, and its sync reminds the treasurer to do so.
-const REVIEW_STATUSES = [STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED, STATUS_PAID];
+// The treasurer may move a claim to any of these; 已付款 comes only with a payment (payClaim).
+const REVIEW_STATUSES = [STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED];
 const OTHER_CATEGORY = "其他";
+
+// Income categories, for the web's ledger page; the app keeps the same built-in list.
+const INCOME_CATEGORIES = {
+  "社費與會費": ["期初社費", "單次活動費", "補繳"],
+  "活動收入": ["工作坊報名費", "市集收入", "甜點販售"],
+  "補助與贊助": ["學校補助", "系學會補助", "外部贊助"],
+  "退款與調整": ["押金退回", "廠商退款", "帳務調整"]
+};
 
 // The one list of expense categories: the web form shows it and the desktop app takes it on sync.
 const CATEGORIES = {
@@ -79,13 +85,15 @@ const actions = () => ({
   listAllRequests,
   reviewRequest,
   getSummary,
-  listActivities
+  listActivities,
+  getLedger,
+  saveEntry,
+  trashEntry,
+  payClaim
 });
 
 // Called by the desktop app with SYNC_SECRET instead of a Google sign-in.
-const syncActions = () => ({ syncPull, syncPush });
-const SYNCED_AT_PROPERTY = "SUMMARY_SYNCED_AT";
-const SYNC_LIMITS = { summaryRows: 50, label: 30, amount: 100000000 };
+const syncActions = () => ({ syncLedger });
 
 function doPost(e) {
   try {
@@ -152,6 +160,10 @@ function checkSetup() {
     "收據資料夾可開啟": () => DriveApp.getFolderById(property("DRIVE_FOLDER_ID")).getName(),
     "每月備份已排程": () => {
       if (!ScriptApp.getProjectTriggers().some((trigger) => trigger.getHandlerFunction() === "monthlyBackup")) throw new Error("請執行 setupMonthlyBackup");
+      return "OK";
+    },
+    "雲端帳本已建立": () => {
+      if (!ledgerFile()) throw new Error("請打開記帳 app 同步一次");
       return "OK";
     },
     "SYNC_SECRET 已設定且夠長": () => {

@@ -63,8 +63,8 @@ h1, h2, p { margin: 0; }
    use its sans sibling: related, but easy to tell apart. The drawer and landing keep the mono look. */
 main .mono, .topbar .mono { font-family: var(--serif); font-size: 0.9375rem; font-style: italic; letter-spacing: 0; }
 main .hero-number, main .stat strong, main .stat .link { font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; }
-#myClaims, #review, #detail, .legend { font-family: var(--record); font-variant-numeric: tabular-nums; }
-#myClaims select, #review select, #detail select, #detail textarea, #detail button { font-family: inherit; }
+#myClaims, #review, #detail, #ledger, .legend { font-family: var(--record); font-variant-numeric: tabular-nums; }
+#myClaims select, #review select, #detail select, #detail textarea, #detail button, #ledger button { font-family: inherit; }
 .subtle { color: var(--muted); font-size: 0.875rem; }
 .brand { font-weight: 700; letter-spacing: 0.04em; }
 
@@ -523,3 +523,21 @@ button.file-remove:hover, button.file-remove:focus-visible { color: var(--error)
 
 /* Signed in on a wide screen, messages centre on the content column rather than the whole window. */
 @media (min-width: 960px) { #app:not([hidden]) ~ #message { left: calc(var(--drawer) + 16px); } }
+
+/* ---- Ledger ---- */
+
+.ledger-hero { padding-top: 8px; }
+.month-switch { display: flex; align-items: center; gap: 2px; margin: 0 0 14px -12px; font-weight: 600; }
+.month-switch .icon { width: 36px; min-height: 36px; font-size: 1.375rem; line-height: 1; }
+.month-switch span { min-width: 7.5em; text-align: center; font-variant-numeric: tabular-nums; }
+#ledgerAccounts { margin-top: 6px; }
+.claim-amount.income { color: var(--ok); }
+button.small { min-height: 36px; padding: 0 14px; font-size: 0.875rem; }
+.segmented { display: inline-flex; margin-top: 14px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; }
+.segmented label { margin: 0; font-weight: 600; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented span { display: block; min-width: 72px; padding: 7px 16px; border-radius: 999px; text-align: center; color: var(--muted); cursor: pointer; }
+.segmented input:checked + span { background: var(--primary); color: var(--on-primary); }
+.segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+#entryDelete { flex: 0 0 auto; }
+.pay-fields > .field { margin-top: 0; }

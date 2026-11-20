@@ -12,13 +12,17 @@ $("#reviewPosition").addEventListener("change", renderReview);
 $("#detailBack").addEventListener("click", openReview);
 $("#applyStatus").addEventListener("click", reviewClaim);
 $("#reviewNextStatus").addEventListener("change", showStatusHint);
-$("#claimParent").addEventListener("change", fillChildOptions);
+$("#claimParent").addEventListener("change", () => fillChildOptions("claim"));
 $("#claimParent").addEventListener("change", () => showOtherFields("claimParent"));
 $("#claimChild").addEventListener("change", () => showOtherFields("claimChild"));
 $("#claimActivity").addEventListener("change", () => showOtherFields("claimActivity"));
 $("#claimActivityOther").addEventListener("input", showActivityHint);
 document.querySelectorAll("[data-picker]").forEach((button) => button.addEventListener("click", () => leaveCustomCategory(button.dataset.picker)));
-$("#claimDateButton").addEventListener("click", () => ($("#claimCalendar").hidden ? openCalendar() : closeCalendar(true)));
+document.querySelectorAll(".date-button").forEach((button) => button.addEventListener("click", () => {
+  const name = button.id.replace(/DateButton$/, "");
+  if ($("#calendar").hidden || calendarTarget !== name) openCalendar(name);
+  else closeCalendar(true);
+}));
 // A year step can land past today; clamp to the newest month that may be picked.
 function stepCalendar(direction) {
   const step = calendarView === "months" ? 12 : 1;
@@ -45,7 +49,7 @@ $("#calendarDays").addEventListener("click", (event) => {
   const day = event.target.closest("[data-date]");
   if (day && !day.disabled) pickDate(day.dataset.date);
 });
-$("#claimCalendar").addEventListener("keydown", (event) => {
+$("#calendar").addEventListener("keydown", (event) => {
   if (event.key === "Escape") { event.stopPropagation(); closeCalendar(true); }
 });
 document.addEventListener("click", (event) => {
@@ -73,6 +77,16 @@ $("#filePreview").addEventListener("click", (event) => {
   if (event.target === $("#filePreview")) $("#filePreview").close();
 });
 $("#claimForm").addEventListener("submit", submitClaim);
+$("#ledgerPrev").addEventListener("click", () => stepLedgerMonth(-1));
+$("#ledgerNext").addEventListener("click", () => stepLedgerMonth(1));
+$("#newEntry").addEventListener("click", () => openEntryForm());
+document.querySelectorAll('input[name="entryType"]').forEach((input) => input.addEventListener("change", changeEntryType));
+$("#entryParent").addEventListener("change", () => fillChildOptions("entry"));
+$("#entryParent").addEventListener("change", () => showOtherFields("entryParent"));
+$("#entryChild").addEventListener("change", () => showOtherFields("entryChild"));
+$("#entryForm").addEventListener("submit", submitEntry);
+$("#entryCancel").addEventListener("click", () => { show("ledger"); renderLedger(); });
+$("#entryDelete").addEventListener("click", deleteEntry);
 
 glyphField = startGlyphField($("#glyphField"));
 renderMotes($("#landingMotes"));
@@ -83,7 +97,7 @@ function restoreSession() {
   if (!token) return show("signedOut");
   let view = "overview";
   try { view = sessionStorage.getItem(viewKey) || view; } catch (error) { /* keep the overview */ }
-  if (!Object.hasOwn(viewLabels, view) || view === "detail") view = "overview";
+  if (!Object.hasOwn(viewLabels, view) || sectionOf[view]) view = "overview";
   try { showUser(JSON.parse(sessionStorage.getItem(userKey)) || {}); } catch (error) { /* drawn after whoami */ }
   show(view);
   handleCredential({ credential: token }, view);

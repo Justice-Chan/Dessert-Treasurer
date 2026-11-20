@@ -30,7 +30,7 @@ function renderSummary({ items = [], syncedAt = "", pendingReview }, animate = f
   else if (animate && !still) countUp($("#heroBalance"), balance.amount);
   else $("#heroBalance").textContent = money.format(balance.amount);
   const synced = syncedAt ? new Date(syncedAt) : null;
-  $("#heroSynced").textContent = synced && !Number.isNaN(synced.getTime()) ? ` · ${syncedFormat.format(synced)} 同步` : "";
+  $("#heroSynced").textContent = synced && !Number.isNaN(synced.getTime()) ? ` · ${syncedFormat.format(synced)} 更新` : "";
 
   document.querySelectorAll(".stat[data-label]").forEach((stat) => {
     const item = find(stat.dataset.label);

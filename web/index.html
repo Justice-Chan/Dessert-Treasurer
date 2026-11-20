@@ -54,6 +54,7 @@
         <li><button type="button" data-nav="myClaims">我的申請<span class="mono">My claims</span></button></li>
         <li><button type="button" data-nav="claimForm">新增報帳<span class="mono">New claim</span></button></li>
         <li id="navReview" hidden><button type="button" data-nav="review">審核報帳<span class="mono">Review</span></button></li>
+        <li id="navLedger" hidden><button type="button" data-nav="ledger">記帳<span class="mono">Ledger</span></button></li>
       </ul>
       <div class="drawer-foot">
         <p class="user-label"><span class="subtle" id="userRole"></span><strong id="userName"></strong></p>
@@ -92,7 +93,7 @@
               <div class="art" id="cakeArt" aria-hidden="true"></div>
               <dl class="legend" id="cakeLegend"></dl>
             </div>
-            <p class="subtle" id="summaryEmpty" hidden>尚未同步。總務在記帳 app 同步後，這裡會顯示社團財務。</p>
+            <p class="subtle" id="summaryEmpty" hidden>還沒有帳本。總務打開記帳 app 同步一次後，這裡會顯示社團財務。</p>
           </section>
         </div>
 
@@ -115,8 +116,8 @@
               <label for="claimDateButton">消費日期</label>
               <div class="date-field">
                 <input id="claimDate" type="hidden">
-                <button type="button" class="date-button" id="claimDateButton" aria-haspopup="dialog" aria-expanded="false"></button>
-              <div class="calendar" id="claimCalendar" role="dialog" aria-label="選擇消費日期" hidden>
+                <button type="button" class="date-button" id="claimDateButton" data-label="消費日期" aria-haspopup="dialog" aria-expanded="false"></button>
+              <div class="calendar" id="calendar" role="dialog" aria-label="選擇日期" hidden>
                 <div class="calendar-head">
                   <button type="button" class="icon" id="calendarPrev" aria-label="上個月">‹</button>
                   <button type="button" class="calendar-title" id="calendarMonth" aria-live="polite"></button>
@@ -232,10 +233,104 @@
                 <select id="reviewNextStatus"></select>
                 <button type="button" class="primary" id="applyStatus">更新狀態</button>
               </div>
+              <div class="field-row pay-fields" id="payFields" hidden>
+                <div class="field">
+                  <label for="payDateButton">付款日期</label>
+                  <div class="date-field">
+                    <input id="payDate" type="hidden">
+                    <button type="button" class="date-button" id="payDateButton" data-label="付款日期" aria-haspopup="dialog" aria-expanded="false"></button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="payAccount">付款帳戶</label>
+                  <select id="payAccount"></select>
+                </div>
+              </div>
               <p class="subtle" id="statusHint" hidden></p>
             </div>
           </section>
         </div>
+
+        <div id="ledger" hidden>
+          <section class="hero ledger-hero" aria-labelledby="ledgerBalanceLabel">
+            <div class="month-switch">
+              <button type="button" class="icon" id="ledgerPrev" aria-label="上個月">‹</button>
+              <span id="ledgerMonth" aria-live="polite"></span>
+              <button type="button" class="icon" id="ledgerNext" aria-label="下個月">›</button>
+            </div>
+            <p class="eyebrow" id="ledgerBalanceLabel">月底帳面餘額</p>
+            <p class="hero-number" id="ledgerBalance">—</p>
+            <p class="subtle" id="ledgerAccounts"></p>
+            <div class="stats">
+              <div class="stat"><span>收入</span><strong id="ledgerIncome"></strong></div>
+              <div class="stat"><span>支出</span><strong id="ledgerExpense"></strong></div>
+            </div>
+          </section>
+          <section class="card" aria-labelledby="ledgerTitle">
+            <div class="list-head">
+              <h2 id="ledgerTitle">收支紀錄</h2>
+              <button type="button" class="primary small" id="newEntry">新增收支</button>
+            </div>
+            <p class="subtle claims-empty" id="ledgerLocked" hidden>這個月已鎖定，要修改請先在記帳 app 的「對帳」解鎖。</p>
+            <p class="subtle claims-empty" id="ledgerEmpty" hidden>這個月還沒有收支紀錄。</p>
+            <ul class="claims review-claims" id="ledgerList"></ul>
+          </section>
+        </div>
+
+        <form class="card claim-form" id="entryForm" hidden novalidate>
+          <h2 id="entryFormTitle">新增收支</h2>
+          <div class="segmented" role="radiogroup" aria-label="收支類型">
+            <label><input type="radio" name="entryType" value="expense" checked><span>支出</span></label>
+            <label><input type="radio" name="entryType" value="income"><span>收入</span></label>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="entryDateButton">日期</label>
+              <div class="date-field">
+                <input id="entryDate" type="hidden">
+                <button type="button" class="date-button" id="entryDateButton" data-label="日期" aria-haspopup="dialog" aria-expanded="false"></button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="entryAmount">金額</label>
+              <div class="amount-field">
+                <span class="amount-prefix" aria-hidden="true">NT$</span>
+                <input id="entryAmount" type="number" inputmode="numeric" min="1" step="1" required>
+              </div>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="entryParent">主項目</label>
+              <div class="picker">
+                <select id="entryParent" required></select>
+                <input id="entryParentOther" aria-label="自訂主項目" placeholder="輸入自訂主項目" autocomplete="off" hidden>
+                <button type="button" class="picker-back" data-picker="entryParent" aria-label="改回主項目選單" hidden>選單</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="entryChild">副項目</label>
+              <div class="picker">
+                <select id="entryChild" required></select>
+                <input id="entryChildOther" aria-label="自訂副項目" placeholder="輸入自訂副項目" autocomplete="off" hidden>
+                <button type="button" class="picker-back" data-picker="entryChild" aria-label="改回副項目選單" hidden>選單</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="entryAccount">帳戶</label>
+            <select id="entryAccount" required></select>
+          </div>
+          <div class="field">
+            <label for="entryNote">備註<span class="subtle">（選填）</span></label>
+            <textarea id="entryNote" maxlength="300" rows="2"></textarea>
+          </div>
+          <div class="actions">
+            <button type="button" class="danger" id="entryDelete" hidden>刪除</button>
+            <button type="button" id="entryCancel">取消</button>
+            <button type="submit" class="primary" id="entrySubmit">儲存</button>
+          </div>
+        </form>
       </main>
     </div>
   </div>
@@ -253,6 +348,7 @@
   <script src="overview.js"></script>
   <script src="claims.js"></script>
   <script src="form.js"></script>
+  <script src="ledger.js"></script>
   <script src="main.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer onload="startSignIn()"></script>
 </body>

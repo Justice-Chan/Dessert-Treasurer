@@ -500,102 +500,67 @@ test("activity suffix aliases migrate, import and survive incomplete spreadsheet
   expect(result.clearedAliases).toEqual([]);
 });
 
-test("web sync adds claims, drops withdrawn ones and sends only the summary", async ({ page }) => {
-  const backend = "https://script.google.com/macros/s/test-deployment/exec";
-  const uuid = (n) => `00000000-0000-4000-8000-00000000000${n}`;
-  const remote = (name, status, extra = {}) => ({
-    id: uuid(name.slice(1)), createdAt: "2099-09-20T00:00:00Z", applicantEmail: `${name}@example.com`, applicantName: `幹部${name}`, date,
-    amount: 450, parent: "食材與耗材", child: "乳品", activity: "社課", vendor: "全聯", description: "鮮奶油",
-    status, reviewNote: "", receiptLinks: ["https://drive.google.com/file/d/a/view", "https://drive.google.com/file/d/b/view"], ...extra
-  });
-  let claims = [remote("w1", "待審核"), remote("w2", "已核准"), remote("w3", "待審核", { id: "<img src=x>" })];
-  const pushes = [];
+// The backend merges the claims sheet in and keeps the version; these stand-ins answer as it would.
+const backend = "https://script.google.com/macros/s/test-deployment/exec";
+const webClaim = (n, person) => ({
+  id: `00000000-0000-4000-8000-00000000000${n}`, source: "web", date, person, title: "雜支", parent: "行政庶務", child: "雜支",
+  amount: 60, status: "approved", paymentDate: "", paymentAccountId: "", receipt: "https://drive.google.com/file/d/a/view", attachments: [], note: ""
+});
+
+async function openWithSync(page, ledgerSync) {
+  await page.evaluate(({ url, ledgerSync }) => localStorage.setItem("dessertTreasurer.v1", JSON.stringify({ webSync: { url, secret: "s".repeat(32) }, ledgerSync })), { url: backend, ledgerSync });
+  await page.reload();
+}
+
+test("the first sync uploads the app's books, then takes the cloud copy with web claims", async ({ page }) => {
+  const calls = [];
   await page.route(backend, async (route) => {
     const request = JSON.parse(route.request().postData());
     expect(request.secret).toBe("s".repeat(32));
-    if (request.action === "syncPush") pushes.push(request.payload);
-    const data = request.action === "syncPull" ? { claims, withdrawnIds: [uuid(0)] } : { summaryRows: 4 };
+    calls.push(request.payload);
+    const data = request.payload.ledger
+      ? { version: 1, conflict: false, ledger: { ...request.payload.ledger, claims: [webClaim(1, "網頁幹部")] }, categories: { "行政庶務": ["雜支"], "新分類": ["新副項"] } }
+      : { version: 0, conflict: false, ledger: null };
     await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
   });
-
-  await openSection(page, "設定");
-  await page.locator("#webSyncUrl").fill(backend);
-  await page.locator("#webSyncSecret").fill("s".repeat(32));
-  await page.locator("#webSyncForm button[type=submit]").click();
-
+  await openWithSync(page);
   await openSection(page, "報銷");
-  await page.evaluate(() => {
-    state.claims.push({ id: "00000000-0000-4000-8000-000000000000", source: "web", date: "2099-09-20", person: "撤銷者", title: "粉類", parent: "食材與耗材", child: "粉類", amount: 100, status: "pending", paymentDate: "", paymentAccountId: "", receipt: "", attachments: [], note: "" });
-    renderClaims();
-  });
-  await page.locator("#syncWebClaims").click();
-  await expect(page.locator("#claimRows")).toContainText("幹部w1");
-  await expect(page.locator("#claimRows")).toContainText("幹部w2");
-  await expect(page.locator("#claimRows")).not.toContainText("幹部w3");
-  await expect(page.locator("#claimRows")).not.toContainText("撤銷者");
-  await expect(page.locator("#claimRows .cloud-link")).toHaveCount(4);
-  expect(Object.keys(pushes[0])).toEqual(["summary"]);
-  expect(pushes[0].summary.map((row) => row.label)).toEqual(expect.arrayContaining(["帳面餘額", "本月收入", "本月支出", "待處理報銷"]));
-
-  await page.locator("[data-pay-claim]").click();
-  await page.locator("#claimPaymentDate").fill(date);
-  await page.getByRole("button", { name: "確認付款" }).click();
-  // The web marks w1 paid; the app keeps it approved and asks for the payment to be recorded.
-  // w1 was edited on the web before being marked paid; w2 is already paid here, so its amount stays.
-  claims = [remote("w1", "已付款", { amount: 520 }), remote("w2", "已核准", { amount: 999, child: "包材", receiptLinks: ["https://drive.google.com/file/d/c/view"] })];
-  await page.locator("#syncWebClaims").click();
-  await expect.poll(() => pushes.length).toBe(2);
-  expect(Object.keys(pushes[1])).toEqual(["summary"]);
-  const w1 = page.locator("#claimRows tr", { hasText: "幹部w1" });
-  await expect(w1).toContainText("已核准");
-  await expect(w1).toContainText("網頁已標記付款");
-  await expect(page.locator("#claimRows tr", { hasText: "幹部w2" })).toContainText("已付款");
-  await expect(w1).toContainText("$520");
-  await expect(page.locator("#claimRows tr", { hasText: "幹部w2" })).toContainText("$450");
-  await expect(page.locator("#claimRows tr", { hasText: "幹部w2" })).toContainText("包材");
-  await expect(page.locator("#claimRows tr", { hasText: "幹部w2" }).locator(".cloud-link")).toHaveCount(1);
-  expect(await page.evaluate(() => state.entries.find((entry) => entry.claimId)?.child)).toBe("包材");
-});
-
-test("the app syncs web claims once when it opens", async ({ page }) => {
-  const backend = "https://script.google.com/macros/s/test-deployment/exec";
-  const actions = [];
-  await page.route(backend, async (route) => {
-    const { action } = JSON.parse(route.request().postData());
-    actions.push(action);
-    const claim = { id: "00000000-0000-4000-8000-000000000009", createdAt: "2099-09-20T00:00:00Z", applicantEmail: "a@example.com", applicantName: "開啟同步", date, amount: 60, parent: "行政庶務", child: "雜支", status: "待審核", receiptLinks: [] };
-    const data = action === "syncPull" ? { claims: [claim], withdrawnIds: [], categories: { "行政庶務": ["雜支"], "新分類": ["新副項"] } } : { summaryRows: 4 };
-    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
-  });
-  await page.evaluate((url) => localStorage.setItem("dessertTreasurer.v1", JSON.stringify({ webSync: { url, secret: "s".repeat(32) } })), backend);
-  await page.reload();
-  await openSection(page, "報銷");
-  await expect(page.locator("#claimRows")).toContainText("開啟同步");
-  expect(actions).toEqual(["syncPull", "syncPush"]);
+  await expect(page.locator("#claimRows")).toContainText("網頁幹部");
+  expect(calls.map((payload) => [payload.baseVersion, Boolean(payload.ledger)])).toEqual([[0, false], [0, true]]);
+  expect(Object.keys(calls[1].ledger)).toEqual(["entries", "claims", "trash", "accounts", "payees", "reconciliations", "lockedMonths"]);
   // Categories come from the backend and survive a reload.
   await expect(page.locator("#claimParent option")).toContainText(["行政庶務", "新分類", "其他"]);
-  await page.reload();
-  await openSection(page, "報銷");
-  await expect(page.locator("#claimParent option", { hasText: "新分類" })).toHaveCount(1);
+  expect(await page.evaluate(() => state.ledgerSync)).toEqual({ version: 1, dirty: false });
 });
 
-test("web sync moves unpaid claims deleted from the Sheet to the trash", async ({ page }) => {
-  const backend = "https://script.google.com/macros/s/test-deployment/exec";
-  const claim = (id, name) => ({ id, createdAt: "2099-09-20T00:00:00Z", applicantEmail: "a@example.com", applicantName: name, date, amount: 60, parent: "行政庶務", child: "雜支", status: "待審核", receiptLinks: [] });
-  let claims = [claim("00000000-0000-4000-8000-000000000011", "留下"), claim("00000000-0000-4000-8000-000000000012", "被刪掉")];
+test("changes upload with their base version, and a newer cloud ledger wins", async ({ page }) => {
+  let cloud = { version: 3, ledger: { entries: [], claims: [webClaim(2, "雲端")], trash: [], accounts: [], payees: [], reconciliations: [], lockedMonths: [] } };
+  const uploads = [];
+  let refuse = false;
   await page.route(backend, async (route) => {
-    const { action } = JSON.parse(route.request().postData());
-    const data = action === "syncPull" ? { claims, withdrawnIds: [] } : { summaryRows: 4 };
-    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
+    const { payload } = JSON.parse(route.request().postData());
+    let conflict = false;
+    if (payload.ledger) {
+      uploads.push(payload.baseVersion);
+      if (refuse) conflict = true;
+      else cloud = { version: cloud.version + 1, ledger: payload.ledger };
+    }
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { ...cloud, conflict } }) });
   });
-  await page.evaluate((url) => localStorage.setItem("dessertTreasurer.v1", JSON.stringify({ webSync: { url, secret: "s".repeat(32) } })), backend);
-  await page.reload();
+  await openWithSync(page, { version: 3, dirty: false });
   await openSection(page, "報銷");
-  await expect(page.locator("#claimRows")).toContainText("被刪掉");
+  await expect(page.locator("#claimRows")).toContainText("雲端");
+  expect(uploads).toEqual([]);
 
-  claims = [claims[0]];
-  await page.locator("#syncWebClaims").click();
-  await expect(page.locator("#claimRows")).not.toContainText("被刪掉");
-  await expect(page.locator("#claimRows")).toContainText("留下");
-  expect(await page.evaluate(() => state.trash.map((item) => item.record.person))).toEqual(["被刪掉"]);
+  await openSection(page, "記帳");
+  await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 80 });
+  await expect.poll(() => uploads).toEqual([3]);
+  await expect.poll(() => page.evaluate(() => state.ledgerSync)).toEqual({ version: 4, dirty: false });
+
+  // The web changed the books first: this upload is refused and the cloud copy replaces the local one.
+  refuse = true;
+  cloud = { version: 6, ledger: { ...cloud.ledger, entries: [] } };
+  await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 90 });
+  await expect(page.locator("#toast")).toContainText("網頁上的帳本比較新");
+  await expect.poll(() => page.evaluate(() => [state.entries.length, state.ledgerSync.version])).toEqual([0, 6]);
 });

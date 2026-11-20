@@ -1,6 +1,6 @@
 # Web dashboard: status and handover
 
-Officers sign in with Google, submit reimbursement claims with receipt photos and follow their review; the treasurer reviews on the web. This note records what is built, how to deploy it, the decisions behind it and what remains.
+Officers sign in with Google, submit reimbursement claims with receipt photos and follow their review; the treasurer reviews claims, pays them and keeps the books on the web. This note records what is built, how to deploy it, the decisions behind it and what remains.
 
 Live site: <https://justice-chan.github.io/Dessert-Treasurer/>
 
@@ -9,13 +9,13 @@ Live site: <https://justice-chan.github.io/Dessert-Treasurer/>
 | Part | Location | Hosted on |
 | --- | --- | --- |
 | Dashboard (plain HTML/CSS/JS, no build step; scripts load in order, `main.js` last) | `web/` | GitHub Pages, deployed by `.github/workflows/deploy-pages.yml` on pushes that touch `web/` |
-| Backend (`Code.js` handles requests; `Sheet`, `Claims`, `Review`, `Sync`, `Backup` by feature) | `backend/*.js`, `backend/appsscript.json` | Google Apps Script web app, runs as the deploying account |
-| Data | Google Sheet (tabs: 權限表, 報帳申請, 財務彙總, 操作紀錄) and a Drive folder holding receipts and monthly backups | The deploying account's Google Drive |
+| Backend (`Code.js` handles requests; `Sheet`, `Claims`, `Review`, `Ledger`, `Sync`, `Backup` by feature) | `backend/*.js`, `backend/appsscript.json` | Google Apps Script web app, runs as the deploying account |
+| Data | Google Sheet (tabs: 權限表, 報帳申請, 操作紀錄) and a Drive folder holding receipts, monthly backups and the shared ledger `甜點社帳本.json` | The deploying account's Google Drive |
 | Desktop app | `frontend/`, `src-tauri/` | The treasurer's computer; rebuild after app changes with `npm run update:mac` |
 
-The dashboard posts `{action, idToken, payload}` to the backend. The backend verifies the Google ID token (cached by its hash until it expires) and checks the position in 權限表 on every call; the page hides controls only for convenience. The desktop app calls `syncPull` and `syncPush` with `SYNC_SECRET` instead.
+The dashboard posts `{action, idToken, payload}` to the backend. The backend verifies the Google ID token (cached by its hash until it expires) and checks the position in 權限表 on every call; the page hides controls only for convenience. The desktop app calls `syncLedger` with `SYNC_SECRET` instead.
 
-Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder: receipts go into `YYYY-MM/NN_activity` by submission month, backups into `備份`), `SYNC_SECRET` (at least 32 random characters). `SUMMARY_SYNCED_AT` is written by the script. Run `checkSetup` in the Apps Script editor to diagnose a wrong value or a missing backup schedule.
+Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder: receipts go into `YYYY-MM/NN_activity` by submission month, backups into `備份`), `SYNC_SECRET` (at least 32 random characters). `LEDGER_FILE_ID` is written by the script when the app first uploads its books. Run `checkSetup` in the Apps Script editor to diagnose a wrong value or a missing backup schedule.
 
 ## Run and deploy
 
@@ -41,18 +41,19 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 
 - Statuses match the app: 待審核, 已核准, 已付款, 退回. Expense categories live only in `CATEGORIES` in `backend/Code.js`: the web form reads them and the app takes them on each sync. 其他 accepts custom text.
 - Withdrawal: the applicant (own claims) or the treasurer (any claim) may withdraw while a claim is 待審核 or 退回. The row is deleted, receipts go to the Drive trash, and a row stays in 操作紀錄.
-- The treasurer can move a claim to any status on the web, 已付款 included. That 已付款 is only a marker: on sync the app keeps the claim approved and flags it until the payment, with its date and account, is recorded in the app. The app never writes 已付款 back.
+- The treasurer can move a claim to any status on the web. Choosing 已付款 asks for a date and account and records the payment in the ledger; moving a paid claim to another status removes that payment. A payment recorded in the app leaves the Sheet status as it was.
 - 權限表 columns: email, position (職位), name, note. Position 總務 has the treasurer's rights; any other position (活動, 教學…) is an officer, shown in the drawer and used by the review filter. An empty position means no access. The note is for people only. Claims from people no longer listed are filed under 已離任.
-- 財務彙總 holds aggregates only, written by the app on sync. Member data stays in the app; the Sheet holds name, Gmail and position.
+- Shared ledger: entries, claims with payments, accounts, payees, reconciliations, locked months and the trash live in one JSON file in Drive, read and written by the web (treasurer only) and the app. People, activities and settings stay in the app. Every write raises a version; the app uploads each change with the version it started from, and an upload from an older version is refused so the app takes the cloud copy instead. Every read merges the claims Sheet in. The overview totals are worked out from the ledger on each request; nothing is copied into the Sheet. The Sheet holds name, Gmail and position only.
 - The app keeps a link to each receipt and does not download photos.
 - No bank details are collected.
 - Sign-in lasts for the tab: the Google ID token is kept in sessionStorage until it expires (one hour), then Google's auto sign-in renews it. Signing out clears it and turns auto sign-in off.
 - Receipts are optional, for small purchases with no receipt or only a paper slip.
 - A trigger copies the whole Sheet into `備份` at 03:00 on the 1st of each month and keeps the newest twelve copies; older ones go to the Drive trash. Nothing in the Sheet is cleared.
-- Applicants can edit everything on their own claims in any status, the activity and receipts included, except the amount once 已付款. An approved or rejected claim returns to 待審核; a paid one keeps its status. Changing the activity moves the receipts into the new activity folder of the claim's month; removed receipts go to the Drive trash. The app's sync takes the edits, except the amount of a paid claim, and keeps a paid claim's ledger expense in the same category.
+- Applicants can edit everything on their own claims in any status, the activity and receipts included, except the amount once 已付款. An approved or rejected claim returns to 待審核; a paid one keeps its status. Changing the activity moves the receipts into the new activity folder of the claim's month; removed receipts go to the Drive trash. The ledger takes the edits, except the amount of a paid claim, and keeps a paid claim's expense in the same category.
 - Every claim names an activity. The form lists the activity folders in this month's `YYYY-MM` folder by name without their `01_` prefix, adding the session when a name repeats; 其他 creates a new folder, numbered as the next session if the name already exists. Receipts go into that folder. The list is cached for five minutes and cleared when an activity is created, so a folder added by hand in Drive can take that long to appear.
-- The app syncs once each time it opens and on demand: it pulls the claims first, then writes the current month's totals. The overview shows when the app last synced (Script Property `SUMMARY_SYNCED_AT`, set by `syncPush`) and, for the treasurer, how many claims await review.
-- Sync: the web decides 待審核, 已核准 and 退回; only a payment recorded in the app makes a claim 已付款 there. Synced claim ids must be UUIDs, and the app runs under a content security policy. A claim the app has paid ignores later web status changes. A web claim deleted in the app stays in its trash and is not pulled again. An unpaid claim deleted straight from the Sheet goes to the app's trash on the next sync; a paid one stays. The secret is stored in the app's data file and stripped from backups.
+- The app syncs when it opens, after each change, when its window regains focus and on demand. Changes made offline stay marked and upload on the next sync. The overview shows when the ledger last changed and, for the treasurer, how many claims await review.
+- Merging the Sheet: the web decides 待審核, 已核准 and 退回; a claim becomes paid only with a payment, which has a date and an account. A paid claim ignores later web status changes, and one marked 已付款 on the Sheet without a payment is flagged for one. Claim ids must be UUIDs, and the app runs under a content security policy. A claim in the ledger's trash is not taken again. An unpaid claim deleted straight from the Sheet goes to the trash; a paid one stays. The secret is stored in the app's data file and stripped from backups.
+- The web's 記帳 page shows a month's entries, its month-end balance per account, and adds, edits or deletes entries; deleted ones go to the app's trash. Locking months and reconciling stay in the app.
 
 ## Status
 
@@ -66,6 +67,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 | Activity folders, receipts optional, sign-in kept per tab | Live, tested with real claims and officers |
 | Claim editing: any field, activity and receipts | Live; amount and folder moves tested |
 | 4 Handover guide, monthly backup | Done; email notifications dropped, officers check the site and message each other |
+| 5 Shared cloud ledger: web 記帳 page and payments on the web | Built, not yet deployed |
 
 ## Remaining work
 

@@ -35,13 +35,19 @@ function reviewRequest(user, payload) {
     if (!id || index < 0) throw missingClaim();
     const status = cellText(rows[index][COL["狀態"]]);
     if (status === target) throw appError("invalid", `這筆申請已經是「${status}」。`);
-    const now = new Date().toISOString();
-    // 狀態 through 更新時間 are the last five columns, written as one range.
-    tab(CLAIM_SHEET).getRange(index + 2, COL["狀態"] + 1, 1, 5)
-      .setValues([[target, user.email, now, note, now].map(safeCell)]);
+    // Leaving 已付款 takes the payment out of the ledger as well.
+    revokePayment(id, target);
+    setSheetStatus(index, target, user.email, note);
     appendLog(user.email, `reviewRequest:${target}`, id);
     return { id, status: target };
   });
+}
+
+// 狀態 through 更新時間 are the last five columns, written as one range. Call inside withLock.
+function setSheetStatus(index, status, email, note) {
+  const now = new Date().toISOString();
+  tab(CLAIM_SHEET).getRange(index + 2, COL["狀態"] + 1, 1, 5)
+    .setValues([[status, email, now, note, now].map(safeCell)]);
 }
 
 // Receipts are served through the backend, so nobody needs direct access to the Drive folder.
@@ -163,15 +169,12 @@ function withdrawRequest(user, payload) {
   return { id };
 }
 
-// Totals only; the summary tab must never hold personal data.
-// syncedAt says how fresh the totals are; only the treasurer gets the review count.
+// Totals only, worked out from the ledger with the latest claims merged in (not saved).
+// syncedAt is when the ledger last changed; only the treasurer gets the review count.
 function getSummary(user) {
-  const summary = {
-    items: dataRows(SUMMARY_SHEET, SUMMARY_HEADER.length)
-      .map((row) => ({ label: cellText(row[0]), amount: Number(row[1]) }))
-      .filter((item) => item.label && Number.isFinite(item.amount)),
-    syncedAt: PropertiesService.getScriptProperties().getProperty(SYNCED_AT_PROPERTY) || ""
-  };
+  const doc = readLedger();
+  if (doc) mergeSheetClaims(doc.ledger);
+  const summary = { items: doc ? summaryRows(doc.ledger, currentMonth()) : [], syncedAt: doc ? doc.savedAt : "" };
   if (user.role === "treasurer") {
     summary.pendingReview = dataRows(CLAIM_SHEET, CLAIM_HEADER.length)
       .filter((row) => cellText(row[COL["狀態"]]) === STATUS_PENDING).length;
