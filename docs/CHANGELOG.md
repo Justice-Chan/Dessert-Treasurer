@@ -4,6 +4,7 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- The monthly backup also copies the shared ledger into 備份, keeping the newest twelve.
 - At noon on the 1st, last month's 月結報表 is saved as a PDF beside the shared ledger, laid out like the app's printed report.
 - The shared ledger lives in the folder named by the LEDGER_FOLDER_ID Script Property when set, and moves there on its next save.
 - The 記帳 page groups a month's entries by day under headers that stay in view, with each day's net; filters for income or expense; shows the month's net beside income and expense; and keeps 新增收支 as a floating button. Row chevrons sit level with the amount, and the overview figures line up with the cards.

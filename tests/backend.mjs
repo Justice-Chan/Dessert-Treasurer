@@ -249,3 +249,12 @@ test("the monthly report shows the month's figures, entries and claims", async (
   for (const text of ["2026 年 10 月", "月結已核對", "$3,000", "$1,250", "$1,750", "$400", "期初社費", "&lt;王小明&gt;", "已核准"]) assert.ok(html.includes(text), text);
   assert.ok(!html.includes("雜支"));
 });
+
+test("only the newest twelve copies of a backup are kept", async () => {
+  const { run } = await loadBackend();
+  const files = Array.from({ length: 14 }, (_, n) => ({ name: `甜點社帳本 備份 ${n}`, created: n, trashed: false }));
+  files.push({ name: "Access Sheet 備份 1", created: 0, trashed: false });
+  const folder = { getFiles: () => iterate(files.map((file) => ({ getName: () => file.name, getDateCreated: () => file.created, setTrashed: (value) => { file.trashed = value; } }))) };
+  assert.equal(run("keepNewest")(folder, "甜點社帳本 備份"), 12);
+  assert.deepEqual(files.filter((file) => file.trashed).map((file) => file.name), ["甜點社帳本 備份 0", "甜點社帳本 備份 1"]);
+});
