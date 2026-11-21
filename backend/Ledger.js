@@ -6,6 +6,7 @@
 
 const LEDGER_FILE = "甜點社帳本.json";
 const LEDGER_FILE_PROPERTY = "LEDGER_FILE_ID";
+const LEDGER_FOLDER_PROPERTY = "LEDGER_FOLDER_ID";
 const LEDGER_KEYS = ["entries", "claims", "trash", "accounts", "payees", "reconciliations", "lockedMonths"];
 const LEDGER_MAX_ITEMS = 50000;
 // DriveApp replaces a file's text only up to 10 MB.
@@ -35,6 +36,12 @@ function readLedger() {
   return file ? JSON.parse(file.getBlob().getDataAsString("UTF-8")) : null;
 }
 
+// LEDGER_FOLDER_ID holds the ledger and the monthly reports; without it, the receipts folder does.
+function ledgerFolder() {
+  const id = PropertiesService.getScriptProperties().getProperty(LEDGER_FOLDER_PROPERTY) || property("DRIVE_FOLDER_ID");
+  return DriveApp.getFolderById(id);
+}
+
 // Call inside withLock.
 function writeLedger(ledger, version) {
   const doc = { version, savedAt: new Date().toISOString(), ledger };
@@ -43,9 +50,14 @@ function writeLedger(ledger, version) {
     throw appError("invalid", "帳本超過 10 MB，請刪除帳戶或收款帳戶裡較大的 QR code 圖片。");
   }
   const file = ledgerFile();
-  if (file) file.setContent(text);
-  else {
-    const created = DriveApp.getFolderById(property("DRIVE_FOLDER_ID")).createFile(LEDGER_FILE, text, "application/json");
+  const folder = ledgerFolder();
+  if (file) {
+    file.setContent(text);
+    // A ledger made before LEDGER_FOLDER_ID was set moves there on its next write.
+    const parents = file.getParents();
+    if (!parents.hasNext() || parents.next().getId() !== folder.getId()) file.moveTo(folder);
+  } else {
+    const created = folder.createFile(LEDGER_FILE, text, "application/json");
     PropertiesService.getScriptProperties().setProperty(LEDGER_FILE_PROPERTY, created.getId());
   }
   return doc;

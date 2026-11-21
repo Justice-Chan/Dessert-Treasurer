@@ -231,3 +231,21 @@ test("paying a claim on the web books the expense, and leaving 已付款 takes i
   assert.equal(store.doc.ledger.entries.length, 0);
   assert.equal(store.doc.ledger.claims[0].status, "approved");
 });
+
+test("the monthly report shows the month's figures, entries and claims", async () => {
+  const { run } = await loadBackend();
+  const ledger = emptyLedger();
+  ledger.entries.push(
+    { id: "a", type: "income", amount: 3000, date: "2026-10-03", accountId: "cash", parent: "社費與會費", child: "期初社費", title: "期初社費" },
+    { id: "b", type: "expense", amount: 1250, date: "2026-10-09", accountId: "cash", parent: "食材與耗材", child: "乳品", claimId: id(1) },
+    { id: "c", type: "expense", amount: 99, date: "2026-11-01", accountId: "cash", parent: "行政庶務", child: "雜支" }
+  );
+  ledger.claims.push(
+    { id: id(1), status: "paid", amount: 1250, date: "2026-10-08", paymentDate: "2026-10-09", person: "<王小明>", title: "乳品" },
+    { id: id(2), status: "approved", amount: 400, date: "2026-10-20", person: "李小華", title: "包材" }
+  );
+  ledger.reconciliations.push({ month: "2026-10", accountId: "cash", actualBalance: 2750, calculatedBalance: 2750 });
+  const html = run("monthlyReportHtml")(ledger, "2026-10", "2026/11/01 12:00");
+  for (const text of ["2026 年 10 月", "月結已核對", "$3,000", "$1,250", "$1,750", "$400", "期初社費", "&lt;王小明&gt;", "已核准"]) assert.ok(html.includes(text), text);
+  assert.ok(!html.includes("雜支"));
+});

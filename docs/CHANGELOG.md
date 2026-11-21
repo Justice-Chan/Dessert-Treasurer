@@ -4,6 +4,8 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- At noon on the 1st, last month's 月結報表 is saved as a PDF beside the shared ledger, laid out like the app's printed report.
+- The shared ledger lives in the folder named by the LEDGER_FOLDER_ID Script Property when set, and moves there on its next save.
 - The 記帳 page groups a month's entries by day under headers that stay in view, with each day's net; filters for income or expense; shows the month's net beside income and expense; and keeps 新增收支 as a floating button. Row chevrons sit level with the amount, and the overview figures line up with the cards.
 - 我的申請 rows open the claim for editing; 撤銷申請 moved to the edit form's title row, as 刪除 did on the entry form. A claim's 修改 button sits beside its last detail row.
 - Edited claims whose receipt folder was deleted by hand in Drive put new receipts in the month's folder instead of the trash.

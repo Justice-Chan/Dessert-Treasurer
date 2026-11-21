@@ -5,6 +5,7 @@
 //   SHEET_ID         Spreadsheet holding the tabs below
 //   DRIVE_FOLDER_ID  Drive folder holding the monthly (YYYY-MM) receipt folders
 //   SYNC_SECRET      Long random string the desktop app sends with syncLedger
+//   LEDGER_FOLDER_ID Optional folder for the shared ledger and the monthly reports (else DRIVE_FOLDER_ID)
 // LEDGER_FILE_ID is written by the script when the app first uploads the shared ledger (Ledger.js).
 //
 // 權限表 is maintained by hand: email, position (職位), name and a free-text note the script never reads.
@@ -160,6 +161,10 @@ function checkSetup() {
     "收據資料夾可開啟": () => DriveApp.getFolderById(property("DRIVE_FOLDER_ID")).getName(),
     "每月備份已排程": () => {
       if (!ScriptApp.getProjectTriggers().some((trigger) => trigger.getHandlerFunction() === "monthlyBackup")) throw new Error("請執行 setupMonthlyBackup");
+      return "OK";
+    },
+    "每月月結報表已排程": () => {
+      if (!ScriptApp.getProjectTriggers().some((trigger) => trigger.getHandlerFunction() === "monthlyReport")) throw new Error("請執行 setupMonthlyReport");
       return "OK";
     },
     "雲端帳本已建立": () => {

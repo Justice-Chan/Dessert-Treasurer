@@ -9,13 +9,13 @@ Live site: <https://justice-chan.github.io/Dessert-Treasurer/>
 | Part | Location | Hosted on |
 | --- | --- | --- |
 | Dashboard (plain HTML/CSS/JS, no build step; scripts load in order, `main.js` last) | `web/` | GitHub Pages, deployed by `.github/workflows/deploy-pages.yml` on pushes that touch `web/` |
-| Backend (`Code.js` handles requests; `Sheet`, `Claims`, `Review`, `Ledger`, `Sync`, `Backup` by feature) | `backend/*.js`, `backend/appsscript.json` | Google Apps Script web app, runs as the deploying account |
+| Backend (`Code.js` handles requests; `Sheet`, `Claims`, `Review`, `Ledger`, `Report`, `Sync`, `Backup` by feature) | `backend/*.js`, `backend/appsscript.json` | Google Apps Script web app, runs as the deploying account |
 | Data | Google Sheet (tabs: 權限表, 報帳申請, 操作紀錄) and a Drive folder holding receipts, monthly backups and the shared ledger `甜點社帳本.json` | The deploying account's Google Drive |
 | Desktop app | `frontend/`, `src-tauri/` | The treasurer's computer; rebuild after app changes with `npm run update:mac` |
 
 The dashboard posts `{action, idToken, payload}` to the backend. The backend verifies the Google ID token (cached by its hash until it expires) and checks the position in 權限表 on every call; the page hides controls only for convenience. The desktop app calls `syncLedger` with `SYNC_SECRET` instead.
 
-Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder: receipts go into `YYYY-MM/NN_activity` by submission month, backups into `備份`), `SYNC_SECRET` (at least 32 random characters). `LEDGER_FILE_ID` is written by the script when the app first uploads its books. Run `checkSetup` in the Apps Script editor to diagnose a wrong value or a missing backup schedule.
+Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder: receipts go into `YYYY-MM/NN_activity` by submission month, backups into `備份`), `SYNC_SECRET` (at least 32 random characters). `LEDGER_FOLDER_ID` (optional) is the folder for the shared ledger and the monthly reports; without it they go in `DRIVE_FOLDER_ID`. `LEDGER_FILE_ID` is written by the script when the app first uploads its books. Run `checkSetup` in the Apps Script editor to diagnose a wrong value or a missing backup schedule.
 
 ## Run and deploy
 
@@ -33,7 +33,7 @@ Deploy the backend (needs `backend/.clasp.json`, copied from `.clasp.json.exampl
 cd backend && clasp push --force && clasp create-deployment -i <deployment id from web/config.js> -d "<what changed>"
 ```
 
-Reusing the deployment id keeps the URL in `web/config.js` valid. Pushing to `main` deploys the dashboard. When a change adds an OAuth scope to `appsscript.json`, run any function in the editor once to grant it, or the web app fails until then. On a new deployment, run `setupMonthlyBackup` once to schedule the backup.
+Reusing the deployment id keeps the URL in `web/config.js` valid. Pushing to `main` deploys the dashboard. When a change adds an OAuth scope to `appsscript.json`, run any function in the editor once to grant it, or the web app fails until then. On a new deployment, run `setupMonthlyBackup` and `setupMonthlyReport` once each to schedule the backup and the report.
 
 Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*.json` are git-ignored. `web/config.js` holds only the public OAuth client id and backend URL.
 
@@ -54,6 +54,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 - The app syncs when it opens, after each change, when its window regains focus and on demand. Changes made offline stay marked and upload on the next sync. The overview shows when the ledger last changed and, for the treasurer, how many claims await review.
 - Merging the Sheet: the web decides 待審核, 已核准 and 退回; a claim becomes paid only with a payment, which has a date and an account. A paid claim ignores later web status changes, and one marked 已付款 on the Sheet without a payment is flagged for one. Claim ids must be UUIDs, and the app runs under a content security policy. A claim in the ledger's trash is not taken again. An unpaid claim deleted straight from the Sheet goes to the trash; a paid one stays. The secret is stored in the app's data file and stripped from backups.
 - The treasurer has no My claims page: their own claims show as 本人 in the review list, with a 修改 button on the detail page.
+- At noon on the 1st, `monthlyReport` saves the month just ended as 甜點社N月月結報表.pdf in the ledger folder, with the same figures and tables as the app's 月結報表. Running it again replaces that month's report.
 - The web's 記帳 page shows a month's entries, its month-end balance per account, and adds, edits or deletes entries; deleted ones go to the app's trash. Locking months and reconciling stay in the app.
 
 ## Status
