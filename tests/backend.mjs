@@ -294,3 +294,15 @@ test("the app's changes go in record by record, and the web's edits to the same 
   assert.equal(reply.version, 3);
   assert.deepEqual(plain(store.doc.ledger.lockedMonths), ["2026-10"]);
 });
+
+test("the web's ledger view carries each month's figures and the locked date", async () => {
+  const { run } = await loadBackend();
+  const ledger = { ...emptyLedger(), lockedMonths: ["2026-09", "2026-08"] };
+  ledger.accounts[0].openingDate = "2026-09-15";
+  ledger.entries.push({ id: "a", type: "income", amount: 300, date: "2026-10-03", accountId: "cash" }, { id: "b", type: "expense", amount: 50, date: "2026-10-04", accountId: "cash" });
+  const view = plain(run("ledgerView")({ version: 1, savedAt: "", ledger }));
+  assert.equal(view.lockedUntil, "2026-09-30");
+  assert.equal(Object.keys(view.months)[0], "2026-09");
+  assert.deepEqual(view.months["2026-09"], { balance: 1000, accounts: [{ name: "現金", amount: 1000 }], income: 0, expense: 0 });
+  assert.deepEqual(view.months["2026-10"], { balance: 1250, accounts: [{ name: "現金", amount: 1250 }], income: 300, expense: 50 });
+});

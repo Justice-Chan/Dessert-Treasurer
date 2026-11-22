@@ -3,11 +3,16 @@ import { readFile } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = fileURLToPath(new URL("../dist/", import.meta.url));
+// The built app at /, and the web dashboard (web/) at /dashboard/.
+const app = fileURLToPath(new URL("../dist/", import.meta.url));
+const dashboard = fileURLToPath(new URL("../web/", import.meta.url));
 const contentTypes = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png" };
 
 const server = createServer(async (request, response) => {
-  const path = new URL(request.url, "http://127.0.0.1").pathname.replace(/^[/\\]+/, "") || "index.html";
+  const pathname = new URL(request.url, "http://127.0.0.1").pathname;
+  const isDashboard = pathname.startsWith("/dashboard/");
+  const root = isDashboard ? dashboard : app;
+  const path = (isDashboard ? pathname.slice("/dashboard/".length) : pathname).replace(/^[/\\]+/, "") || "index.html";
   const file = resolve(root, path);
   const withinRoot = relative(root, file);
   if (withinRoot.startsWith("..") || isAbsolute(withinRoot)) {

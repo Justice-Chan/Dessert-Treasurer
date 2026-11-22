@@ -362,9 +362,35 @@ function ledgerView(doc) {
     })),
     payments: ledger.claims.filter((claim) => claim.status === "paid")
       .map((claim) => ({ id: claim.id, date: claim.paymentDate, accountId: claim.paymentAccountId })),
-    lockedMonths: ledger.lockedMonths,
+    months: monthFigures(ledger),
+    // Nothing dated up to this day may change: the end of the last locked month, or "".
+    lockedUntil: ledger.lockedMonths.length ? monthEnd([...ledger.lockedMonths].sort().pop()) : "",
     categories: { income: INCOME_CATEGORIES, expense: CATEGORIES }
   };
+}
+
+// Each month from the first opening or entry to this month: its month-end balance per account and
+// its income and expense, worked out here so the web page applies no accounting rules of its own.
+function monthFigures(ledger) {
+  const entries = activeEntries(ledger);
+  const starts = [...ledger.accounts.map((account) => account.openingDate), ...entries.map((entry) => entry.date)]
+    .filter((date) => DATE_PATTERN.test(date || "")).sort();
+  const last = currentMonth();
+  const figures = {};
+  for (let month = (starts[0] || `${last}-01`).slice(0, 7); month <= last; month = nextMonth(month)) {
+    const end = monthEnd(month);
+    const accounts = ledger.accounts.filter((account) => accountExistsAt(account, end))
+      .map((account) => ({ name: account.name, amount: accountBalance(account, entries, end) }));
+    const inMonth = entries.filter((entry) => String(entry.date || "").startsWith(month));
+    const total = (type) => inMonth.filter((entry) => entry.type === type).reduce((sum, entry) => sum + Number(entry.amount), 0);
+    figures[month] = { balance: accounts.reduce((sum, account) => sum + account.amount, 0), accounts, income: total("income"), expense: total("expense") };
+  }
+  return figures;
+}
+
+function nextMonth(month) {
+  const [year, number] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, number, 1)).toISOString().slice(0, 7);
 }
 
 function getLedger(user) {

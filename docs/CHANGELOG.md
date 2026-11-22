@@ -4,6 +4,8 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- The web's 記帳 figures (balances, income, expense, locked date) come from the backend, so the accounting rules live in one place on the web side.
+- The web dashboard has browser tests against a stand-in backend, run with the app's tests in CI.
 - The app uploads its changes record by record: only records the web also changed keep the web's version, instead of the whole upload being refused.
 - The web overview is cached for five minutes and cleared by any change; saving entries skips re-reading the claims, and withdrawn claims leave the ledger at once, so 操作紀錄 is no longer read on each request.
 - The monthly backups go to 備份 in the ledger folder (LEDGER_FOLDER_ID) rather than the receipts folder.

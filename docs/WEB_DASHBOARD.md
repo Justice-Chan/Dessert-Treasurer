@@ -25,7 +25,7 @@ Preview the dashboard at `http://localhost:8080/` and the desktop app's UI at `/
 node scripts/dev-server.mjs
 ```
 
-Google sign-in works locally only from an origin listed on the OAuth client. `npm run check:web` parses every dashboard and backend file, and `npm run test:backend` runs the backend's unit tests in Node; CI runs both.
+Google sign-in works locally only from an origin listed on the OAuth client. `npm run check:web` parses every dashboard and backend file, `npm run test:backend` runs the backend's unit tests in Node, and `npm run test:ui` runs the app's and the dashboard's browser tests (`tests/web.spec.mjs` serves `web/` at `/dashboard/` with a stand-in backend); CI runs all three.
 
 Deploy the backend (needs `backend/.clasp.json`, copied from `.clasp.json.example`, and a `clasp login`):
 
@@ -55,7 +55,7 @@ Secrets never enter the repo: `.clasp.json`, `.clasprc.json` and `client_secret*
 - Merging the Sheet: the web decides 待審核, 已核准 and 退回; a claim becomes paid only with a payment, which has a date and an account. A paid claim ignores later web status changes, and one marked 已付款 on the Sheet without a payment is flagged for one. Claim ids must be UUIDs, and the app runs under a content security policy. A claim in the ledger's trash is not taken again. An unpaid claim deleted straight from the Sheet goes to the trash; a paid one stays. The secret is stored in the app's data file and stripped from backups.
 - The treasurer has no My claims page: their own claims show as 本人 in the review list, with a 修改 button on the detail page.
 - At noon on the 1st, `monthlyReport` saves the month just ended as 甜點社N月月結報表.pdf in the ledger folder, with the same figures and tables as the app's 月結報表. Running it again replaces that month's report.
-- The web's 記帳 page shows a month's entries, its month-end balance per account, and adds, edits or deletes entries; deleted ones go to the app's trash. Locking months and reconciling stay in the app.
+- The web's 記帳 page shows a month's entries and the figures the backend works out for it (month-end balance per account, income, expense, and the date up to which the books are locked), so the page applies no accounting rules of its own. It adds, edits or deletes entries; deleted ones go to the app's trash. Locking months and reconciling stay in the app.
 
 ## Status
 

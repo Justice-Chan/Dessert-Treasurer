@@ -35,23 +35,9 @@ function monthEndOf(month) {
   return new Date(Date.UTC(year, number, 0)).toISOString().slice(0, 10);
 }
 
-// The same rules as the desktop app: an account counts from its opening date until it was deleted.
-function accountExistsAt(account, end) {
-  const deleted = account.deletedAt ? account.deletedAt.slice(0, 10) : "";
-  return (account.openingDate || "0001-01-01") <= end && (!deleted || end < deleted);
-}
-
-function accountBalanceAt(account, end) {
-  const opening = account.openingDate || "0001-01-01";
-  if (end < opening) return 0;
-  return account.openingBalance + ledger.entries
-    .filter((entry) => entry.accountId === account.id && entry.date >= opening && entry.date <= end)
-    .reduce((sum, entry) => sum + (entry.type === "income" ? entry.amount : -entry.amount), 0);
-}
-
-// A locked month freezes every balance up to its end, so nothing dated before then may change.
+// The backend says up to which day the books are locked; nothing dated then or earlier may change.
 function isLockedDate(date) {
-  return ledger.lockedMonths.some((month) => date <= monthEndOf(month));
+  return Boolean(ledger.lockedUntil) && date <= ledger.lockedUntil;
 }
 
 function accountName(id) {
@@ -59,24 +45,24 @@ function accountName(id) {
 }
 
 function renderLedger() {
-  const end = monthEndOf(ledgerMonth);
   const [year, number] = ledgerMonth.split("-").map(Number);
+  const months = Object.keys(ledger.months).sort();
   $("#ledgerMonth").textContent = `${year} 年 ${number} 月`;
+  $("#ledgerPrev").disabled = ledgerMonth <= months[0];
   $("#ledgerNext").disabled = ledgerMonth >= localToday().slice(0, 7);
   $("#ledgerBalanceLabel").textContent = `${number} 月底帳面餘額`;
-  const balances = ledger.accounts.filter((account) => accountExistsAt(account, end))
-    .map((account) => ({ name: account.name, amount: accountBalanceAt(account, end) }));
-  $("#ledgerBalance").textContent = money.format(balances.reduce((sum, item) => sum + item.amount, 0));
-  $("#ledgerAccounts").textContent = balances.map((item) => `${item.name} ${money.format(item.amount)}`).join(" · ");
-
-  const monthEntries = ledger.entries.filter((entry) => entry.date.startsWith(ledgerMonth));
-  const total = (type) => monthEntries.filter((entry) => entry.type === type).reduce((sum, entry) => sum + entry.amount, 0);
-  const net = total("income") - total("expense");
-  $("#ledgerIncome").textContent = money.format(total("income"));
-  $("#ledgerExpense").textContent = money.format(total("expense"));
+  // The figures come from the backend, which applies the same rules as the app.
+  const figures = ledger.months[ledgerMonth] || { balance: 0, accounts: [], income: 0, expense: 0 };
+  $("#ledgerBalance").textContent = money.format(figures.balance);
+  $("#ledgerAccounts").textContent = figures.accounts.map((item) => `${item.name} ${money.format(item.amount)}`).join(" · ");
+  const net = figures.income - figures.expense;
+  $("#ledgerIncome").textContent = money.format(figures.income);
+  $("#ledgerExpense").textContent = money.format(figures.expense);
   $("#ledgerNet").textContent = signed(net);
   $("#ledgerNet").className = net < 0 ? "expense" : "income";
-  $("#ledgerLocked").hidden = !isLockedDate(end);
+  $("#ledgerLocked").hidden = !isLockedDate(monthEndOf(ledgerMonth));
+
+  const monthEntries = ledger.entries.filter((entry) => entry.date.startsWith(ledgerMonth));
 
   const entries = monthEntries.filter((entry) => !ledgerFilter || entry.type === ledgerFilter)
     .sort((a, b) => b.date.localeCompare(a.date));
