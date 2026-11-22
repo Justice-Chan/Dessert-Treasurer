@@ -537,7 +537,9 @@ test("changes upload with their base version, and a newer cloud ledger wins", as
   let cloud = { version: 3, ledger: { entries: [], claims: [webClaim(2, "雲端")], trash: [], accounts: [], payees: [], reconciliations: [], lockedMonths: [] } };
   const uploads = [];
   let refuse = false;
+  let calls = 0;
   await page.route(backend, async (route) => {
+    calls += 1;
     const { payload } = JSON.parse(route.request().postData());
     let conflict = false;
     if (payload.ledger) {
@@ -551,6 +553,10 @@ test("changes upload with their base version, and a newer cloud ledger wins", as
   await openSection(page, "報銷");
   await expect(page.locator("#claimRows")).toContainText("雲端");
   expect(uploads).toEqual([]);
+  // The window gaining focus as it opens does not start a second sync.
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  expect(calls).toBe(1);
+  await expect(page.locator("#ledgerSyncStatus")).toBeHidden();
 
   await openSection(page, "記帳");
   await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 80 });

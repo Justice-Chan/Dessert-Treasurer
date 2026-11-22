@@ -1484,3 +1484,6 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
   .bar-row { grid-template-columns: 1fr; gap: 6px; }
   .month-list { grid-template-columns: repeat(6, minmax(42px, 1fr)); }
 }
+
+/* Shown while the cloud ledger syncs, and after a failed sync. */
+.sync-status { align-self: center; color: var(--muted); font-size: 13px; white-space: nowrap; }

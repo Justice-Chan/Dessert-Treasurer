@@ -4,6 +4,8 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- The monthly backups go to 備份 in the ledger folder (LEDGER_FOLDER_ID) rather than the receipts folder.
+- Opening the app redraws as soon as the cloud ledger arrives instead of after a second sync, and the top bar says 同步中… meanwhile (未同步 if it failed).
 - The monthly backup also copies the shared ledger into 備份, keeping the newest twelve.
 - At noon on the 1st, last month's 月結報表 is saved as a PDF beside the shared ledger, laid out like the app's printed report.
 - The shared ledger lives in the folder named by the LEDGER_FOLDER_ID Script Property when set, and moves there on its next save.

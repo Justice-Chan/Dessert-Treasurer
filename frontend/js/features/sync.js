@@ -80,6 +80,7 @@ async function syncLedger({ quiet = false } = {}) {
   }
   ledgerSyncRunning = true;
   $("#syncWebClaims").disabled = true;
+  setLedgerSyncStatus("同步中…");
   let conflict = false;
   try {
     do {
@@ -96,19 +97,23 @@ async function syncLedger({ quiet = false } = {}) {
         ledgerSyncAgain = true;
         continue;
       }
+      // Redraw as soon as the cloud copy arrives, before any further round.
       applyCloudLedger(reply);
+      saveState();
     } while (ledgerSyncAgain);
     state.webSync.lastSyncedAt = new Date().toISOString();
     ledgerSyncedAt = Date.now();
     saveState();
     renderWebSyncSettings();
     ledgerSyncFailing = false;
+    setLedgerSyncStatus("");
     if (conflict) toast("網頁上的帳本比較新，這台電腦剛才的變更沒有上傳，已改用雲端的帳本。請確認後重新輸入。", "error");
     else if (!quiet) toast("已同步雲端帳本。");
   } catch (error) {
     renderWebSyncSettings();
     if (!quiet || !ledgerSyncFailing) toast(`雲端帳本同步失敗：${error.message || "請稍後再試。"}變更會留在這台電腦，下次同步時上傳。`);
     ledgerSyncFailing = true;
+    setLedgerSyncStatus("未同步", error.message);
   } finally {
     ledgerSyncRunning = false;
     $("#syncWebClaims").disabled = false;
@@ -130,10 +135,18 @@ function applyCloudLedger(reply) {
   loadReconciliationForm();
 }
 
+// A small note in the top bar while the books are on their way, and when the last sync failed.
+function setLedgerSyncStatus(text, detail = "") {
+  $("#ledgerSyncStatus").textContent = text;
+  $("#ledgerSyncStatus").title = detail;
+  $("#ledgerSyncStatus").hidden = !text;
+}
+
 function startLedgerSync() {
   syncLedger({ quiet: true });
-  // Coming back to the app picks up what was done on the web meanwhile.
+  // Coming back to the app picks up what was done on the web meanwhile. The window also gains
+  // focus as it opens, while the first sync is still out; that one is not repeated.
   window.addEventListener("focus", () => {
-    if (!state.ledgerSync.dirty && Date.now() - ledgerSyncedAt > 30000) syncLedger({ quiet: true });
+    if (!ledgerSyncRunning && !state.ledgerSync.dirty && Date.now() - ledgerSyncedAt > 30000) syncLedger({ quiet: true });
   });
 }

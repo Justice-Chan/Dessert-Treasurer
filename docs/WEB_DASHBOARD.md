@@ -15,7 +15,7 @@ Live site: <https://justice-chan.github.io/Dessert-Treasurer/>
 
 The dashboard posts `{action, idToken, payload}` to the backend. The backend verifies the Google ID token (cached by its hash until it expires) and checks the position in 權限表 on every call; the page hides controls only for convenience. The desktop app calls `syncLedger` with `SYNC_SECRET` instead.
 
-Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder: receipts go into `YYYY-MM/NN_activity` by submission month, backups into `備份`), `SYNC_SECRET` (at least 32 random characters). `LEDGER_FOLDER_ID` (optional) is the folder for the shared ledger and the monthly reports; without it they go in `DRIVE_FOLDER_ID`. `LEDGER_FILE_ID` is written by the script when the app first uploads its books. Run `checkSetup` in the Apps Script editor to diagnose a wrong value or a missing backup schedule.
+Script Properties on the Apps Script project: `OAUTH_CLIENT_ID`, `SHEET_ID`, `DRIVE_FOLDER_ID` (the parent folder: receipts go into `YYYY-MM/NN_activity` by submission month), `SYNC_SECRET` (at least 32 random characters). `LEDGER_FOLDER_ID` (optional) is the folder for the shared ledger, the monthly reports and `備份`; without it they go in `DRIVE_FOLDER_ID`. `LEDGER_FILE_ID` is written by the script when the app first uploads its books. Run `checkSetup` in the Apps Script editor to diagnose a wrong value or a missing backup schedule.
 
 ## Run and deploy
 

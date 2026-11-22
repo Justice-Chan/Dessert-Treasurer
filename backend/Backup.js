@@ -5,11 +5,11 @@
 const BACKUP_FOLDER = "備份";
 const BACKUP_KEEP = 12;
 
-// Copies the whole spreadsheet, and the shared ledger once it exists, into 備份 under the receipts
-// folder, then keeps only the newest BACKUP_KEEP copies of each. Runs on the 1st of each month once
+// Copies the whole spreadsheet, and the shared ledger once it exists, into 備份 in the ledger folder
+// (LEDGER_FOLDER_ID, else the receipts folder), then keeps only the newest BACKUP_KEEP copies of each. Runs on the 1st of each month once
 // setupMonthlyBackup has been run. Older copies go to the Drive trash, recoverable for 30 days.
 function monthlyBackup() {
-  const root = DriveApp.getFolderById(property("DRIVE_FOLDER_ID"));
+  const root = ledgerFolder();
   const existing = root.getFoldersByName(BACKUP_FOLDER);
   const folder = existing.hasNext() ? existing.next() : root.createFolder(BACKUP_FOLDER);
   const date = Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM-dd");
