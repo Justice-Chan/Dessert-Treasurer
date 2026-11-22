@@ -1,8 +1,8 @@
 // The shared ledger (backend/Ledger.js): entries, claims, accounts and reconciliations live in the
 // cloud, where the web's ledger page reads and writes them too; people, activities and settings stay
-// on this computer. Each change here is uploaded with the version it was based on, and the reply is
-// the cloud copy with the claims sheet merged in. If the web changed the books first, the upload is
-// refused and this app takes the cloud copy.
+// on this computer. Changes go up record by record, each with the record as last agreed with the
+// cloud, and the reply is the cloud copy with the claims sheet merged in. A record the web changed
+// meanwhile keeps the web's version; every other change goes in.
 const ledgerKeys = ["entries", "claims", "trash", "accounts", "payees", "reconciliations", "lockedMonths"];
 let ledgerSyncRunning = false;
 let ledgerSyncAgain = false;
@@ -82,18 +82,26 @@ async function syncLedger({ quiet = false } = {}) {
   $("#syncWebClaims").disabled = true;
   setLedgerSyncStatus("同步中…");
   let conflict = false;
+  let skipped = 0;
   try {
     do {
       ledgerSyncAgain = false;
       const sent = ledgerJson();
-      const upload = state.ledgerSync.dirty;
-      let reply = await callWebSync("syncLedger", { baseVersion: state.ledgerSync.version, ...(upload ? { ledger: JSON.parse(sent) } : {}) });
+      const upload = !state.ledgerSync.dirty ? {}
+        // Without the agreed copy (a change left unsent last time) the whole books go, and are
+        // refused if the cloud moved on.
+        : agreedLedgerJson === null ? { ledger: JSON.parse(sent) }
+        : { patch: ledgerPatch(JSON.parse(agreedLedgerJson), JSON.parse(sent)) };
+      let reply = await callWebSync("syncLedger", { baseVersion: state.ledgerSync.version, ...upload });
       // The first sync with an empty cloud uploads this app's books.
       if (!reply.ledger) reply = await callWebSync("syncLedger", { baseVersion: 0, ledger: JSON.parse(sent) });
       conflict ||= reply.conflict;
+      skipped += reply.skipped || 0;
       if (ledgerJson() !== sent && !reply.conflict) {
-        // Changed while the request was out: keep the local books and send them next round.
+        // Changed while the request was out: keep the local books and send the newer changes next
+        // round, against what this round sent.
         state.ledgerSync = { version: reply.version, dirty: true };
+        if (!reply.conflict) agreedLedgerJson = sent;
         ledgerSyncAgain = true;
         continue;
       }
@@ -108,6 +116,7 @@ async function syncLedger({ quiet = false } = {}) {
     ledgerSyncFailing = false;
     setLedgerSyncStatus("");
     if (conflict) toast("網頁上的帳本比較新，這台電腦剛才的變更沒有上傳，已改用雲端的帳本。請確認後重新輸入。", "error");
+    else if (skipped) toast(`有 ${skipped} 筆紀錄網頁也改過，這幾筆採用網頁的版本；其他變更都已上傳。`, "error");
     else if (!quiet) toast("已同步雲端帳本。");
   } catch (error) {
     renderWebSyncSettings();
@@ -118,6 +127,32 @@ async function syncLedger({ quiet = false } = {}) {
     ledgerSyncRunning = false;
     $("#syncWebClaims").disabled = false;
   }
+}
+
+// Per collection, the records added, changed or removed since the agreed copy, each with its agreed
+// version; locked months as added and removed.
+function ledgerPatch(agreed, current) {
+  const canonical = (value) => JSON.stringify(value, (key, item) => (item && typeof item === "object" && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map((name) => [name, item[name]]))
+    : item));
+  const records = {};
+  ledgerKeys.filter((key) => key !== "lockedMonths").forEach((key) => {
+    const before = new Map((agreed[key] || []).filter((item) => item?.id).map((item) => [item.id, item]));
+    const after = new Map((current[key] || []).filter((item) => item?.id).map((item) => [item.id, item]));
+    const changes = [];
+    after.forEach((next, id) => {
+      const base = before.get(id) || null;
+      if (!base || canonical(base) !== canonical(next)) changes.push({ id, base, next });
+    });
+    before.forEach((base, id) => { if (!after.has(id)) changes.push({ id, base, next: null }); });
+    if (changes.length) records[key] = changes;
+  });
+  const was = new Set(agreed.lockedMonths || []);
+  const now = new Set(current.lockedMonths || []);
+  return {
+    records,
+    lockedMonths: { added: [...now].filter((month) => !was.has(month)), removed: [...was].filter((month) => !now.has(month)) }
+  };
 }
 
 function applyCloudLedger(reply) {

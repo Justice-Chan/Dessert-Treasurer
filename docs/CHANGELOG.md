@@ -4,6 +4,8 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- The app uploads its changes record by record: only records the web also changed keep the web's version, instead of the whole upload being refused.
+- The web overview is cached for five minutes and cleared by any change; saving entries skips re-reading the claims, and withdrawn claims leave the ledger at once, so 操作紀錄 is no longer read on each request.
 - The monthly backups go to 備份 in the ledger folder (LEDGER_FOLDER_ID) rather than the receipts folder.
 - Opening the app redraws as soon as the cloud ledger arrives instead of after a second sync, and the top bar says 同步中… meanwhile (未同步 if it failed).
 - The monthly backup also copies the shared ledger into 備份, keeping the newest twelve.

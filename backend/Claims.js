@@ -176,6 +176,7 @@ function submitRequest(user, payload) {
       row[COL["更新時間"]] = now;
       tab(CLAIM_SHEET, CLAIM_HEADER, true).appendRow(row.map(safeCell));
       appendLog(user.email, "submitRequest", id);
+      forgetSummary();
     });
   } catch (error) {
     created.forEach((file) => {

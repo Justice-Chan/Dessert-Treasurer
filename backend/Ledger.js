@@ -49,6 +49,7 @@ function writeLedger(ledger, version) {
   if (Utilities.newBlob(text).getBytes().length > LEDGER_MAX_BYTES) {
     throw appError("invalid", "帳本超過 10 MB，請刪除帳戶或收款帳戶裡較大的 QR code 圖片。");
   }
+  forgetSummary();
   const file = ledgerFile();
   const folder = ledgerFolder();
   if (file) {
@@ -74,21 +75,13 @@ function cleanLedger(value) {
 
 // ---- Claims from the sheet ----
 
-function sheetClaims() {
-  return dataRows(CLAIM_SHEET, CLAIM_HEADER.length).map((row) => ({
+function sheetClaims(rows = dataRows(CLAIM_SHEET, CLAIM_HEADER.length)) {
+  return rows.map((row) => ({
     ...claimFromRow(row),
     applicantEmail: cellText(row[COL["申請人 email"]]),
     applicantName: cellText(row[COL["申請人姓名"]]),
     receiptLinks: attachmentIds(row).map(driveLink)
   })).filter((claim) => claim.id);
-}
-
-// Ids the 操作紀錄 shows as withdrawn: their rows are gone from the sheet.
-function withdrawnClaimIds() {
-  return new Set(dataRows(LOG_SHEET, LOG_HEADER.length)
-    .filter((row) => cellText(row[2]) === "withdrawRequest")
-    .map((row) => cellText(row[3]))
-    .filter(Boolean));
 }
 
 function driveLink(fileId) {
@@ -133,12 +126,12 @@ function isValidSheetClaim(remote) {
 }
 
 // Brings the claims sheet into the ledger: adds new claims, follows edits and review decisions on
-// unpaid ones, drops withdrawn ones and moves unpaid claims deleted from the sheet to the trash.
-// A paid claim keeps its amount and status, which came with the payment. Returns true on a change.
-function mergeSheetClaims(ledger, remoteClaims = sheetClaims(), withdrawn = withdrawnClaimIds()) {
+// unpaid ones, and moves unpaid claims deleted straight from the sheet to the trash. Withdrawn
+// claims leave the ledger when they are withdrawn (dropWithdrawnClaim). A paid claim keeps its
+// amount and status, which came with the payment. Returns true on a change.
+function mergeSheetClaims(ledger, remoteClaims = sheetClaims()) {
   const before = JSON.stringify(ledger);
   const trashed = new Set(ledger.trash.filter((item) => item.kind === "claim").map((item) => item.record && item.record.id));
-  ledger.claims = ledger.claims.filter((claim) => !(claim.source === "web" && withdrawn.has(claim.id) && claim.status !== "paid"));
 
   const onSheet = new Set(remoteClaims.map((claim) => claim.id));
   const deletedAt = new Date().toISOString();
@@ -170,6 +163,15 @@ function mergeSheetClaims(ledger, remoteClaims = sheetClaims(), withdrawn = with
 }
 
 // ---- Totals ----
+
+// The overview is worked out once and kept for a few minutes; any change to the ledger or the claims
+// sheet clears it. A sheet edited by hand shows up when the time runs out.
+const SUMMARY_CACHE_KEY = "summary";
+const SUMMARY_CACHE_SECONDS = 300;
+
+function forgetSummary() {
+  CacheService.getScriptCache().remove(SUMMARY_CACHE_KEY);
+}
 
 function monthEnd(month) {
   const [year, number] = month.split("-").map(Number);
@@ -223,28 +225,119 @@ function summaryRows(ledger, month) {
 
 // ---- Desktop app ----
 
-// The app's one sync call. It uploads its books when it has changes, then receives the current
-// books with the claims sheet merged in. An upload based on an older version is refused and the
-// reply says so; the app then takes the cloud copy.
+// The app's one sync call. It sends its changes, then receives the current books with the claims
+// sheet merged in. Changes come record by record (patch) and go in unless the web changed the same
+// record meanwhile. A whole copy (ledger) is sent only for the first upload, or when the app lost
+// track of what it last agreed with the cloud; it is refused if the books moved on since.
 function syncLedger(payload) {
   const baseVersion = Number.isInteger(payload.baseVersion) ? payload.baseVersion : -1;
   const upload = payload.ledger === undefined ? null : cleanLedger(payload.ledger);
+  const patch = payload.patch === undefined ? null : cleanPatch(payload.patch);
   return withLock(() => {
     const doc = readLedger();
     let version = doc ? doc.version : 0;
     let ledger = doc ? doc.ledger : null;
     const conflict = Boolean(upload) && baseVersion !== version;
+    let skipped = 0;
+    let changed = false;
     if (upload && !conflict) {
       ledger = upload;
-      version += 1;
+      changed = true;
+    }
+    if (patch && ledger) {
+      skipped = applyLedgerPatch(ledger, patch);
+      changed = true;
     }
     if (ledger) {
-      const merged = mergeSheetClaims(ledger);
-      if (upload && !conflict) writeLedger(ledger, version);
-      else if (merged) writeLedger(ledger, (version += 1));
+      changed = mergeSheetClaims(ledger) || changed;
+      if (changed) writeLedger(ledger, (version += 1));
     }
-    return { version, ledger, conflict, categories: CATEGORIES };
+    return { version, ledger, conflict, skipped, categories: CATEGORIES };
   });
+}
+
+const PATCH_KEYS = LEDGER_KEYS.filter((key) => key !== "lockedMonths");
+
+function cleanPatch(value) {
+  const bad = () => appError("bad_request", "同步資料格式不正確。");
+  if (!value || typeof value !== "object") throw bad();
+  const records = value.records && typeof value.records === "object" ? value.records : {};
+  const clean = {};
+  PATCH_KEYS.forEach((key) => {
+    const changes = records[key] === undefined ? [] : records[key];
+    if (!Array.isArray(changes) || changes.length > LEDGER_MAX_ITEMS) throw bad();
+    changes.forEach((change) => {
+      const record = (item) => item === null || (item && typeof item === "object" && !Array.isArray(item));
+      if (!change || typeof change.id !== "string" || !change.id || !record(change.base) || !record(change.next)) throw bad();
+    });
+    clean[key] = changes;
+  });
+  const months = (list) => {
+    if (list === undefined) return [];
+    if (!Array.isArray(list) || list.some((month) => typeof month !== "string")) throw bad();
+    return list;
+  };
+  const locked = value.lockedMonths || {};
+  return { records: clean, lockedMonths: { added: months(locked.added), removed: months(locked.removed) } };
+}
+
+// The same JSON whatever order the keys were written in.
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).filter((key) => value[key] !== undefined).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value === undefined ? null : value);
+}
+
+// Applies the app's changes onto the current books. Each carries the record as the app last saw
+// it (base) and as it is now (next); it goes in only while the cloud record still equals base.
+// Otherwise the web changed it too and the cloud version stays. A claim kept that way also keeps
+// its payment entries and trash items, so a payment is never recorded twice. Returns the number of
+// changes not taken.
+function applyLedgerPatch(ledger, patch) {
+  let skipped = 0;
+  const kept = new Set();
+  const apply = (key, change, blocked) => {
+    const list = ledger[key];
+    const index = list.findIndex((item) => item && item.id === change.id);
+    const current = index >= 0 ? list[index] : null;
+    if (canonical(current) === canonical(change.next)) return true;
+    if (blocked || canonical(current) !== canonical(change.base)) {
+      skipped += 1;
+      return false;
+    }
+    if (!change.next) list.splice(index, 1);
+    else if (index >= 0) list[index] = change.next;
+    else list.push(change.next);
+    return true;
+  };
+  const claimOf = (item) => {
+    if (!item) return "";
+    if (item.kind === "claim") return item.record && item.record.id;
+    if (item.kind === "entry") return item.record && item.record.claimId;
+    return item.claimId || "";
+  };
+  patch.records.claims.forEach((change) => { if (!apply("claims", change, false)) kept.add(change.id); });
+  ["entries", "trash"].forEach((key) => patch.records[key].forEach((change) => {
+    apply(key, change, kept.has(claimOf(change.next)) || kept.has(claimOf(change.base)));
+  }));
+  ["accounts", "payees", "reconciliations"].forEach((key) => patch.records[key].forEach((change) => apply(key, change, false)));
+  const months = new Set(ledger.lockedMonths);
+  patch.lockedMonths.added.forEach((month) => months.add(month));
+  patch.lockedMonths.removed.forEach((month) => months.delete(month));
+  ledger.lockedMonths = [...months].sort();
+  return skipped;
+}
+
+// A withdrawn claim leaves the ledger at once, so merging never has to search the 操作紀錄 for it.
+// Call inside withLock.
+function dropWithdrawnClaim(id) {
+  const doc = readLedger();
+  if (!doc) return;
+  const before = doc.ledger.claims.length;
+  doc.ledger.claims = doc.ledger.claims.filter((claim) => claim.id !== id || claim.status === "paid");
+  if (doc.ledger.claims.length !== before) writeLedger(doc.ledger, doc.version + 1);
 }
 
 // ---- Treasurer on the web ----
@@ -283,12 +376,13 @@ function getLedger(user) {
   });
 }
 
-// Runs one change on the current books, merged with the sheet first, and saves them.
+// Runs one change on the current books and saves them. A change that needs the latest claims, such
+// as a payment, merges the sheet in first; entries do not, which saves reading two tabs.
 // Call inside withLock.
-function changeLedger(change) {
+function changeLedger(change, { merge = false } = {}) {
   const doc = readLedger();
   if (!doc) throw missingLedger();
-  mergeSheetClaims(doc.ledger);
+  if (merge) mergeSheetClaims(doc.ledger);
   change(doc.ledger);
   return writeLedger(doc.ledger, doc.version + 1);
 }
@@ -400,7 +494,7 @@ function payClaim(user, payload) {
         note: `${claim.person}｜${claim.receipt || "無憑證註記"}`
       });
       Object.assign(claim, { status: "paid", paymentDate: date, paymentAccountId: account.id, webPaid: false });
-    });
+    }, { merge: true });
     setSheetStatus(index, STATUS_PAID, user.email, note);
     appendLog(user.email, "payClaim", payload.id);
     return saved;

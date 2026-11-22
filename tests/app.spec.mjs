@@ -533,26 +533,32 @@ test("the first sync uploads the app's books, then takes the cloud copy with web
   expect(await page.evaluate(() => state.ledgerSync)).toEqual({ version: 1, dirty: false });
 });
 
-test("changes upload with their base version, and a newer cloud ledger wins", async ({ page }) => {
+test("changes upload record by record, and the web's edits to the same record win", async ({ page }) => {
   let cloud = { version: 3, ledger: { entries: [], claims: [webClaim(2, "雲端")], trash: [], accounts: [], payees: [], reconciliations: [], lockedMonths: [] } };
-  const uploads = [];
-  let refuse = false;
+  const patches = [];
   let calls = 0;
   await page.route(backend, async (route) => {
     calls += 1;
     const { payload } = JSON.parse(route.request().postData());
-    let conflict = false;
-    if (payload.ledger) {
-      uploads.push(payload.baseVersion);
-      if (refuse) conflict = true;
-      else cloud = { version: cloud.version + 1, ledger: payload.ledger };
+    let skipped = 0;
+    if (payload.patch) {
+      patches.push(payload);
+      // Stand-in for the backend: records the web changed meanwhile keep the web's version.
+      const entries = [...cloud.ledger.entries];
+      (payload.patch.records.entries || []).forEach((change) => {
+        const index = entries.findIndex((entry) => entry.id === change.id);
+        const current = index >= 0 ? entries[index] : null;
+        if (JSON.stringify(current) !== JSON.stringify(change.base)) return void (skipped += 1);
+        if (index >= 0) entries[index] = change.next;
+        else entries.push(change.next);
+      });
+      cloud = { version: cloud.version + 1, ledger: { ...cloud.ledger, entries } };
     }
-    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { ...cloud, conflict } }) });
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { ...cloud, conflict: false, skipped } }) });
   });
   await openWithSync(page, { version: 3, dirty: false });
   await openSection(page, "報銷");
   await expect(page.locator("#claimRows")).toContainText("雲端");
-  expect(uploads).toEqual([]);
   // The window gaining focus as it opens does not start a second sync.
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   expect(calls).toBe(1);
@@ -560,13 +566,19 @@ test("changes upload with their base version, and a newer cloud ledger wins", as
 
   await openSection(page, "記帳");
   await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 80 });
-  await expect.poll(() => uploads).toEqual([3]);
+  await expect.poll(() => patches.length).toBe(1);
+  expect(patches[0].baseVersion).toBe(3);
+  expect(patches[0].patch.records.entries.map((change) => [change.base, change.next.amount])).toEqual([[null, 80]]);
   await expect.poll(() => page.evaluate(() => state.ledgerSync)).toEqual({ version: 4, dirty: false });
 
-  // The web changed the books first: this upload is refused and the cloud copy replaces the local one.
-  refuse = true;
-  cloud = { version: 6, ledger: { ...cloud.ledger, entries: [] } };
-  await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 90 });
-  await expect(page.locator("#toast")).toContainText("網頁上的帳本比較新");
-  await expect.poll(() => page.evaluate(() => [state.entries.length, state.ledgerSync.version])).toEqual([0, 6]);
+  // The web edits that entry and so does this computer: the web's version stays.
+  const id = await page.evaluate(() => state.entries[0].id);
+  cloud = { version: 6, ledger: { ...cloud.ledger, entries: [{ ...cloud.ledger.entries[0], amount: 95 }] } };
+  await page.evaluate((entryId) => {
+    state.entries.find((entry) => entry.id === entryId).amount = 70;
+    saveState();
+  }, id);
+  await expect.poll(() => patches.length).toBe(2);
+  await expect(page.locator("#toast")).toContainText("有 1 筆紀錄網頁也改過");
+  await expect.poll(() => page.evaluate(() => state.entries.map((entry) => entry.amount))).toEqual([95]);
 });

@@ -135,7 +135,6 @@ async function loadLedgerBackend(sheet = [], withdrawn = []) {
     readLedger = () => store.doc && JSON.parse(JSON.stringify(store.doc));
     writeLedger = (ledger, version) => (store.doc = JSON.parse(JSON.stringify({ version, savedAt: "now", ledger })));
     sheetClaims = () => store.sheet;
-    withdrawnClaimIds = () => new Set(store.withdrawn);
     dataRows = () => store.sheet.map((claim) => { const row = []; row[COL["id"]] = claim.id; return row; });
     setSheetStatus = (index, status) => store.statuses.push([store.sheet[index].id, status]);
     appendLog = () => {};
@@ -148,14 +147,13 @@ test("the sheet's claims are merged into the ledger", async () => {
   const { run } = await loadBackend();
   const ledger = emptyLedger();
   ledger.claims.push(
-    { id: id(1), source: "web", status: "pending", amount: 100 },
     { id: id(2), source: "web", status: "pending", amount: 100 },
     { id: id(3), source: "web", status: "paid", amount: 450, parent: "食材與耗材", child: "乳品", title: "乳品" }
   );
   ledger.entries.push({ id: "e3", claimId: id(3), type: "expense", amount: 450, parent: "食材與耗材", child: "乳品" });
   ledger.trash.push({ id: "t", kind: "claim", record: { id: id(5) } });
   const remote = [sheetClaim(2, "已付款", { amount: 520 }), sheetClaim(3, "已核准", { amount: 999, child: "包材" }), sheetClaim(4, "待審核"), sheetClaim(5, "待審核")];
-  assert.equal(run("mergeSheetClaims")(ledger, remote, new Set([id(1)])), true);
+  assert.equal(run("mergeSheetClaims")(ledger, remote), true);
   const byId = Object.fromEntries(ledger.claims.map((claim) => [claim.id, claim]));
   assert.deepEqual(plain(Object.keys(byId).sort()), [id(2), id(3), id(4)]);
   // Marked paid on the web only: still approved, with a reminder to record the payment.
@@ -166,9 +164,9 @@ test("the sheet's claims are merged into the ledger", async () => {
   assert.equal(byId[id(3)].amount, 450);
   assert.equal(byId[id(3)].status, "paid");
   assert.equal(ledger.entries[0].child, "包材");
-  assert.equal(run("mergeSheetClaims")(ledger, remote, new Set([id(1)])), false);
+  assert.equal(run("mergeSheetClaims")(ledger, remote), false);
   // Deleted from the sheet while unpaid: to the trash.
-  run("mergeSheetClaims")(ledger, remote.slice(0, 2), new Set());
+  run("mergeSheetClaims")(ledger, remote.slice(0, 2));
   assert.deepEqual(plain(ledger.trash.map((item) => item.record.id)), [id(5), id(4)]);
 });
 
@@ -257,4 +255,42 @@ test("only the newest twelve copies of a backup are kept", async () => {
   const folder = { getFiles: () => iterate(files.map((file) => ({ getName: () => file.name, getDateCreated: () => file.created, setTrashed: (value) => { file.trashed = value; } }))) };
   assert.equal(run("keepNewest")(folder, "甜點社帳本 備份"), 12);
   assert.deepEqual(files.filter((file) => file.trashed).map((file) => file.name), ["甜點社帳本 備份 0", "甜點社帳本 備份 1"]);
+});
+
+test("a withdrawn claim leaves the ledger at once, unless it was paid", async () => {
+  const { run, store } = await loadLedgerBackend();
+  run("writeLedger")({ ...emptyLedger(), claims: [{ id: id(1), status: "pending" }, { id: id(2), status: "paid" }] }, 1);
+  run("dropWithdrawnClaim")(id(1));
+  run("dropWithdrawnClaim")(id(2));
+  assert.deepEqual(plain(store.doc.ledger.claims.map((claim) => claim.id)), [id(2)]);
+  assert.equal(store.doc.version, 2);
+});
+
+test("the app's changes go in record by record, and the web's edits to the same records win", async () => {
+  const { run, store } = await loadLedgerBackend();
+  const entry = (n, amount, extra = {}) => ({ id: `e${n}`, type: "expense", amount, date: "2026-11-02", accountId: "cash", ...extra });
+  const claim = { id: id(7), status: "approved", amount: 300 };
+  run("writeLedger")({ ...emptyLedger(), entries: [entry(1, 10), entry(2, 20)], claims: [claim] }, 1);
+  // Meanwhile the web edited e2 and paid the claim.
+  run("writeLedger")({ ...emptyLedger(), entries: [entry(1, 10), entry(2, 25), entry(9, 300, { claimId: id(7) })], claims: [{ ...claim, status: "paid" }] }, 2);
+  const reply = JSON.parse(JSON.stringify(run("syncLedger")({
+    baseVersion: 1,
+    patch: {
+      records: {
+        entries: [
+          { id: "e1", base: entry(1, 10), next: entry(1, 11) },
+          { id: "e2", base: entry(2, 20), next: entry(2, 21) },
+          { id: "e3", base: null, next: entry(3, 30) },
+          { id: "e8", base: null, next: entry(8, 300, { claimId: id(7) }) }
+        ],
+        claims: [{ id: id(7), base: claim, next: { ...claim, status: "paid" , paymentDate: "2026-11-03" } }]
+      },
+      lockedMonths: { added: ["2026-10"] }
+    }
+  })));
+  const amounts = Object.fromEntries(store.doc.ledger.entries.map((item) => [item.id, item.amount]));
+  assert.deepEqual(amounts, { e1: 11, e2: 25, e3: 30, e9: 300 });
+  assert.equal(reply.skipped, 3);
+  assert.equal(reply.version, 3);
+  assert.deepEqual(plain(store.doc.ledger.lockedMonths), ["2026-10"]);
 });

@@ -38,6 +38,7 @@ function reviewRequest(user, payload) {
     // Leaving 已付款 takes the payment out of the ledger as well.
     revokePayment(id, target);
     setSheetStatus(index, target, user.email, note);
+    forgetSummary();
     appendLog(user.email, `reviewRequest:${target}`, id);
     return { id, status: target };
   });
@@ -115,6 +116,7 @@ function editRequest(user, payload) {
       next[COL["更新時間"]] = new Date().toISOString();
       tab(CLAIM_SHEET).getRange(index + 2, 1, 1, CLAIM_HEADER.length).setValues([next.map((cell) => safeCell(cellText(cell)))]);
       appendLog(user.email, "editRequest", id);
+      forgetSummary();
       return claimFromRow(next);
     });
     // Receipts follow a changed activity into its folder; removed ones go to the Drive trash.
@@ -165,6 +167,8 @@ function withdrawRequest(user, payload) {
     }
     tab(CLAIM_SHEET).deleteRow(index + 2);
     appendLog(user.email, "withdrawRequest", id);
+    dropWithdrawnClaim(id);
+    forgetSummary();
     return attachmentIds(row);
   });
   fileIds.forEach((fileId) => {
@@ -176,12 +180,20 @@ function withdrawRequest(user, payload) {
 // Totals only, worked out from the ledger with the latest claims merged in (not saved).
 // syncedAt is when the ledger last changed; only the treasurer gets the review count.
 function getSummary(user) {
-  const doc = readLedger();
-  if (doc) mergeSheetClaims(doc.ledger);
-  const summary = { items: doc ? summaryRows(doc.ledger, currentMonth()) : [], syncedAt: doc ? doc.savedAt : "" };
-  if (user.role === "treasurer") {
-    summary.pendingReview = dataRows(CLAIM_SHEET, CLAIM_HEADER.length)
-      .filter((row) => cellText(row[COL["狀態"]]) === STATUS_PENDING).length;
+  const cache = CacheService.getScriptCache();
+  let summary = JSON.parse(cache.get(SUMMARY_CACHE_KEY) || "null");
+  if (!summary) {
+    const doc = readLedger();
+    const rows = dataRows(CLAIM_SHEET, CLAIM_HEADER.length);
+    if (doc) mergeSheetClaims(doc.ledger, sheetClaims(rows));
+    summary = {
+      items: doc ? summaryRows(doc.ledger, currentMonth()) : [],
+      syncedAt: doc ? doc.savedAt : "",
+      pendingReview: rows.filter((row) => cellText(row[COL["狀態"]]) === STATUS_PENDING).length
+    };
+    cache.put(SUMMARY_CACHE_KEY, JSON.stringify(summary), SUMMARY_CACHE_SECONDS);
   }
+  // Only the treasurer gets the review count.
+  if (user.role !== "treasurer") delete summary.pendingReview;
   return summary;
 }
