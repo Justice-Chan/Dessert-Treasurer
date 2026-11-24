@@ -744,7 +744,7 @@
               <h2>還原</h2>
               <span class="subtle">從備份檔還原（會取代目前資料）</span>
             </div>
-            <p class="subtle">支援本程式的 JSON 完整備份，以及收支或報銷 CSV；合併報表僅供閱讀。選好檔案後會先顯示內容摘要，確認後才還原，還原前會自動把目前資料另存一份。</p>
+            <p class="subtle">支援本程式的 JSON 完整備份，以及收支或報銷 CSV；合併報表僅供閱讀。還原前會自動把目前資料另存一份。</p>
             <div class="file-picker">
               <label class="file-button" for="importFile">選取備份檔案</label>
               <input id="importFile" type="file" accept="application/json,text/csv,.json,.csv">
@@ -846,7 +846,6 @@
       <h2 id="backupFolderDialogTitle"></h2>
       <p class="backup-folder-current"><span class="subtle">目前</span><span id="backupFolderCurrent"></span></p>
       <div class="folder-choices">
-        <button type="button" id="autoBackupDetect"></button>
         <button type="button" id="autoBackupChoose">選擇其他資料夾…</button>
       </div>
       <p class="backup-folder-pending" id="backupFolderPending" hidden></p>

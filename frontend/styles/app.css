@@ -1486,7 +1486,8 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
 }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .panel-head h2 { flex: none; margin: 0; white-space: nowrap; }
-.panel-head .backup-status { margin: 0; text-align: right; }
+.backup-auto .panel-head { justify-content: flex-start; }
+.panel-head .backup-status { margin: 0; }
 .backup-location { display: flex; align-items: baseline; gap: 10px; min-width: 0; margin: 0 0 6px; }
 .backup-location[hidden] { display: none; }
 .backup-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

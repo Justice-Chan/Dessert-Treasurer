@@ -120,7 +120,6 @@ function bindEvents() {
   $("#webSyncForm").addEventListener("submit", saveWebSyncSettings);
   $("#autoBackupEdit").addEventListener("click", () => editFolder("backup"));
   $("#exportFolderEdit").addEventListener("click", () => editFolder("export"));
-  $("#autoBackupDetect").addEventListener("click", detectBackupFolder);
   $("#autoBackupChoose").addEventListener("click", chooseBackupFolder);
   $("#autoBackupSave").addEventListener("click", saveAutoBackupSettings);
   $("#autoBackupCancel").addEventListener("click", closeBackupFolderDialog);

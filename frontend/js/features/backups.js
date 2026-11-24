@@ -374,15 +374,12 @@ function setBackupStatus(level, text) {
 }
 
 // ---- Change a folder ----
-// One small dialog for the automatic backup folder and the export folder: the current place, a
-// usual choice or a folder picked in the system's own picker, and only then 儲存.
+// One small dialog for the automatic backup folder and the export folder: the current place, a folder
+// picked in the system's own picker, and only then 儲存; 取消 keeps the current one.
 
 const folderDialogs = {
   backup: {
     title: "自動備份位置",
-    usual: "使用 Google 雲端硬碟",
-    usualCommand: "defaultBackupFolder",
-    missing: "找不到 Google 雲端硬碟電腦版的資料夾，請改用「選擇其他資料夾」。",
     note: "關閉 app 時，若帳務有變動就寫入「甜點社帳務自動備份_月-日.json」，只保留最新一份；沒有變動不會重寫。放在 Google 雲端硬碟電腦版的資料夾裡會同步到雲端，舊版本可從檔案的「版本記錄」找回。",
     current: () => state.autoBackup.folder,
     save: (folder) => { state.autoBackup = { folder }; },
@@ -390,9 +387,6 @@ const folderDialogs = {
   },
   export: {
     title: "匯出位置",
-    usual: "使用「下載」資料夾",
-    usualCommand: "defaultExportFolder",
-    missing: "找不到「下載」資料夾，請改用「選擇其他資料夾」。",
     note: "完整備份和 CSV 報表會直接存到這個資料夾。",
     current: () => state.exportFolder,
     save: (folder) => { state.exportFolder = folder; },
@@ -407,7 +401,6 @@ async function editFolder(kind) {
   pendingBackupFolder = "";
   const folder = folderDialog.current() || (kind === "export" ? await exportFolder() : "");
   $("#backupFolderDialogTitle").textContent = folderDialog.title;
-  $("#autoBackupDetect").textContent = folderDialog.usual;
   $("#folderDialogNote").textContent = folderDialog.note;
   $("#backupFolderCurrent").textContent = folder ? backupFolderCrumbs(folder) : "未設定";
   $("#backupFolderCurrent").title = folder;
@@ -425,13 +418,6 @@ function showPendingBackupFolder() {
   $("#backupFolderPending").textContent = pendingBackupFolder ? `改為　${backupFolderCrumbs(pendingBackupFolder)}` : "";
   $("#backupFolderPending").title = pendingBackupFolder;
   $("#autoBackupSave").disabled = !changed;
-}
-
-async function detectBackupFolder() {
-  const folder = await nativeStorageCall(folderDialog.usualCommand).catch(() => "");
-  if (!folder) return toast(folderDialog.missing);
-  pendingBackupFolder = folder;
-  showPendingBackupFolder();
 }
 
 async function chooseBackupFolder() {
