@@ -745,24 +745,10 @@ tr:last-child td { border-bottom: 0; }
   word-break: break-word;
 }
 
-.export-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
 
-.backup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.backup-grid .file-picker { margin-top: 10px; }
 .backup-status { margin: 4px 0 2px; font-weight: 600; }
 .backup-status[data-level="ok"]::before { content: "✓ "; color: var(--accent); }
 .backup-status[data-level="warn"] { color: var(--muted); }
-.backup-folder { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.backup-folder-form:not([hidden]) { display: grid; gap: 6px; margin-top: 14px; }
-.backup-folder-form label { margin: 0; }
-.backup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.restore { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
-.restore summary { width: max-content; color: var(--muted); font-size: 14px; cursor: pointer; }
-.restore[open] summary { margin-bottom: 8px; }
 
 .trash-meta { color: var(--muted); font-size: 13px; }
 
@@ -959,7 +945,7 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
 }
 
 .dialog-actions { margin-top: 20px; }
-.confirmation-message { margin: 14px 0 0; color: var(--muted); }
+.confirmation-message { margin: 14px 0 0; color: var(--muted); white-space: pre-line; }
 
 .managed-entry-note {
   display: inline-block;
@@ -1433,7 +1419,6 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
   .filter-date-row { grid-column: auto; }
   .date-control.with-clear { grid-template-columns: minmax(0, 1fr) auto; }
   .date-control.with-clear .clear-date { grid-column: 1 / -1; }
-  .export-actions { grid-template-columns: 1fr; }
   .account-summary { grid-template-columns: 1fr; }
   .reconciliation-actions { align-items: stretch; flex-direction: column; }
   .reconciliation-buttons { display: grid; grid-template-columns: 1fr 1fr; }
@@ -1487,3 +1472,38 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
 
 /* Shown while the cloud ledger syncs, and after a failed sync. */
 .sync-status { align-self: center; color: var(--muted); font-size: 13px; white-space: nowrap; }
+
+/* ---- 資料管理 ---- */
+/* 匯出 spans both rows; the first row takes any spare height, so 自動備份 grows until both columns
+   end on the same line, and 還原 keeps its own height underneath. */
+.backup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: 1fr auto; gap: 14px; }
+.backup-auto { grid-column: 1; grid-row: 1; }
+.backup-export { grid-column: 2; grid-row: 1 / span 2; }
+.backup-grid .restore { grid-column: 1; grid-row: 2; }
+@media (max-width: 1040px) {
+  .backup-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .backup-auto, .backup-export, .backup-grid .restore { grid-column: 1; grid-row: auto; }
+}
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.panel-head h2 { flex: none; margin: 0; white-space: nowrap; }
+.panel-head .backup-status { margin: 0; text-align: right; }
+.backup-location { display: flex; align-items: baseline; gap: 10px; min-width: 0; margin: 0 0 6px; }
+.backup-location[hidden] { display: none; }
+.backup-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.backup-note { margin: 0; }
+.text-link { flex: none; min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); font-weight: 600; cursor: pointer; }
+.text-link:hover { text-decoration: underline; }
+.backup-export h2 { margin-bottom: 10px; }
+/* The rows share the card's height evenly, so 匯出 fills the column beside 自動備份 and 還原. */
+.backup-export { display: flex; flex-direction: column; }
+.export-list { display: flex; flex: 1; flex-direction: column; list-style: none; margin: 8px 0 0; padding: 0; }
+.export-list li { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.export-list li:last-child { padding-bottom: 0; }
+.export-list .subtle { margin-left: 4px; font-size: 12px; }
+.export-list > li > button, .export-list .action-menu-trigger { justify-content: center; min-width: 68px; min-height: 30px; padding: 0 10px; font-size: 13px; }
+.restore .panel-head { justify-content: flex-start; }
+.restore p { margin: 0; }
+.restore .file-picker { margin-top: 10px; }
+.backup-folder-current { display: flex; gap: 10px; margin: 12px 0 0; overflow-wrap: anywhere; }
+.folder-choices { display: grid; gap: 8px; margin: 14px 0 10px; }
+.backup-folder-pending { margin: 0 0 10px; font-weight: 600; overflow-wrap: anywhere; }

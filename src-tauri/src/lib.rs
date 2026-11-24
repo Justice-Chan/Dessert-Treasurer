@@ -26,6 +26,7 @@ const MAX_MEMBER_IMPORT_URL_LENGTH: usize = 2_048;
 // (a slash cannot appear in a file name, so the date reads MM-DD).
 const AUTO_BACKUP_PREFIX: &str = "甜點社帳務自動備份_";
 const AUTO_BACKUP_FOLDER: &str = "甜點社總務備份";
+const RESTORE_POINT_PREFIX: &str = "甜點社還原前備份_";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -817,19 +818,57 @@ fn auto_backup_info(folder: String) -> Option<AutoBackupInfo> {
         })
 }
 
+// Exports (the full backup and the CSV reports) go to a folder of the user's choosing, by default
+// the Downloads folder.
 #[tauri::command]
-fn run_auto_backup(storage: State<'_, AppStorage>) -> Result<String, String> {
-    match write_auto_backup(&storage, true)? {
-        BackupOutcome::Written(path) | BackupOutcome::Unchanged(path) => {
-            Ok(path.to_string_lossy().into_owned())
-        }
-        BackupOutcome::NoFolder => Err("尚未設定備份資料夾".into()),
+fn default_export_folder() -> String {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(|home| {
+            PathBuf::from(home)
+                .join("Downloads")
+                .to_string_lossy()
+                .into_owned()
+        })
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn write_export_file(folder: String, name: String, contents: String) -> Result<String, String> {
+    let folder = PathBuf::from(folder.trim());
+    if !folder.is_absolute() {
+        return Err("請先設定匯出位置".into());
     }
+    // A bare file name only, so an export never lands outside the chosen folder.
+    if name.is_empty() || Path::new(&name).file_name() != Some(std::ffi::OsStr::new(&name)) {
+        return Err("檔名無效".into());
+    }
+    fs::create_dir_all(&folder).map_err(error_text)?;
+    let path = folder.join(&name);
+    write_atomic(&path, contents.as_bytes())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+// Restoring replaces the books, so the current ones are saved first beside the automatic backup.
+// These copies keep their own name, which the automatic backup never removes.
+#[tauri::command]
+fn save_restore_point(storage: State<'_, AppStorage>) -> Result<String, String> {
+    let Some((folder, bytes)) = auto_backup_content(&storage)? else {
+        return Err("尚未設定備份資料夾".into());
+    };
+    fs::create_dir_all(&folder).map_err(error_text)?;
+    let path = folder.join(format!(
+        "{RESTORE_POINT_PREFIX}{}.json",
+        chrono::Local::now().format("%Y-%m-%d_%H%M%S")
+    ));
+    write_atomic(&path, &bytes)?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let root_dir = app.path().app_data_dir()?;
             let storage = AppStorage::open(root_dir).map_err(std::io::Error::other)?;
@@ -851,7 +890,9 @@ pub fn run() {
             import_member_spreadsheet_url,
             default_backup_folder,
             auto_backup_info,
-            run_auto_backup
+            save_restore_point,
+            default_export_folder,
+            write_export_file
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

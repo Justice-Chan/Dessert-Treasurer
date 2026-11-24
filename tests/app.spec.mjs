@@ -582,3 +582,20 @@ test("changes upload record by record, and the web's edits to the same record wi
   await expect(page.locator("#toast")).toContainText("有 1 筆紀錄網頁也改過");
   await expect.poll(() => page.evaluate(() => state.entries.map((entry) => entry.amount))).toEqual([95]);
 });
+
+test("restoring shows what the file holds and saves the current books first", async ({ page }) => {
+  await openSection(page, "記帳");
+  await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 80, note: "目前的資料" });
+  const backup = { backupVersion: 3, entries: [{ id: "r1", date, type: "income", title: "補繳", parent: "社費與會費", child: "補繳", amount: 500, method: "現金", accountId: "cash", note: "備份裡的資料" }], claims: [], people: [], activities: [], trash: [] };
+  await page.locator('[data-section="backup"]').click();
+  await expect(page.locator("#pageTitle")).toHaveText("資料管理");
+  await page.locator("#importFile").setInputFiles({ name: "甜點社總務完整備份.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+  await expect(page.locator("#appActionConfirmMessage")).toContainText("收支 1 筆、報銷 0 筆");
+  await expect(page.locator("#appActionConfirmMessage")).toContainText("還原前會先自動備份目前資料");
+  const download = page.waitForEvent("download");
+  await page.locator("#confirmAppAction").click();
+  // In the browser the current books are saved as a download before they are replaced.
+  expect((await download).suggestedFilename()).toMatch(/^甜點社總務完整備份-/);
+  await expect(page.locator("#toast")).toContainText("還原前的資料已另存一份");
+  expect(await page.evaluate(() => state.entries.map((entry) => entry.note))).toEqual(["備份裡的資料"]);
+});

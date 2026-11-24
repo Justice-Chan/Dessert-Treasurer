@@ -11,6 +11,32 @@ function download(filename, content, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Exports: written straight into the chosen export folder in the desktop app, downloaded in the
+// browser. Returns where the file went, for the message.
+async function exportFile(name, content, type) {
+  // An activity name may hold characters a file name cannot.
+  const filename = name.replace(/[\\/:*?"<>|]/g, "_");
+  if (!tauriStorageEnabled) {
+    download(filename, content, type);
+    return "下載資料夾";
+  }
+  const folder = await exportFolder();
+  await nativeStorageCall("writeExportFile", { folder, name: filename, contents: content });
+  return backupFolderCrumbs(folder);
+}
+
+async function exportFolder() {
+  return state.exportFolder || nativeStorageCall("defaultExportFolder").catch(() => "");
+}
+
+async function exportWithMessage(filename, content, type, label) {
+  try {
+    toast(`${label}已匯出到 ${await exportFile(filename, content, type)}。`);
+  } catch (error) {
+    toast(`匯出失敗：${error?.message || error}`, "error");
+  }
+}
+
 function csv(rows) {
   return rows.map((row) => row.map((cell) => {
     const value = String(cell ?? "");
@@ -103,25 +129,34 @@ function claimsCsvRows() {
 }
 
 // A full JSON copy for restoring or handing over; the automatic backup writes the same content.
-async function exportComplete() {
+// Returns where it went; throws when it could not be written.
+async function exportCompleteFile() {
   const attachments = await exportReceipts();
-  download(`甜點社總務完整備份-${today()}.json`, JSON.stringify({ backupVersion: 3, ...state, webSync: { ...state.webSync, secret: "" }, attachments }, null, 2), "application/json");
+  const where = await exportFile(`甜點社總務完整備份-${today()}.json`, JSON.stringify({ backupVersion: 3, ...state, webSync: { ...state.webSync, secret: "" }, attachments }, null, 2), "application/json");
   state.lastBackupAt = new Date().toISOString();
   saveState();
-  toast("完整備份已開始下載。");
+  return where;
+}
+
+async function exportComplete() {
+  try {
+    toast(`完整備份已匯出到 ${await exportCompleteFile()}。`);
+  } catch (error) {
+    toast(`匯出失敗：${error?.message || error}`, "error");
+  }
 }
 
 // Reports for people to read; restoring always uses the JSON backup.
 function exportCombined() {
-  download(`甜點社收支報銷合併報表-${today()}.csv`, "\ufeff" + csv(combinedReportCsvRows()), "text/csv;charset=utf-8");
+  exportWithMessage(`甜點社收支報銷合併報表-${today()}.csv`, "\ufeff" + csv(combinedReportCsvRows()), "text/csv;charset=utf-8", "收支＋報銷");
 }
 
 function exportLedger() {
-  download(`甜點社收支明細-${today()}.csv`, "\ufeff" + csv(ledgerCsvRows()), "text/csv;charset=utf-8");
+  exportWithMessage(`甜點社收支明細-${today()}.csv`, "\ufeff" + csv(ledgerCsvRows()), "text/csv;charset=utf-8", "收支明細");
 }
 
 function exportClaims() {
-  download(`甜點社報銷明細-${today()}.csv`, "\ufeff" + csv(claimsCsvRows()), "text/csv;charset=utf-8");
+  exportWithMessage(`甜點社報銷明細-${today()}.csv`, "\ufeff" + csv(claimsCsvRows()), "text/csv;charset=utf-8", "報銷明細");
 }
 
 function validateImportedState(data) {
@@ -300,16 +335,20 @@ const backupTimeFormat = new Intl.DateTimeFormat("zh-TW", { month: "numeric", da
 
 async function renderBackupPage() {
   const folder = state.autoBackup.folder;
-  $("#autoBackupNow").hidden = !tauriStorageEnabled || !folder;
-  $("#autoBackupEdit").hidden = !tauriStorageEnabled;
-  $("#autoBackupEdit").textContent = folder ? "變更位置" : "設定自動備份";
-  $("#autoBackupForm").hidden = true;
-  // Shown from the Drive folder down; the full path is in the tooltip.
-  $("#backupFolder").textContent = folder.replace(/^.*?(我的雲端硬碟|My Drive)/, (match, drive) => drive);
+  $("#backupLocation").hidden = !tauriStorageEnabled;
+  $("#exportLocation").hidden = !tauriStorageEnabled;
+  if (tauriStorageEnabled) {
+    const target = await exportFolder();
+    $("#exportFolderPath").textContent = target ? backupFolderCrumbs(target) : "未設定";
+    $("#exportFolderPath").title = target;
+  }
+  $("#autoBackupEdit").textContent = folder ? "變更" : "設定";
+  // A breadcrumb, not the path: the path holds the Gmail address, which a screenshot would show.
+  $("#backupFolder").textContent = folder ? backupFolderCrumbs(folder) : "未設定";
   $("#backupFolder").title = folder;
   if (!tauriStorageEnabled) {
-    const last = state.lastBackupAt ? `；上次另存：${new Date(state.lastBackupAt).toLocaleDateString("zh-TW")}` : "，請定期另存一份。";
-    return setBackupStatus("warn", `瀏覽器版不會自動備份${last}`);
+    // Short, to fit beside the title; the full backup in 匯出 is the browser's only copy.
+    return setBackupStatus("warn", "瀏覽器版不會自動備份");
   }
   if (!folder) return setBackupStatus("warn", "尚未設定自動備份。");
   const info = await nativeStorageCall("autoBackupInfo", { folder }).catch(() => null);
@@ -319,39 +358,125 @@ async function renderBackupPage() {
   else setBackupStatus("warn", "還沒有備份，關閉 app 時會自動備份。");
 }
 
+// "Google 雲端硬碟 › 我的雲端硬碟 › 甜點社總務備份" for a Drive folder, "本機 › 下載" for Downloads,
+// else the last two folders.
+function backupFolderCrumbs(folder) {
+  const parts = folder.split(/[\\/]+/).filter(Boolean);
+  const drive = parts.findIndex((part) => part === "我的雲端硬碟" || part === "My Drive");
+  if (drive >= 0) return ["Google 雲端硬碟", ...parts.slice(drive)].join(" › ");
+  if (parts.length === 3 && parts.at(-1) === "Downloads") return "本機 › 下載";
+  return ["本機", ...parts.slice(-2)].join(" › ");
+}
+
 function setBackupStatus(level, text) {
   $("#backupStatus").textContent = text;
   $("#backupStatus").dataset.level = level;
 }
 
-function editBackupFolder() {
-  $("#autoBackupFolder").value = state.autoBackup.folder;
-  $("#autoBackupForm").hidden = false;
-  $("#autoBackupFolder").focus();
+// ---- Change a folder ----
+// One small dialog for the automatic backup folder and the export folder: the current place, a
+// usual choice or a folder picked in the system's own picker, and only then 儲存.
+
+const folderDialogs = {
+  backup: {
+    title: "自動備份位置",
+    usual: "使用 Google 雲端硬碟",
+    usualCommand: "defaultBackupFolder",
+    missing: "找不到 Google 雲端硬碟電腦版的資料夾，請改用「選擇其他資料夾」。",
+    note: "關閉 app 時，若帳務有變動就寫入「甜點社帳務自動備份_月-日.json」，只保留最新一份；沒有變動不會重寫。放在 Google 雲端硬碟電腦版的資料夾裡會同步到雲端，舊版本可從檔案的「版本記錄」找回。",
+    current: () => state.autoBackup.folder,
+    save: (folder) => { state.autoBackup = { folder }; },
+    saved: "已變更自動備份位置。"
+  },
+  export: {
+    title: "匯出位置",
+    usual: "使用「下載」資料夾",
+    usualCommand: "defaultExportFolder",
+    missing: "找不到「下載」資料夾，請改用「選擇其他資料夾」。",
+    note: "完整備份和 CSV 報表會直接存到這個資料夾。",
+    current: () => state.exportFolder,
+    save: (folder) => { state.exportFolder = folder; },
+    saved: "已變更匯出位置。"
+  }
+};
+let folderDialog = folderDialogs.backup;
+let pendingBackupFolder = "";
+
+async function editFolder(kind) {
+  folderDialog = folderDialogs[kind];
+  pendingBackupFolder = "";
+  const folder = folderDialog.current() || (kind === "export" ? await exportFolder() : "");
+  $("#backupFolderDialogTitle").textContent = folderDialog.title;
+  $("#autoBackupDetect").textContent = folderDialog.usual;
+  $("#folderDialogNote").textContent = folderDialog.note;
+  $("#backupFolderCurrent").textContent = folder ? backupFolderCrumbs(folder) : "未設定";
+  $("#backupFolderCurrent").title = folder;
+  showPendingBackupFolder();
+  $("#backupFolderDialog").hidden = false;
 }
 
-function saveAutoBackupSettings(event) {
-  event.preventDefault();
-  state.autoBackup = { folder: $("#autoBackupFolder").value.trim() };
-  if (!saveState()) return;
-  toast(state.autoBackup.folder ? "已設定自動備份資料夾。" : "已關閉自動備份。");
+function closeBackupFolderDialog() {
+  $("#backupFolderDialog").hidden = true;
+}
+
+function showPendingBackupFolder() {
+  const changed = Boolean(pendingBackupFolder) && pendingBackupFolder !== folderDialog.current();
+  $("#backupFolderPending").hidden = !pendingBackupFolder;
+  $("#backupFolderPending").textContent = pendingBackupFolder ? `改為　${backupFolderCrumbs(pendingBackupFolder)}` : "";
+  $("#backupFolderPending").title = pendingBackupFolder;
+  $("#autoBackupSave").disabled = !changed;
 }
 
 async function detectBackupFolder() {
-  const folder = await nativeStorageCall("defaultBackupFolder").catch(() => "");
-  if (!folder) return toast("找不到 Google 雲端硬碟電腦版的資料夾，請手動填寫路徑。");
-  $("#autoBackupFolder").value = folder;
+  const folder = await nativeStorageCall(folderDialog.usualCommand).catch(() => "");
+  if (!folder) return toast(folderDialog.missing);
+  pendingBackupFolder = folder;
+  showPendingBackupFolder();
 }
 
-async function backupNow() {
+async function chooseBackupFolder() {
   try {
-    await enqueueNativeSave(state, "儲存失敗，無法寫入本機資料夾。");
-    await nativeStorageCall("runAutoBackup");
-    toast("已完成備份。");
-    renderBackupPage();
-  } catch (error) {
-    toast(`備份失敗：${error?.message || error}`);
+    const current = folderDialog.current();
+    const folder = await tauriInvoke("plugin:dialog|open", {
+      options: { directory: true, title: `選擇${folderDialog.title}`, ...(current ? { defaultPath: current } : {}) }
+    });
+    if (!folder) return;
+    pendingBackupFolder = String(folder);
+    showPendingBackupFolder();
+  } catch {
+    toast("無法開啟資料夾選擇視窗。");
   }
+}
+
+function saveAutoBackupSettings() {
+  if (!pendingBackupFolder) return;
+  folderDialog.save(pendingBackupFolder.trim().slice(0, 1000));
+  if (!saveState()) return;
+  closeBackupFolderDialog();
+  toast(folderDialog.saved);
+}
+
+// ---- Restore ----
+
+// What a picked backup holds, so the wrong file is caught before it replaces anything.
+function importSummary(imported, file) {
+  const date = new Date(file.lastModified);
+  const when = Number.isNaN(date.getTime()) ? "" : `備份日期 ${date.getMonth() + 1}/${date.getDate()}，`;
+  if (imported.scope === "entries") return `${when}收支 ${imported.data.length} 筆。\n會取代目前的收支紀錄，報銷與垃圾桶資料會保留。`;
+  if (imported.scope === "claims") return `${when}報銷 ${imported.data.claims.length} 筆。\n會取代目前的報銷紀錄，收支與垃圾桶資料會保留。`;
+  const { entries = [], claims = [], people = [], activities = [] } = imported.data;
+  return `${when}收支 ${entries.length} 筆、報銷 ${claims.length} 筆、人員 ${people.length} 位、活動 ${activities.length} 個。\n會取代目前全部帳務資料。`;
+}
+
+// Saves the current books before a restore replaces them: beside the automatic backup in the
+// desktop app, or as a download in the browser. Returns a note for the closing message, or throws.
+async function saveRestorePoint() {
+  if (tauriStorageEnabled && state.autoBackup.folder) {
+    await enqueueNativeSave(state, "儲存失敗，無法寫入本機資料夾。");
+    await nativeStorageCall("saveRestorePoint");
+    return "還原前的資料已另存到備份資料夾（甜點社還原前備份_日期.json）。";
+  }
+  return `還原前的資料已另存一份到 ${await exportCompleteFile()}。`;
 }
 
 // First run on a computer with Google Drive for desktop: pick its folder without asking.

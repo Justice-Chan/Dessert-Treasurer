@@ -30,7 +30,7 @@
         <button class="nav-button" data-section="settings"><span>設定</span><span>Settings</span></button>
       </nav>
       <div class="sidebar-note">
-        資料會留在這台電腦的本機資料夾。交接或換電腦前，請先到「備份」下載完整備份。
+        資料會留在這台電腦的本機資料夾。交接或換電腦前，請先到「備份」匯出完整備份。
       </div>
     </aside>
 
@@ -685,12 +685,11 @@
           <div class="section-heading">
             <div>
               <h2>已刪除項目</h2>
-              <p class="subtle">刪除後保留 30 天，期間可還原；到期後會自動永久刪除。</p>
             </div>
             <div class="inline-actions">
               <div class="inline-actions" id="trashBulkActions">
-                <button type="button" id="restoreSelectedTrash">還原</button>
                 <button type="button" class="danger" id="purgeSelectedTrash">刪除</button>
+                <button type="button" id="restoreSelectedTrash">還原</button>
               </div>
             </div>
           </div>
@@ -704,43 +703,52 @@
       </section>
 
       <section class="section" id="backup" aria-labelledby="pageTitle">
-        <div class="grid backup-grid">
-          <div class="panel">
-            <h2>備份</h2>
-            <p class="backup-status" id="backupStatus"></p>
-            <p class="subtle backup-folder" id="backupFolder"></p>
-            <form class="backup-folder-form" id="autoBackupForm" hidden>
-              <label for="autoBackupFolder">備份資料夾</label>
-              <input id="autoBackupFolder" maxlength="1000" autocomplete="off" placeholder="留空則不自動備份">
-              <p class="subtle">關閉 app 時，若帳務有變動就寫入「甜點社帳務自動備份_月-日.json」，只保留最新一份；沒有變動不會重寫。放在 Google 雲端硬碟電腦版的資料夾裡會同步到雲端，舊版本可從檔案的「版本記錄」找回。</p>
-              <div class="form-actions">
-                <button type="button" id="autoBackupDetect">使用 Google 雲端硬碟</button>
-                <button type="button" id="autoBackupCancel">取消</button>
-                <button type="submit" class="primary">儲存</button>
-              </div>
-            </form>
-            <div class="backup-actions">
-              <button type="button" class="primary" id="autoBackupNow">立即備份</button>
-              <button type="button" id="exportComplete">另存一份…</button>
-              <button type="button" id="autoBackupEdit">變更位置</button>
+        <!-- Two columns whose bottoms line up: 自動備份 stretches to meet 匯出, 還原 sits under it. -->
+        <div class="backup-grid">
+          <div class="panel backup-auto">
+            <div class="panel-head">
+              <h2>自動備份</h2>
+              <p class="backup-status" id="backupStatus"></p>
             </div>
-            <details class="restore">
-              <summary>從備份檔還原…</summary>
-              <p class="subtle">還原會取代目前資料，建議先另存一份。支援本程式匯出的 JSON 完整備份，以及收支或報銷 CSV；合併報表僅供閱讀。</p>
-              <div class="file-picker">
-                <label class="file-button" for="importFile">選取備份檔案</label>
-                <input id="importFile" type="file" accept="application/json,text/csv,.json,.csv">
-                <span class="file-name" id="importFileName">尚未選取檔案</span>
-              </div>
-            </details>
+            <p class="backup-location" id="backupLocation">
+              <span class="subtle">位置</span>
+              <span class="backup-folder" id="backupFolder"></span>
+              <button type="button" class="text-link" id="autoBackupEdit">變更</button>
+            </p>
+            <p class="subtle backup-note">關閉 app 時若有變動會自動備份，只保留最新一份。</p>
           </div>
-          <div class="panel">
-            <h2>匯出報表</h2>
-            <p class="subtle">CSV 檔，可用 Excel 或 Google 試算表開啟，交給社長或學校時使用。</p>
-            <div class="export-actions">
-              <button type="button" id="exportLedger">收支明細</button>
-              <button type="button" id="exportClaims">報銷明細</button>
-              <button type="button" id="exportCombined">收支＋報銷合併</button>
+          <div class="panel backup-export">
+            <h2>匯出</h2>
+            <p class="backup-location" id="exportLocation">
+              <span class="subtle">位置</span>
+              <span class="backup-folder" id="exportFolderPath"></span>
+              <button type="button" class="text-link" id="exportFolderEdit">變更</button>
+            </p>
+            <ul class="export-list">
+              <li><span>完整備份 <span class="subtle">JSON</span></span><button type="button" id="exportComplete">匯出</button></li>
+              <li>
+                <span>報表備份 <span class="subtle">CSV</span></span>
+                <div class="action-menu" data-action-menu>
+                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">匯出 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                  <div class="action-menu-list" role="menu" hidden>
+                    <button type="button" role="menuitem" id="exportLedger">收支明細</button>
+                    <button type="button" role="menuitem" id="exportClaims">報銷明細</button>
+                    <button type="button" role="menuitem" id="exportCombined">收支＋報銷</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="panel restore">
+            <div class="panel-head">
+              <h2>還原</h2>
+              <span class="subtle">從備份檔還原（會取代目前資料）</span>
+            </div>
+            <p class="subtle">支援本程式的 JSON 完整備份，以及收支或報銷 CSV；合併報表僅供閱讀。選好檔案後會先顯示內容摘要，確認後才還原，還原前會自動把目前資料另存一份。</p>
+            <div class="file-picker">
+              <label class="file-button" for="importFile">選取備份檔案</label>
+              <input id="importFile" type="file" accept="application/json,text/csv,.json,.csv">
+              <span class="file-name" id="importFileName">尚未選取檔案</span>
             </div>
           </div>
         </div>
@@ -833,6 +841,22 @@
       </div>
     </form>
   </div></div>
+  <div class="app-modal" id="backupFolderDialog" role="dialog" aria-modal="true" aria-labelledby="backupFolderDialogTitle" hidden>
+    <div class="app-modal-card">
+      <h2 id="backupFolderDialogTitle"></h2>
+      <p class="backup-folder-current"><span class="subtle">目前</span><span id="backupFolderCurrent"></span></p>
+      <div class="folder-choices">
+        <button type="button" id="autoBackupDetect"></button>
+        <button type="button" id="autoBackupChoose">選擇其他資料夾…</button>
+      </div>
+      <p class="backup-folder-pending" id="backupFolderPending" hidden></p>
+      <p class="subtle" id="folderDialogNote"></p>
+      <div class="form-actions dialog-actions">
+        <button type="button" id="autoBackupCancel">取消</button>
+        <button type="button" class="primary" id="autoBackupSave" disabled>儲存</button>
+      </div>
+    </div>
+  </div>
   <div class="app-modal" id="appActionConfirmDialog" role="dialog" aria-modal="true" aria-labelledby="appActionConfirmTitle" aria-describedby="appActionConfirmMessage" hidden>
     <div class="app-modal-card">
       <h2 id="appActionConfirmTitle">確認操作</h2>

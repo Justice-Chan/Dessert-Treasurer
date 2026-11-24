@@ -171,6 +171,5 @@ function exportActivityUnpaid() {
     ["活動名稱", "活動日期", "姓名", "學號", "系別", "電子郵件", "應繳金額", "備註"],
     ...unpaid.map(({ person }) => [activity.name, activity.date, person.name, person.studentId, person.department, person.email || "", activity.fee, activity.note || ""])
   ];
-  download(`甜點社-${activity.name}-未繳名單-${activity.date}.csv`, "\ufeff" + csv(rows), "text/csv;charset=utf-8");
-  toast(`未繳名單已開始下載，共 ${unpaid.length} 人。`);
+  exportWithMessage(`甜點社-${activity.name}-未繳名單-${activity.date}.csv`, "\ufeff" + csv(rows), "text/csv;charset=utf-8", `未繳名單（${unpaid.length} 人）`);
 }

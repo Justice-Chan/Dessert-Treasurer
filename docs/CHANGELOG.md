@@ -4,6 +4,8 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- The backup page is titled 資料管理, in two columns that end on one line. 自動備份 shows when it last ran beside its title and the folder as a breadcrumb (the full path, which holds the Gmail address, only on hover); 變更 opens a dialog with Google Drive or a system folder picker. 立即備份 is gone: quitting already backs up. 匯出 has two evenly spaced rows, 完整備份 JSON and 報表備份 CSV (a dropdown), with same-size buttons, and writes straight into a chosen folder, the Downloads folder by default. 還原 sits open under 自動備份, shows what a file holds before restoring, and saves the current books first.
+- The trash heading no longer repeats the page's note, and 刪除 sits left of 還原.
 - The web's 記帳 figures (balances, income, expense, locked date) come from the backend, so the accounting rules live in one place on the web side.
 - The web dashboard has browser tests against a stand-in backend, run with the app's tests in CI.
 - The app uploads its changes record by record: only records the web also changed keep the web's version, instead of the whole upload being refused.

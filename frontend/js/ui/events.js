@@ -118,11 +118,15 @@ function bindEvents() {
   });
   $("#importSynonymForm").addEventListener("submit", saveImportSynonyms);
   $("#webSyncForm").addEventListener("submit", saveWebSyncSettings);
-  $("#autoBackupForm").addEventListener("submit", saveAutoBackupSettings);
+  $("#autoBackupEdit").addEventListener("click", () => editFolder("backup"));
+  $("#exportFolderEdit").addEventListener("click", () => editFolder("export"));
   $("#autoBackupDetect").addEventListener("click", detectBackupFolder);
-  $("#autoBackupNow").addEventListener("click", backupNow);
-  $("#autoBackupEdit").addEventListener("click", editBackupFolder);
-  $("#autoBackupCancel").addEventListener("click", () => { $("#autoBackupForm").hidden = true; });
+  $("#autoBackupChoose").addEventListener("click", chooseBackupFolder);
+  $("#autoBackupSave").addEventListener("click", saveAutoBackupSettings);
+  $("#autoBackupCancel").addEventListener("click", closeBackupFolderDialog);
+  $("#backupFolderDialog").addEventListener("click", (event) => {
+    if (event.target === $("#backupFolderDialog")) closeBackupFolderDialog();
+  });
   $("#syncWebClaims").addEventListener("click", () => syncLedger());
   $("#resetImportSynonyms").addEventListener("click", () => {
     requestAppActionConfirmation({
@@ -707,16 +711,19 @@ function bindEvents() {
     reader.onload = async () => {
       try {
         const imported = parseImportedContent(file.name, reader.result);
-        const messages = {
-          complete: "還原會取代目前全部帳務資料。要繼續嗎？",
-          entries: "這份明細會取代目前的收支紀錄，報銷與垃圾桶資料會保留。要繼續嗎？",
-          claims: "這份明細會取代目前的報銷紀錄，收支與垃圾桶資料會保留。要繼續嗎？"
-        };
         requestAppActionConfirmation({
-          title: "還原備份",
-          message: messages[imported.scope],
+          title: `還原「${file.name}」`,
+          message: `${importSummary(imported, file)}\n還原前會先自動備份目前資料。`,
           confirmLabel: "確認還原",
-          action: () => applyImportedBackup(imported)
+          action: async () => {
+            let note;
+            try {
+              note = await saveRestorePoint();
+            } catch (error) {
+              return toast(`無法先備份目前資料，還原已取消：${error?.message || error}`, "error");
+            }
+            applyImportedBackup(imported, note);
+          }
         });
       } catch (error) {
         const message = error.message === "report only"
@@ -740,7 +747,7 @@ function bindEvents() {
     reader.readAsText(file);
   });
 
-  async function applyImportedBackup(imported) {
+  async function applyImportedBackup(imported, note = "") {
     const previousState = state;
     let replacesAllReceipts = false;
     let replacedClaimIds = null;
@@ -748,7 +755,7 @@ function bindEvents() {
       if (imported.scope === "complete") {
         // Backups never hold the sync secret, so keep this computer's sync settings. The restored
         // books are then uploaded on top of the cloud ledger this computer last saw.
-        state = normalizeState({ ...imported.data, webSync: previousState.webSync, ledgerSync: previousState.ledgerSync, autoBackup: previousState.autoBackup, expenseCategories: previousState.expenseCategories });
+        state = normalizeState({ ...imported.data, webSync: previousState.webSync, ledgerSync: previousState.ledgerSync, autoBackup: previousState.autoBackup, exportFolder: previousState.exportFolder, expenseCategories: previousState.expenseCategories });
         replacesAllReceipts = true;
       } else if (imported.scope === "entries") {
         const currentClaimIds = new Set(state.claims.map((claim) => claim.id));
@@ -771,7 +778,7 @@ function bindEvents() {
       resetPersonForm();
       resetActivityForm();
       loadReconciliationForm();
-      toast("備份已匯入。");
+      toast(`備份已匯入。${note}`);
     } catch (error) {
       state = previousState;
       saveState();

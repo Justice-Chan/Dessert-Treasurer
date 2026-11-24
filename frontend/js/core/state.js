@@ -15,8 +15,10 @@ const tauriCommandNames = {
   parseMemberSpreadsheet: "parse_member_spreadsheet",
   importMemberSpreadsheetUrl: "import_member_spreadsheet_url",
   defaultBackupFolder: "default_backup_folder",
-  runAutoBackup: "run_auto_backup",
-  autoBackupInfo: "auto_backup_info"
+  autoBackupInfo: "auto_backup_info",
+  saveRestorePoint: "save_restore_point",
+  defaultExportFolder: "default_export_folder",
+  writeExportFile: "write_export_file"
 };
 const nativeStorageCall = (action, payload = {}) => {
   if (!tauriStorageEnabled) return Promise.reject(new Error("native storage unavailable"));
@@ -54,7 +56,7 @@ const sectionMeta = {
   people: ["人員", "管理社員名單、活動參加與繳費狀態。"],
   categories: ["分類", "依甜點社常見情境整理主項目與副項目。"],
   trash: ["垃圾桶", "刪除項目保留 30 天，可在到期前還原。"],
-  backup: ["備份", "自動備份、另存完整備份，或匯出 CSV 報表。"],
+  backup: ["資料管理", "自動備份、匯出報表，或從備份檔還原。"],
   settings: ["設定", "設定雲端帳本同步，以及匯入試算表時可辨識的欄位同義詞。"]
 };
 
@@ -315,6 +317,8 @@ function normalizeState(saved = {}) {
       dirty: Boolean(saved.ledgerSync?.dirty)
     },
     autoBackup: { folder: String(saved.autoBackup?.folder || "").trim().slice(0, 1000) },
+    // Where exports are written in the desktop app; empty means the Downloads folder.
+    exportFolder: String(saved.exportFolder || "").trim().slice(0, 1000),
     expenseCategories: normalizeCategoryTree(saved.expenseCategories),
     reconciliations: Array.isArray(saved.reconciliations) ? saved.reconciliations : [],
     lastBackupAt: typeof saved.lastBackupAt === "string" ? saved.lastBackupAt : "",
