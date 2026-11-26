@@ -600,22 +600,6 @@ function activityRosterOrder(activity, index) {
   return [...savedOrder, ...fallback.filter((personId) => !saved.has(personId))];
 }
 
-function reorderActivityRoster(activityId, personId, targetPersonId, placeAfter = false) {
-  const activity = state.activities.find((item) => item.id === activityId);
-  if (!activity || personId === targetPersonId) return;
-  const order = activityRosterOrder(activity);
-  const sourceIndex = order.indexOf(personId);
-  if (sourceIndex < 0) return;
-  order.splice(sourceIndex, 1);
-  const targetIndex = order.indexOf(targetPersonId);
-  if (targetIndex < 0) return;
-  order.splice(targetIndex + Number(placeAfter), 0, personId);
-  activity.rosterOrder = order;
-  if (!saveState()) return;
-  renderPeople();
-  toast("活動人員排序已儲存。");
-}
-
 function activityStats(activity) {
   const stats = activity.attendance.reduce((stats, record) => {
     if (record.status === "attending") {
@@ -656,7 +640,11 @@ function renderMemberImportLink() {
 
 function renderActivityImportLink(activity) {
   renderImportLinkStatus("activity", activity?.importLink, Boolean(activity) && activityImportSyncing.has(activity.id));
+  // The last sync sits under the filters, apart from its menu.
+  $("#activityLinkStatusText").hidden = !activity?.importLink;
 }
+
+const copyIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>`;
 
 function renderPeople() {
   renderMemberImportLink();
@@ -666,39 +654,40 @@ function renderPeople() {
     .filter((person) => matchesSearch([person.name, person.studentId, person.department, person.email], personQuery))
     .map((person) => ({ person, stats: attendanceIndex.stats(person.id) }))
     .sort((a, b) => b.stats.unpaid - a.stats.unpaid || Number(b.stats.attending > 0) - Number(a.stats.attending > 0) || personNameCollator.compare(a.person.name, b.person.name));
-  $("#personCount").textContent = `(${visiblePeople.length}/${state.people.length})`;
+  // The total alone, or "12 / 80" while a search narrows the list.
+  $("#personCount").textContent = personQuery.trim() ? `${visiblePeople.length} / ${state.people.length}` : `${state.people.length} 人`;
+  // The department sits under the name; a click on the email copies it.
   setRenderedHtml($("#personRows"), visiblePeople.length ? visiblePeople.map(({ person, stats }) => `
-    <tr class="selectable-row" data-select-person="${person.id}" tabindex="0" aria-label="選取 ${escapeHtml(person.name)}" aria-selected="${$("#personId").value === person.id}">
-      <td>${escapeHtml(person.name)}</td>
-      <td>${escapeHtml(person.studentId)}</td>
-      <td>${escapeHtml(person.department || "-")}</td>
+    <tr class="selectable-row" data-select-person="${person.id}" tabindex="0" aria-label="編輯 ${escapeHtml(person.name)}">
+      <td><div class="person-name">${escapeHtml(person.name)}</div>${person.department ? `<div class="person-sub">${escapeHtml(person.department)}</div>` : ""}</td>
+      <td class="student-id">${escapeHtml(person.studentId)}</td>
       <td>${stats.unpaid ? `<span class="unpaid-count">未繳 ${stats.unpaid} 次</span>` : stats.attending ? `<span class="pill paid">已繳</span>` : `<span class="subtle">尚無參加</span>`}</td>
-      <td><button type="button" data-copy-person-email="${escapeHtml(person.email || "")}" ${person.email ? "" : "disabled"} aria-label="複製 ${escapeHtml(person.name)} 的電子郵件">複製</button></td>
+      <td>${person.email ? `<button type="button" class="copy-text" data-copy-person-email="${escapeHtml(person.email)}" title="點一下複製">${escapeHtml(person.email)}${copyIcon}</button>` : `<span class="subtle">-</span>`}</td>
     </tr>
-  `).join("") : `<tr><td colspan="5"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "尚未新增人員。"}</div></td></tr>`);
+  `).join("") : `<tr><td colspan="4"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "尚未新增人員。"}</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("personList", 8));
 
   const activityQuery = $("#activitySearch").value.trim().toLowerCase();
   const visibleActivities = state.activities
     .filter((activity) => !activityQuery || [activity.name, activity.date, activity.note].join(" ").toLowerCase().includes(activityQuery))
     .sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name, "zh-Hant"));
-  $("#activityCount").textContent = `(${visibleActivities.length}/${state.activities.length})`;
+  $("#activityCount").textContent = activityQuery ? `${visibleActivities.length} / ${state.activities.length}` : `${state.activities.length} 個`;
+  // Payment as one figure with a bar; only an activity still owed money stands out.
   setRenderedHtml($("#activityRows"), visibleActivities.length ? visibleActivities.map((activity) => {
     const stats = activityStats(activity);
+    const share = stats.attending ? Math.round((stats.paid / stats.attending) * 100) : 0;
     return `
-      <tr class="selectable-row" data-select-activity="${activity.id}" tabindex="0" aria-label="選取 ${escapeHtml(activity.name)}" aria-selected="${$("#activityId").value === activity.id}">
+      <tr class="selectable-row" data-select-activity="${activity.id}" tabindex="0" aria-label="開啟 ${escapeHtml(activity.name)}" aria-selected="${selectedActivityId === activity.id}">
         <td>${escapeHtml(activity.date)}</td>
         <td>${escapeHtml(activity.name)}</td>
         <td class="num">${fmt.format(activity.fee)}</td>
-        <td class="num">${stats.attending}</td>
-        <td class="num income">${stats.paid}</td>
-        <td class="num ${stats.unpaid ? "expense" : ""}">${stats.unpaid}</td>
-        <td class="row-delete-cell"><button type="button" class="danger" data-delete-activity="${activity.id}" aria-label="刪除 ${escapeHtml(activity.name)}">刪除</button></td>
+        <td>${stats.attending ? `<div class="paid-progress${stats.unpaid ? " has-unpaid" : ""}"><span>${stats.paid} / ${stats.attending} 已繳</span><span class="paid-bar"><span style="width:${share}%"></span></span></div>` : `<span class="subtle">尚無參加</span>`}</td>
+        <td class="chevron-cell" aria-hidden="true">›</td>
       </tr>
     `;
-  }).join("") : `<tr><td colspan="7"><div class="empty">${state.activities.length ? "沒有符合條件的活動。" : "尚未新增活動。"}</div></td></tr>`);
+  }).join("") : `<tr><td colspan="5"><div class="empty">${state.activities.length ? "沒有符合條件的活動。" : "尚未新增活動。"}</div></td></tr>`);
 
-  const activity = state.activities.find((item) => item.id === $("#activityId").value);
+  const activity = state.activities.find((item) => item.id === selectedActivityId);
   $("#activityRoster").hidden = !activity;
   renderActivityImportLink(activity);
   if (!activity) {
@@ -707,19 +696,17 @@ function renderPeople() {
   }
   const stats = activityStats(activity);
   $("#activityRosterTitle").textContent = activity.name;
-  $("#activityRosterDetails").textContent = [activity.date, `每人 ${fmt.format(activity.fee)}`, activity.note].filter(Boolean).join(" · ");
-  $("#activityRosterDetails").hidden = false;
-  setRenderedHtml($("#activityStatusSummary"), `
-    <span class="pill">參加 ${stats.attending}</span>
-    <span class="pill paid">已繳 ${stats.paid}</span>
-    <span class="pill pending">未繳 ${stats.unpaid}</span>
-    <span class="pill pending">待收 ${fmt.format(activity.fee * stats.unpaid)}</span>
-    <span class="pill">未參加 ${stats.notAttending}</span>
-  `);
+  // The figures double as the filter; only an unpaid count above zero is coloured.
+  const chip = (filter, label, warn = false) => `<button type="button" class="pill filter-pill${warn ? " pending" : ""}" data-roster-filter="${filter}" aria-pressed="${rosterFilter === filter}">${label}</button>`;
+  setRenderedHtml($("#activityStatusSummary"), [
+    chip("attending", `參加 ${stats.attending}`),
+    chip("paid", `已繳 ${stats.paid}`),
+    chip("unpaid", `未繳 ${stats.unpaid} 人 · ${fmt.format(activity.fee * stats.unpaid)}`, stats.unpaid > 0),
+    chip("not_attending", `未參加 ${stats.notAttending}`)
+  ].join(""));
   $("#exportActivityUnpaid").disabled = stats.unpaid === 0;
 
   const rosterQuery = $("#activityPersonSearch").value;
-  const rosterFilter = $("#activityPersonFilter").value;
   const rosterOrder = new Map(activityRosterOrder(activity, attendanceIndex).map((personId, index) => [personId, index]));
   const roster = state.people
     .map((person) => ({ person, record: attendanceIndex.record(activity, person.id) }))
@@ -741,17 +728,31 @@ function renderPeople() {
       if (bPaidAt) return 1;
       return rosterOrder.get(a.person.id) - rosterOrder.get(b.person.id);
     });
-  setRenderedHtml($("#activityPersonRows"), roster.length ? roster.map(({ person, record }) => `
-    <tr class="activity-roster-row" data-roster-activity-id="${activity.id}" data-roster-person-id="${person.id}" tabindex="0" aria-label="拖曳排序 ${escapeHtml(person.name)}">
-      <td><span class="drag-handle" title="拖曳排序" aria-hidden="true">::</span>${escapeHtml(person.name)}</td>
-      <td>${escapeHtml(person.studentId)}</td>
-      <td>${escapeHtml(person.department || "-")}</td>
-      <td><div class="status-control" role="group" aria-label="${escapeHtml(person.name)}參加狀態"><button type="button" data-set-attendance="attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status === "attending"}">參加</button><button type="button" data-set-attendance="not_attending" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record?.status !== "attending"}">未參加</button></div></td>
-      <td>${record?.status === "attending" ? `<input type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="五位數字" value="${escapeHtml(record.transferLastFive || "")}" data-transfer-last-five data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}匯款後五碼">` : `<span class="subtle">-</span>`}</td>
-      <td>${record?.status === "attending" ? `<div class="status-control payment" role="group" aria-label="${escapeHtml(person.name)}繳費狀態"><button type="button" data-set-payment="unpaid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${!record.paid}">未繳</button><button type="button" data-set-payment="paid" data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record.paid}">已繳</button></div>` : `<span class="subtle">-</span>`}</td>
-    </tr>
-  `).join("") : `<tr><td colspan="6"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先在左側新增人員。"}</div></td></tr>`);
+  rosterVisibleIds = roster.map(({ person }) => person.id);
+  rosterSelection = new Set([...rosterSelection].filter((personId) => rosterVisibleIds.includes(personId)));
+  // A switch for attending; for those attending, the transfer suffix and a tag that toggles paid.
+  setRenderedHtml($("#activityPersonRows"), roster.length ? roster.map(({ person, record }) => {
+    const attending = record?.status === "attending";
+    return `
+    <tr class="activity-roster-row${rosterSelection.has(person.id) ? " is-selected" : ""}" data-roster-activity-id="${activity.id}" data-roster-person-id="${person.id}">
+      <td class="select-cell"><input type="checkbox" data-roster-select="${person.id}" ${rosterSelection.has(person.id) ? "checked" : ""} aria-label="選取 ${escapeHtml(person.name)}"></td>
+      <td><div class="person-name">${escapeHtml(person.name)}</div>${person.department ? `<div class="person-sub">${escapeHtml(person.department)}</div>` : ""}</td>
+      <td class="student-id">${escapeHtml(person.studentId)}</td>
+      <td><label class="switch"><input type="checkbox" role="switch" data-toggle-attendance data-activity-id="${activity.id}" data-person-id="${person.id}" ${attending ? "checked" : ""} aria-label="${escapeHtml(person.name)}參加"><span aria-hidden="true"></span></label></td>
+      <td>${attending ? `<input type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="五位數字" value="${escapeHtml(record.transferLastFive || "")}" data-transfer-last-five data-activity-id="${activity.id}" data-person-id="${person.id}" aria-label="${escapeHtml(person.name)}匯款後五碼">` : ""}</td>
+      <td>${attending ? `<button type="button" class="pay-tag ${record.paid ? "paid" : "unpaid"}" data-toggle-payment data-activity-id="${activity.id}" data-person-id="${person.id}" aria-pressed="${record.paid}" aria-label="${escapeHtml(person.name)}${record.paid ? "已繳，點一下改為未繳" : "未繳，點一下改為已繳"}">${record.paid ? "已繳" : "未繳"}</button>` : ""}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="6"><div class="empty">${state.people.length ? "沒有符合條件的人員。" : "請先新增人員。"}</div></td></tr>`);
+  renderRosterBatch();
   requestAnimationFrame(() => syncScrollableList("activityPersonList", 8));
+}
+
+function renderRosterBatch() {
+  $("#rosterBatch").hidden = !rosterSelection.size;
+  $("#rosterBatchCount").textContent = rosterSelection.size;
+  $("#rosterSelectAll").checked = rosterVisibleIds.length > 0 && rosterVisibleIds.every((personId) => rosterSelection.has(personId));
+  $("#rosterSelectAll").indeterminate = rosterSelection.size > 0 && !$("#rosterSelectAll").checked;
+  $$("#activityPersonRows [data-roster-person-id]").forEach((row) => row.classList.toggle("is-selected", rosterSelection.has(row.dataset.rosterPersonId)));
 }
 
 function renderCategories() {

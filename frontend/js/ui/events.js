@@ -144,11 +144,11 @@ function bindEvents() {
   const closeActivityImportLinkDialog = () => { $("#activityImportLinkDialog").hidden = true; };
   // Both import choices sit in the roster's menu; they need an activity to fill.
   $("#chooseActivityImport").addEventListener("click", () => {
-    if (!$("#activityId").value) return toast("請先選擇一個活動。", "error");
+    if (!selectedActivityId) return toast("請先選擇一個活動。", "error");
     $("#activityImportFile").click();
   });
   $("#openActivityImportLink").addEventListener("click", () => {
-    if (!$("#activityId").value) return toast("請先選擇一個活動。", "error");
+    if (!selectedActivityId) return toast("請先選擇一個活動。", "error");
     $("#activityImportLinkDialog").hidden = false;
     $("#activityImportUrl").focus();
   });
@@ -161,9 +161,9 @@ function bindEvents() {
   });
   $("#cancelActivityImport").addEventListener("click", clearActivityImport);
   $("#confirmActivityImport").addEventListener("click", confirmActivityImport);
-  $("#syncActivityLink").addEventListener("click", () => syncActivityImportLink($("#activityId").value));
+  $("#syncActivityLink").addEventListener("click", () => syncActivityImportLink(selectedActivityId));
   $("#disconnectActivityLink").addEventListener("click", () => {
-    const activity = state.activities.find((item) => item.id === $("#activityId").value);
+    const activity = state.activities.find((item) => item.id === selectedActivityId);
     if (!activity?.importLink) return;
     requestAppActionConfirmation({
       title: "取消活動名單連線",
@@ -199,20 +199,16 @@ function bindEvents() {
     $("#payeeName").focus();
     toast(wasEditing ? "已取消編輯。" : "收款帳戶表單已重設。");
   });
-  $("#personCancel").addEventListener("click", () => {
-    const wasEditing = Boolean($("#personId").value);
-    resetPersonForm();
-    renderPeople();
-    $("#personName").focus();
-    if (wasEditing) toast("已取消編輯。");
-  });
+  $("#newPerson").addEventListener("click", () => openPersonDialog());
+  $("#personCancel").addEventListener("click", closePersonDialog);
   $("#personDelete").addEventListener("click", () => deletePerson($("#personId").value));
-  $("#activityCancel").addEventListener("click", () => {
-    const wasEditing = Boolean($("#activityId").value);
-    resetActivityForm();
-    renderPeople();
-    $("#activityName").focus();
-    if (wasEditing) toast("已取消編輯，回到新增活動。");
+  $("#newActivity").addEventListener("click", () => openActivityDialog());
+  $("#editActivity").addEventListener("click", () => openActivityDialog(state.activities.find((item) => item.id === selectedActivityId)));
+  $("#activityCancel").addEventListener("click", closeActivityDialog);
+  $("#activityDelete").addEventListener("click", () => deleteActivity($("#activityId").value));
+  [["#personDialog", closePersonDialog], ["#activityDialog", closeActivityDialog]].forEach(([dialog, close]) => {
+    $(dialog).addEventListener("click", (event) => { if (event.target === $(dialog)) close(); });
+    $(dialog).addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
   });
   $("#accountType").addEventListener("change", updateAccountBankFields);
   ["accountNumber", "payeeNumber"].forEach((id) => $("#" + id).addEventListener("input", (event) => {
@@ -345,59 +341,48 @@ function bindEvents() {
   });
   ["ledgerSearch", "ledgerParent", "ledgerDateFrom", "ledgerDateTo", "claimSearch", "claimStatusFilter", "claimParentFilter", "claimDateFrom", "claimDateTo"].forEach((id) => $("#" + id).addEventListener("input", render));
   ["personSearch", "activitySearch", "activityPersonSearch"].forEach((id) => $("#" + id).addEventListener("input", renderPeople));
-  $("#activityPersonFilter").addEventListener("change", renderPeople);
+  // Five digits typed in full count at once (and mark the person paid); fewer wait for the field to be left.
   $("#activityPersonRows").addEventListener("input", (event) => {
     const transferLastFive = event.target.closest("[data-transfer-last-five]");
-    if (transferLastFive) {
-      const digits = transferLastFive.value.normalize("NFKC").replace(/\D/g, "").slice(0, 5);
-      if (transferLastFive.value !== digits) transferLastFive.value = digits;
-    }
+    if (!transferLastFive) return;
+    const digits = transferLastFive.value.normalize("NFKC").replace(/\D/g, "").slice(0, 5);
+    if (transferLastFive.value !== digits) transferLastFive.value = digits;
+    if (digits.length === 5) setActivityTransferLastFive(transferLastFive.dataset.activityId, transferLastFive.dataset.personId, digits);
   });
   $("#activityPersonRows").addEventListener("change", (event) => {
     const transferLastFive = event.target.closest("[data-transfer-last-five]");
+    const attendance = event.target.closest("[data-toggle-attendance]");
+    const select = event.target.closest("[data-roster-select]");
     if (transferLastFive) setActivityTransferLastFive(transferLastFive.dataset.activityId, transferLastFive.dataset.personId, transferLastFive.value);
+    if (attendance) setActivityAttendance(attendance.dataset.activityId, attendance.dataset.personId, attendance.checked ? "attending" : "not_attending");
+    if (select) {
+      if (select.checked) rosterSelection.add(select.dataset.rosterSelect);
+      else rosterSelection.delete(select.dataset.rosterSelect);
+      renderRosterBatch();
+    }
   });
-  const clearRosterPointerDrag = () => {
-    rosterPointerDrag = null;
-    $$("#activityPersonRows .is-dragging, #activityPersonRows .is-drop-target, #activityPersonRows .is-drop-after").forEach((item) => item.classList.remove("is-dragging", "is-drop-target", "is-drop-after"));
-  };
-  $("#activityPersonRows").addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || event.target.closest("button, input")) return;
-    const row = event.target.closest("[data-roster-person-id]");
-    if (!row) return;
-    event.preventDefault();
-    row.setPointerCapture?.(event.pointerId);
-    rosterPointerDrag = {
-      activityId: row.dataset.rosterActivityId,
-      personId: row.dataset.rosterPersonId,
-      row,
-      startX: event.clientX,
-      startY: event.clientY,
-      active: true,
-      targetRow: null,
-      placeAfter: false
-    };
-    row.classList.add("is-dragging");
+  $("#activityPersonRows").addEventListener("click", (event) => {
+    const payment = event.target.closest("[data-toggle-payment]");
+    if (payment) setActivityPayment(payment.dataset.activityId, payment.dataset.personId, payment.getAttribute("aria-pressed") !== "true");
   });
-  document.addEventListener("pointermove", (event) => {
-    if (!rosterPointerDrag) return;
-    const targetRow = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-roster-person-id]");
-    if (!targetRow || targetRow === rosterPointerDrag.row || targetRow.dataset.rosterActivityId !== rosterPointerDrag.activityId) return;
-    const bounds = targetRow.getBoundingClientRect();
-    const placeAfter = event.clientY > bounds.top + bounds.height / 2;
-    $$("#activityPersonRows .is-drop-target, #activityPersonRows .is-drop-after").forEach((item) => item.classList.remove("is-drop-target", "is-drop-after"));
-    targetRow.classList.add(placeAfter ? "is-drop-after" : "is-drop-target");
-    rosterPointerDrag.targetRow = targetRow;
-    rosterPointerDrag.placeAfter = placeAfter;
-    event.preventDefault();
+  $("#activityStatusSummary").addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-roster-filter]");
+    if (!chip) return;
+    rosterFilter = chip.dataset.rosterFilter;
+    rosterSelection = new Set();
+    renderPeople();
   });
-  document.addEventListener("pointerup", () => {
-    if (!rosterPointerDrag) return;
-    const { active, activityId, personId, targetRow, placeAfter } = rosterPointerDrag;
-    clearRosterPointerDrag();
-    if (active && targetRow) reorderActivityRoster(activityId, personId, targetRow.dataset.rosterPersonId, placeAfter);
+  $("#rosterSelectAll").addEventListener("change", (event) => {
+    rosterSelection = event.target.checked ? new Set(rosterVisibleIds) : new Set();
+    renderPeople();
   });
-  document.addEventListener("pointercancel", clearRosterPointerDrag);
+  $("#rosterBatchPaid").addEventListener("click", () => batchUpdateRoster("paid"));
+  $("#rosterBatchUnpaid").addEventListener("click", () => batchUpdateRoster("unpaid"));
+  $("#rosterBatchAttend").addEventListener("click", () => batchUpdateRoster("attending"));
+  $("#rosterBatchClear").addEventListener("click", () => {
+    rosterSelection = new Set();
+    renderPeople();
+  });
   $("#trashRows").addEventListener("click", (event) => {
     const row = event.target.closest("[data-select-trash-row]");
     if (!row) return;
@@ -453,9 +438,6 @@ function bindEvents() {
     const selectActivityRow = event.target.closest("[data-select-activity]");
     const deleteAccountRow = event.target.closest("[data-delete-account]");
     const deletePayeeRow = event.target.closest("[data-delete-payee]");
-    const deleteActivityRow = event.target.closest("[data-delete-activity]");
-    const attendanceButton = event.target.closest("[data-set-attendance]");
-    const paymentButton = event.target.closest("[data-set-payment]");
     const copyAccount = event.target.closest("[data-copy-account-number]");
     const copyPayee = event.target.closest("[data-copy-payee-number]");
     const copyPersonEmailButton = event.target.closest("[data-copy-person-email]");
@@ -546,9 +528,6 @@ function bindEvents() {
 
     if (deleteAccountRow) deleteSelectedAccount(deleteAccountRow.dataset.deleteAccount);
     if (deletePayeeRow) deleteSelectedPayee(deletePayeeRow.dataset.deletePayee);
-    if (deleteActivityRow) deleteActivity(deleteActivityRow.dataset.deleteActivity);
-    if (attendanceButton) setActivityAttendance(attendanceButton.dataset.activityId, attendanceButton.dataset.personId, attendanceButton.dataset.setAttendance);
-    if (paymentButton) setActivityPayment(paymentButton.dataset.activityId, paymentButton.dataset.personId, paymentButton.dataset.setPayment === "paid");
 
     if (copyAccount) await copyAccountNumber(copyAccount.dataset.copyAccountNumber);
     if (copyPayee) await copyAccountNumber(copyPayee.dataset.copyPayeeNumber);

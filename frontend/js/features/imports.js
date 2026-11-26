@@ -432,13 +432,13 @@ function showActivityImportPreview(importData) {
 }
 
 async function readActivityImportFile(file) {
-  const activity = state.activities.find((item) => item.id === $("#activityId").value);
+  const activity = state.activities.find((item) => item.id === selectedActivityId);
   if (!file || !activity) return;
   await readImportFile(file, (rows) => showActivityImportPreview({ ...activityImportPreview(rows, activity), rows, sourceUrl: "", enableLink: false }), clearActivityImport);
 }
 
 async function readActivityImportUrl() {
-  const activity = state.activities.find((item) => item.id === $("#activityId").value);
+  const activity = state.activities.find((item) => item.id === selectedActivityId);
   const url = $("#activityImportUrl").value.trim();
   if (!activity || !url) return toast("請貼上公開試算表連結。", "error");
   await readImportUrl(url, $("#importActivityUrl"), (rows) => showActivityImportPreview({ ...activityImportPreview(rows, activity, { allowEmptyLink: true }), rows, sourceUrl: url, enableLink: $("#enableActivityLink").checked }));
@@ -465,7 +465,7 @@ function applyActivityImport(activity, importData) {
 function confirmActivityImport() {
   if (!pendingActivityImport) return;
   const activity = state.activities.find((item) => item.id === pendingActivityImport.activityId);
-  if (!activity || $("#activityId").value !== activity.id) return toast("活動已切換，請重新選擇試算表。", "error");
+  if (!activity || selectedActivityId !== activity.id) return toast("活動已切換，請重新選擇試算表。", "error");
   const importData = { ...activityImportPreview(pendingActivityImport.rows, activity, { allowEmptyLink: Boolean(pendingActivityImport.sourceUrl && pendingActivityImport.enableLink) }), sourceUrl: pendingActivityImport.sourceUrl || "", enableLink: Boolean(pendingActivityImport.enableLink) };
   const connectsLink = Boolean(importData.sourceUrl && importData.enableLink);
   const changes = applyActivityImport(activity, importData);

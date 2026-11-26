@@ -247,7 +247,7 @@ h3 { font-size: 15px; margin-bottom: 10px; }
 
 #people > .people-grid {
   display: grid;
-  grid-template-columns: minmax(350px, 36fr) minmax(0, 64fr);
+  grid-template-columns: minmax(400px, 45fr) minmax(0, 55fr);
   gap: 14px;
   align-items: start;
 }
@@ -1253,54 +1253,96 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
   table-layout: fixed;
 }
 
+/* The department sits under the name; student ids use even-width digits. */
+.person-name { font-weight: 600; }
+.person-sub { color: var(--muted); font-size: 12px; }
+.student-id { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; letter-spacing: .02em; }
+
 .people-table { min-width: 0; }
-.people-table col:nth-child(1) { width: 16%; }
-.people-table col:nth-child(2) { width: 20%; }
-.people-table col:nth-child(3) { width: 20%; }
-.people-table col:nth-child(4) { width: 17%; }
-.people-table col:nth-child(5) { width: 27%; }
+.people-table col:nth-child(1) { width: 28%; }
+.people-table col:nth-child(2) { width: 22%; }
+.people-table col:nth-child(3) { width: 16%; }
+.people-table col:nth-child(4) { width: 34%; }
 .people-table th,
 .people-table td { padding-inline: 6px; }
-.people-table .unpaid-count { font-size: 12px; }
+.people-table .unpaid-count, .people-table td:nth-child(3) .subtle { font-size: 12px; white-space: nowrap; }
 .people-table th:nth-child(4),
 .people-table td:nth-child(4) { text-align: right; }
-.people-table th:nth-child(5),
-.people-table td:nth-child(5) { text-align: right; }
-.people-table [data-copy-person-email] {
-  min-height: 32px;
-  padding: 0 8px;
-  font-size: 13px;
-}
+/* The email itself copies on a click; the copy icon shows only while the row is aimed at. */
+.copy-text { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; overflow: hidden; white-space: nowrap; min-height: 0; padding: 2px 4px; border: 0; background: none; color: var(--ink); font-size: 13px; cursor: copy; }
+.copy-text svg { flex: none; width: 13px; height: 13px; fill: none; stroke: var(--muted); stroke-width: 2; opacity: 0; }
+tr:hover .copy-text svg, .copy-text:focus-visible svg { opacity: 1; }
+.copy-text:hover { color: var(--accent); }
 
-.activity-table { min-width: 580px; }
-.activity-table col:nth-child(1) { width: 15%; }
-.activity-table col:nth-child(2) { width: 22%; }
-.activity-table col:nth-child(3) { width: 13%; }
-.activity-table col:nth-child(4) { width: 12%; }
-.activity-table col:nth-child(5) { width: 12%; }
-.activity-table col:nth-child(6) { width: 14%; }
-.activity-table col:nth-child(7) { width: 12%; }
+.activity-table { min-width: 0; }
+.activity-table col:nth-child(1) { width: 22%; }
+.activity-table col:nth-child(2) { width: 30%; }
+.activity-table col:nth-child(3) { width: 15%; }
+.activity-table col:nth-child(4) { width: 27%; }
+.activity-table col:nth-child(5) { width: 6%; }
+.paid-progress { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.paid-progress.has-unpaid { color: var(--warn); font-weight: 600; }
+.paid-bar { display: block; height: 4px; border-radius: 2px; background: var(--soft-line); overflow: hidden; }
+.paid-bar span { display: block; height: 100%; background: var(--good); }
+.has-unpaid .paid-bar span { background: var(--warn); }
+.chevron-cell { color: var(--muted); font-size: 18px; text-align: right; }
 
-.activity-people-table { min-width: 650px; }
-.activity-people-table col:nth-child(1) { width: 15%; }
-.activity-people-table col:nth-child(2) { width: 15%; }
-.activity-people-table col:nth-child(3) { width: 17%; }
-.activity-people-table col:nth-child(4) { width: 21%; }
-.activity-people-table col:nth-child(5) { width: 17%; }
-.activity-people-table col:nth-child(6) { width: 15%; }
-.activity-people-table th:nth-child(4),
-.activity-people-table th:nth-child(5),
-.activity-people-table td:nth-child(4),
-.activity-people-table td:nth-child(5),
-.activity-people-table th:nth-child(6),
-.activity-people-table td:nth-child(6) { text-align: right; }
-.activity-people-table .status-control { justify-content: flex-end; }
-.activity-people-table .activity-roster-row { cursor: grab; touch-action: none; user-select: none; }
-.activity-people-table .activity-roster-row:active { cursor: grabbing; }
-.activity-people-table .activity-roster-row.is-dragging { opacity: 0.45; }
-.activity-people-table .activity-roster-row.is-drop-target td { box-shadow: inset 0 3px 0 var(--accent); }
-.activity-people-table .activity-roster-row.is-drop-after td { box-shadow: inset 0 -3px 0 var(--accent); }
-.drag-handle { display: inline-block; margin-right: 7px; color: var(--muted); font-weight: 700; letter-spacing: 1px; user-select: none; }
+.activity-people-table { min-width: 0; }
+.activity-people-table col.select-col { width: 36px; }
+.activity-people-table col:nth-child(2) { width: 25%; }
+.activity-people-table col:nth-child(3) { width: 24%; }
+.activity-people-table col:nth-child(4) { width: 13%; }
+.activity-people-table col:nth-child(5) { width: 22%; }
+.activity-people-table col:nth-child(6) { width: 16%; }
+.activity-people-table th:nth-child(n+4),
+.activity-people-table td:nth-child(n+4) { text-align: right; }
+.select-cell { text-align: center; }
+.activity-people-table td, .people-table td, .activity-table td { vertical-align: middle; }
+.select-cell input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.activity-roster-row.is-selected td { background: #f3f8f4; }
+.activity-people-table [data-transfer-last-five] { width: 76px; height: 32px; min-height: 32px; text-align: center; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+/* One style for an on state: the switch and the paid tag both turn green. */
+.switch { position: relative; display: inline-block; width: 36px; height: 20px; vertical-align: middle; cursor: pointer; }
+.switch input { position: absolute; inset: 0; z-index: 1; opacity: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: background .15s; }
+.switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform .15s; }
+.switch input:checked + span { background: var(--good); }
+.switch input:checked + span::after { transform: translateX(16px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pay-tag { min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.pay-tag.unpaid { color: var(--warn); border-color: #ead2a8; background: #fff9ed; }
+.pay-tag.paid { color: var(--good); border-color: #b9d4c3; background: #f3fbf5; }
+
+/* The status figures are the filter; the chosen one is outlined in ink. */
+.filter-pill { min-height: 28px; cursor: pointer; }
+.filter-pill[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); font-weight: 650; }
+.filter-pill.pending[aria-pressed="true"] { border-color: var(--warn); color: var(--warn); }
+
+.roster-batch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; padding: 8px 10px; border: 1px solid #b9d4c3; border-radius: var(--radius); background: #f3fbf5; font-size: 14px; }
+.roster-batch[hidden] { display: none; }
+.roster-batch .text-link { margin-left: auto; }
+.roster-batch .action-menu-trigger { min-height: 30px; padding: 0 10px; font-size: 13px; }
+
+/* Sticky table heads end in a line, so rows sliding beneath them do not look cut off. */
+.table-wrap thead th { box-shadow: inset 0 -1px 0 var(--line); }
+
+.heading-actions { display: flex; align-items: center; gap: 8px; }
+#people .section-heading h2 { white-space: nowrap; }
+#people .section-heading button, #people .section-heading .action-menu-trigger { min-height: 34px; padding: 0 12px; font-size: 14px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.activity-roster-actions { display: flex; align-items: center; gap: 8px; }
+
+/* Dialog fields: an amount with its currency and no spinner, and the calendar inside the date. */
+.money-input { position: relative; }
+.money-input span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+.money-input input { width: 100%; padding-left: 42px; -moz-appearance: textfield; }
+.money-input input::-webkit-outer-spin-button,
+.money-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.date-control.inset { display: block; }
+.date-control.inset > input:first-child { width: 100%; padding-right: 40px; }
+.date-control.inset .date-picker-trigger { position: absolute; right: 4px; top: 50%; min-height: 32px; height: 32px; transform: translateY(-50%); border: 0; background: none; }
+.dialog-actions .dialog-delete { margin-right: auto; }
 
 .status-summary {
   display: flex;
@@ -1309,38 +1351,10 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
   margin: 0 0 10px;
 }
 
-.status-control {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
-}
 
-.status-control button {
-  min-height: 30px;
-  padding: 0 8px;
-  font-size: 12px;
-}
 
-.status-control button[aria-pressed="true"] {
-  color: white;
-  border-color: var(--accent);
-  background: var(--accent);
-}
 
-.status-control.payment button[aria-pressed="true"] {
-  color: var(--good);
-  border-color: #b9d4c3;
-  background: #f3fbf5;
-}
 
-.status-control.payment button:first-child[aria-pressed="true"] {
-  color: var(--warn);
-  border-color: #ead2a8;
-  background: #fff9ed;
-}
-.status-control.payment [data-set-payment="unpaid"] { order: 1; }
-.status-control.payment [data-set-payment="paid"] { order: 2; }
 
 .unpaid-count {
   color: var(--warn);
@@ -1349,6 +1363,17 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
 }
 
 .activity-roster[hidden] { display: none; }
+/* Set apart from the activity list above it. */
+.activity-roster { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--soft-line); }
+/* The status filters on the left, the sheet link's last sync on the right. */
+.roster-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 10px; }
+.roster-status-row .status-summary { flex: 1; min-width: 0; margin: 0; }
+.roster-link-status { flex: none; margin-left: auto; }
+.roster-link-status[hidden] { display: none; }
+.roster-sync-note { margin: -4px 0 10px; font-size: 13px; }
+.roster-sync-note[hidden] { display: none; }
+/* The same size as 名單操作 and 編輯活動 above. */
+.roster-link-status .action-menu-trigger { min-height: 34px; padding: 0 12px; font-size: 14px; }
 .activity-roster .section-heading { align-items: center; }
 .activity-roster-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .activity-roster .person-import-preview {

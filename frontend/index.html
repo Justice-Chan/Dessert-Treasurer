@@ -480,47 +480,21 @@
       <section class="section" id="people" aria-labelledby="pageTitle">
         <div class="people-grid">
           <div class="panel">
-            <form id="personForm">
-              <div class="section-heading">
-                <h2 id="personFormTitle">新增人員</h2>
-                <div>
-                  <input id="personImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
-                  <div class="action-menu" data-action-menu>
-                    <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">匯入試算表 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-                    <div class="action-menu-list" role="menu" hidden>
-                      <button type="button" role="menuitem" id="choosePersonImport">選擇檔案</button>
-                      <button type="button" role="menuitem" id="openPersonImportLink">貼上連結</button>
-                    </div>
+            <div class="section-heading">
+              <h2>人員名單 <span class="subtle" id="personCount"></span></h2>
+              <div class="heading-actions">
+                <input id="personImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
+                <div class="action-menu" data-action-menu>
+                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">匯入試算表 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                  <div class="action-menu-list" role="menu" hidden>
+                    <button type="button" role="menuitem" id="choosePersonImport">選擇檔案</button>
+                    <button type="button" role="menuitem" id="openPersonImportLink">貼上連結</button>
                   </div>
                 </div>
+                <button type="button" id="newPerson">＋ 新增人員</button>
               </div>
-              <input type="hidden" id="personId">
-              <div class="person-form-grid">
-                <div class="field">
-                  <label for="personName">姓名</label>
-                  <input id="personName" maxlength="80" required placeholder="例：陳小美">
-                </div>
-                <div class="field">
-                  <label for="personStudentId">學號</label>
-                  <input id="personStudentId" maxlength="30" required placeholder="例：B12345678">
-                </div>
-                <div class="field">
-                  <label for="personDepartment">系別</label>
-                  <input id="personDepartment" maxlength="100" placeholder="例：食品科學系">
-                </div>
-                <div class="field">
-                  <label for="personEmail">電子郵件</label>
-                  <input id="personEmail" type="email" maxlength="160" placeholder="例：name@example.com">
-                </div>
-              </div>
-              <div class="form-actions account-form-actions">
-                <div class="account-edit-actions">
-                  <button type="button" id="personCancel" hidden>取消編輯</button>
-                  <button type="button" class="danger" id="personDelete" hidden>刪除</button>
-                </div>
-                <button type="submit" class="primary" id="personSubmit">儲存人員</button>
-              </div>
-              <div class="person-import-preview" id="personImportPreview" hidden>
+            </div>
+            <div class="person-import-preview" id="personImportPreview" hidden>
                 <p class="subtle" id="personImportSummary"></p>
                 <ul class="import-unmatched" id="personImportUnmatched" aria-label="無法對應的列" hidden></ul>
                 <div class="form-actions">
@@ -528,7 +502,7 @@
                   <button type="button" class="primary" id="confirmPersonImport">匯入人員</button>
                 </div>
               </div>
-              <div class="person-link-status" id="personLinkStatus" hidden>
+            <div class="person-link-status" id="personLinkStatus" hidden>
                 <div><strong>名單連線</strong><p class="subtle" id="personLinkStatusText"></p></div>
                 <div class="action-menu" data-action-menu>
                   <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">連線管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -538,92 +512,63 @@
                   </div>
                 </div>
               </div>
-            </form>
-
-            <div class="people-section-block">
-              <div class="section-heading">
-                <h2>人員名單 <span class="subtle" id="personCount"></span></h2>
-              </div>
-              <div class="people-tools single">
-                <input id="personSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
-              </div>
-              <div class="table-wrap" id="personList">
-                <table class="people-table">
-                  <colgroup><col><col><col><col><col></colgroup>
-                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>繳費</th><th>電子郵件</th></tr></thead>
-                  <tbody id="personRows"></tbody>
-                </table>
-              </div>
+            <div class="people-tools single">
+              <input id="personSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
+            </div>
+            <div class="table-wrap" id="personList">
+              <table class="people-table">
+                <colgroup><col><col><col><col></colgroup>
+                <thead><tr><th>姓名</th><th>學號</th><th>活動費</th><th>電子郵件</th></tr></thead>
+                <tbody id="personRows"></tbody>
+              </table>
             </div>
           </div>
 
           <div class="panel">
-            <form id="activityForm">
-              <h2 id="activityFormTitle">新增活動</h2>
-              <input type="hidden" id="activityId">
-              <div class="form-grid">
-                <div class="field">
-                  <label for="activityName">活動名稱</label>
-                  <input id="activityName" maxlength="160" required placeholder="例：布朗尼實作課">
-                </div>
-                <div class="field">
-                  <label for="activityDate">活動日期</label>
-                  <div class="date-control" data-date-control>
-                    <input id="activityDate" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" required>
-                    <button type="button" class="date-picker-trigger" aria-label="選擇活動日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
-                    <input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true">
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="activityFee">應繳金額</label>
-                  <input id="activityFee" type="number" min="0" step="1" value="0" required>
-                </div>
-                <div class="field">
-                  <label for="activityNote">備註</label>
-                  <input id="activityNote" maxlength="500" placeholder="例：含材料費">
-                </div>
-              </div>
-              <div class="form-actions account-form-actions">
-                <button type="button" id="activityCancel" hidden>取消編輯</button>
-                <button type="submit" class="primary" id="activitySubmit">儲存活動</button>
-              </div>
-            </form>
-
-            <div class="people-section-block">
-              <div class="section-heading">
-                <h2>活動項目 <span class="subtle" id="activityCount"></span></h2>
-              </div>
-              <div class="people-tools single">
-                <input id="activitySearch" type="search" placeholder="搜尋活動名稱、日期或備註">
-              </div>
-              <div class="table-wrap">
-                <table class="activity-table">
-                  <colgroup><col><col><col><col><col><col><col></colgroup>
-                  <thead><tr><th>日期</th><th>活動</th><th class="num">每人</th><th class="num">參加</th><th class="num">已繳</th><th class="num">未繳</th><th class="row-delete-cell">操作</th></tr></thead>
-                  <tbody id="activityRows"></tbody>
-                </table>
-              </div>
+            <div class="section-heading">
+              <h2>活動項目 <span class="subtle" id="activityCount"></span></h2>
+              <button type="button" id="newActivity">＋ 新增活動</button>
+            </div>
+            <div class="people-tools single">
+              <input id="activitySearch" type="search" placeholder="搜尋活動名稱、日期或備註">
+            </div>
+            <div class="table-wrap">
+              <table class="activity-table">
+                <colgroup><col><col><col><col><col></colgroup>
+                <thead><tr><th>日期</th><th>活動</th><th class="num">每人</th><th>繳費</th><th><span class="visually-hidden">開啟</span></th></tr></thead>
+                <tbody id="activityRows"></tbody>
+              </table>
             </div>
 
             <div class="people-section-block activity-roster" id="activityRoster" hidden>
               <div class="section-heading">
-                <div>
-                  <h2 id="activityRosterTitle">活動人員</h2>
-                  <p class="subtle" id="activityRosterDetails"></p>
-                </div>
+                <h2 id="activityRosterTitle">活動人員</h2>
                 <div class="activity-roster-actions">
                   <input id="activityImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
                   <div class="action-menu" data-action-menu>
-                    <button type="button" class="primary action-menu-trigger" aria-haspopup="menu" aria-expanded="false">名單操作 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">名單操作 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
                     <div class="action-menu-list" role="menu" hidden>
                       <button type="button" role="menuitem" id="chooseActivityImport">匯入試算表檔案</button>
                       <button type="button" role="menuitem" id="openActivityImportLink">匯入試算表連結</button>
                       <button type="button" role="menuitem" id="exportActivityUnpaid">下載未繳名單</button>
                     </div>
                   </div>
+                  <button type="button" id="editActivity">編輯活動</button>
                 </div>
               </div>
-              <div class="status-summary" id="activityStatusSummary"></div>
+              <div class="roster-status-row">
+                <div class="status-summary" id="activityStatusSummary" role="group" aria-label="依狀態篩選"></div>
+                <div class="roster-link-status" id="activityLinkStatus" hidden>
+                  <div class="action-menu" data-action-menu>
+                    <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">連線管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <div class="action-menu-list" role="menu" hidden>
+                      <button type="button" role="menuitem" id="syncActivityLink">立即同步</button>
+                      <button type="button" role="menuitem" class="danger" id="disconnectActivityLink">取消連線</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="subtle roster-sync-note" id="activityLinkStatusText" hidden></p>
               <div class="person-import-preview" id="activityImportPreview" hidden>
                 <p class="subtle" id="activityImportSummary"></p>
                 <ul class="import-unmatched" id="activityImportUnmatched" aria-label="無法對應的列" hidden></ul>
@@ -632,29 +577,25 @@
                   <button type="button" class="primary" id="confirmActivityImport">匯入活動人員</button>
                 </div>
               </div>
-              <div class="person-link-status" id="activityLinkStatus" hidden>
-                <div><strong>活動名單連線</strong><p class="subtle" id="activityLinkStatusText"></p></div>
+              <div class="people-tools single">
+                <input id="activityPersonSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
+              </div>
+              <div class="roster-batch" id="rosterBatch" hidden>
+                <span>已選 <strong id="rosterBatchCount">0</strong> 人</span>
+                <button type="button" class="text-link" id="rosterBatchClear">取消選取</button>
                 <div class="action-menu" data-action-menu>
-                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">連線管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">標記為 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
                   <div class="action-menu-list" role="menu" hidden>
-                    <button type="button" role="menuitem" id="syncActivityLink">立即同步</button>
-                    <button type="button" role="menuitem" class="danger" id="disconnectActivityLink">取消連線</button>
+                    <button type="button" role="menuitem" id="rosterBatchPaid">已繳</button>
+                    <button type="button" role="menuitem" id="rosterBatchUnpaid">未繳</button>
+                    <button type="button" role="menuitem" id="rosterBatchAttend">參加</button>
                   </div>
                 </div>
               </div>
-              <div class="people-tools">
-                <input id="activityPersonSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
-                <select id="activityPersonFilter" aria-label="人員狀態篩選">
-                  <option value="attending">全部參加</option>
-                  <option value="paid">參加・已繳</option>
-                  <option value="unpaid">參加・未繳</option>
-                  <option value="not_attending">未參加</option>
-                </select>
-              </div>
               <div class="table-wrap" id="activityPersonList">
                 <table class="activity-people-table">
-                  <colgroup><col><col><col><col><col><col></colgroup>
-                  <thead><tr><th>姓名</th><th>學號</th><th>系別</th><th>參加狀態</th><th>匯款後五碼</th><th>繳費狀態</th></tr></thead>
+                  <colgroup><col class="select-col"><col><col><col><col><col></colgroup>
+                  <thead><tr><th class="select-cell"><input type="checkbox" id="rosterSelectAll" aria-label="全選目前列出的人員"></th><th>姓名</th><th>學號</th><th>參加</th><th>匯款後五碼</th><th>繳費</th></tr></thead>
                   <tbody id="activityPersonRows"></tbody>
                 </table>
               </div>
@@ -841,6 +782,71 @@
       </div>
     </form>
   </div></div>
+  <div class="app-modal" id="personDialog" role="dialog" aria-modal="true" aria-labelledby="personFormTitle" hidden>
+    <form class="app-modal-card" id="personForm">
+      <h2 id="personFormTitle">新增人員</h2>
+      <input type="hidden" id="personId">
+      <div class="dialog-form-grid">
+        <div class="field">
+          <label for="personName">姓名</label>
+          <input id="personName" maxlength="80" required placeholder="例：陳小美">
+        </div>
+        <div class="field">
+          <label for="personStudentId">學號</label>
+          <input id="personStudentId" maxlength="30" required placeholder="例：B12345678">
+        </div>
+        <div class="field">
+          <label for="personDepartment">系別</label>
+          <input id="personDepartment" maxlength="100" placeholder="例：食品科學系">
+        </div>
+        <div class="field">
+          <label for="personEmail">電子郵件</label>
+          <input id="personEmail" type="email" maxlength="160" placeholder="例：name@example.com">
+        </div>
+      </div>
+      <div class="form-actions dialog-actions">
+        <button type="button" class="danger dialog-delete" id="personDelete" hidden>刪除</button>
+        <button type="button" id="personCancel">取消</button>
+        <button type="submit" class="primary" id="personSubmit">儲存</button>
+      </div>
+    </form>
+  </div>
+  <div class="app-modal" id="activityDialog" role="dialog" aria-modal="true" aria-labelledby="activityFormTitle" hidden>
+    <form class="app-modal-card" id="activityForm">
+      <h2 id="activityFormTitle">新增活動</h2>
+      <input type="hidden" id="activityId">
+      <div class="dialog-form-grid">
+        <div class="field">
+          <label for="activityName">活動名稱</label>
+          <input id="activityName" maxlength="160" required placeholder="例：布朗尼實作課">
+        </div>
+        <div class="field">
+          <label for="activityDate">活動日期</label>
+          <div class="date-control inset" data-date-control>
+            <input id="activityDate" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" required>
+            <button type="button" class="date-picker-trigger" aria-label="選擇活動日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
+            <input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true">
+          </div>
+        </div>
+        <div class="field">
+          <label for="activityFee">應繳金額</label>
+          <div class="money-input">
+            <span aria-hidden="true">NT$</span>
+            <input id="activityFee" type="number" inputmode="numeric" min="0" step="1" placeholder="例：250，免費可留空">
+          </div>
+        </div>
+        <div class="field">
+          <label for="activityNote">備註</label>
+          <input id="activityNote" maxlength="500" placeholder="例：含材料費">
+        </div>
+      </div>
+      <div class="form-actions dialog-actions">
+        <button type="button" class="danger dialog-delete" id="activityDelete" hidden>刪除活動</button>
+        <button type="button" id="activityCancel">取消</button>
+        <button type="submit" class="primary" id="activitySubmit">儲存</button>
+      </div>
+    </form>
+  </div>
   <div class="app-modal" id="backupFolderDialog" role="dialog" aria-modal="true" aria-labelledby="backupFolderDialogTitle" hidden>
     <div class="app-modal-card">
       <h2 id="backupFolderDialogTitle"></h2>

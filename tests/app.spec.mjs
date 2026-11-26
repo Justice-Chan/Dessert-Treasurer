@@ -146,42 +146,6 @@ test("monthly report uses the selected reconciliation month", async ({ page }) =
   }
 });
 
-test("activity roster drag order persists after reload", async ({ page }) => {
-  await openSection(page, "人員");
-  const people = [["王小明", "A001"], ["陳小華", "A002"]];
-  for (const [index, [name, studentId]] of people.entries()) {
-    await page.locator("#personName").fill(name);
-    await page.locator("#personStudentId").fill(studentId);
-    await page.locator("#personDepartment").fill("甜點系");
-    await page.locator("#personSubmit").click();
-    if (index < people.length - 1) await page.locator("#personCancel").click();
-  }
-
-  await page.locator("#activityName").fill("拖曳排序測試");
-  await page.locator("#activityDate").fill(date);
-  await page.locator("#activityFee").fill("0");
-  await page.locator("#activitySubmit").click();
-
-  const rows = page.locator("#activityPersonRows [data-roster-person-id]");
-  await expect(rows).toHaveCount(2);
-  const first = rows.nth(0);
-  const second = rows.nth(1);
-  const originalFirst = await first.getAttribute("data-roster-person-id");
-  const firstBox = await first.boundingBox();
-  const secondBox = await second.boundingBox();
-  await page.mouse.move(firstBox.x + 24, firstBox.y + firstBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(secondBox.x + 24, secondBox.y + secondBox.height - 3, { steps: 6 });
-  await page.mouse.up();
-  await expect(rows.nth(0)).not.toHaveAttribute("data-roster-person-id", originalFirst);
-
-  await page.reload();
-  await openSection(page, "人員");
-  await page.locator("[data-select-activity]").filter({ hasText: "拖曳排序測試" }).click();
-  const restoredOrder = await page.locator("#activityPersonRows [data-roster-person-id]").evaluateAll((items) => items.map((item) => item.dataset.rosterPersonId));
-  expect(restoredOrder[0]).not.toBe(originalFirst);
-});
-
 test("long monthly reports keep every row and heading inside explicit pages", async ({ page }) => {
   const layout = await page.evaluate(async () => {
     state.accounts = [{ id: "test-cash", name: "測試現金", type: "cash", openingDate: "2099-01-01", openingBalance: 0, active: true }];
@@ -394,18 +358,18 @@ test("activity payments hide times, keep account suffixes and sort unpaid people
   await expect(page.locator("[data-payment-time]")).toHaveCount(0);
   await expect(page.locator(".activity-people-table thead")).toContainText("匯款後五碼");
   const suffix = page.locator('[data-transfer-last-five][data-person-id="unpaid"]');
+  // Five digits mark the person paid as well.
   await suffix.fill("00123");
-  await suffix.press("Tab");
-  await expect(suffix).toHaveValue("00123");
+  await expect(page.locator('[data-toggle-payment][data-person-id="unpaid"]')).toHaveText("已繳");
+  expect(await page.evaluate(() => activityRecord(state.activities[0], "unpaid").paidAt)).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}$/);
   await suffix.fill("12");
   await suffix.press("Tab");
   await expect(page.locator("#toast")).toContainText("完整的五位數字");
   await expect(suffix).toHaveValue("00123");
-  await page.locator('[data-set-payment="paid"][data-person-id="unpaid"]').click();
-  const firstPaymentTime = await page.evaluate(() => activityRecord(state.activities[0], "unpaid").paidAt);
-  expect(firstPaymentTime).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}$/);
-  await page.locator('[data-set-payment="paid"][data-person-id="unpaid"]').click();
-  expect(await page.evaluate(() => activityRecord(state.activities[0], "unpaid").paidAt)).toBe(firstPaymentTime);
+  // The tag toggles paid and unpaid.
+  await page.locator('[data-toggle-payment][data-person-id="unpaid"]').click();
+  await expect(page.locator('[data-toggle-payment][data-person-id="unpaid"]')).toHaveText("未繳");
+  expect(await page.evaluate(() => activityRecord(state.activities[0], "unpaid").paidAt)).toBe("");
   await page.reload();
   await openSection(page, "人員");
   await page.locator('[data-select-activity="payment-activity"]').click();
@@ -423,13 +387,17 @@ test("re-renders leave unchanged tables in place", async ({ page }) => {
     state.people = ["a", "b"].map((id) => ({ id, name: id, studentId: id.toUpperCase(), department: "", email: "" }));
     state.activities = [{
       id: "activity-1", name: "Stable rows", date: "2099-09-20", fee: 100, note: "", rosterOrder: [],
-      attendance: state.people.map((person) => ({ personId: person.id, status: "attending", paid: false, paidAt: "", transferLastFive: "" }))
+      attendance: [
+        { personId: "a", status: "attending", paid: true, paidAt: "09-20 10:00", transferLastFive: "" },
+        { personId: "b", status: "attending", paid: false, paidAt: "", transferLastFive: "" }
+      ]
     }];
     saveState();
     selectActivity(state.activities[0], "attending");
     const firstRow = (id) => document.querySelector(`#${id} tr`);
-    const before = { people: firstRow("personRows"), activities: firstRow("activityRows"), roster: firstRow("activityPersonRows") };
+    const before = { people: firstRow("personRows"), activities: firstRow("activityRows") };
     before.people.focus();
+    // A suffix for someone already paid changes nothing the lists show.
     setActivityTransferLastFive("activity-1", "a", "12345");
     const afterSuffix = {
       peopleKept: firstRow("personRows") === before.people,
@@ -437,17 +405,75 @@ test("re-renders leave unchanged tables in place", async ({ page }) => {
       focusKept: document.activeElement === before.people,
       rosterValue: document.querySelector('[data-transfer-last-five][data-person-id="a"]').value
     };
-    setActivityPayment("activity-1", "a", true);
+    setActivityPayment("activity-1", "b", true);
     return {
       afterSuffix,
       peopleRebuilt: firstRow("personRows") !== before.people,
-      paidCount: document.querySelector("#activityRows .income").textContent
+      paid: document.querySelector("#activityRows .paid-progress span").textContent
     };
   });
 
   expect(result.afterSuffix).toEqual({ peopleKept: true, activitiesKept: true, focusKept: true, rosterValue: "12345" });
   expect(result.peopleRebuilt).toBe(true);
-  expect(result.paidCount).toBe("1");
+  expect(result.paid).toBe("2 / 2 已繳");
+});
+
+test("people and activities are added in dialogs, and the roster takes batch changes", async ({ page }) => {
+  await openSection(page, "人員");
+  await expect(page.locator("#personForm")).toBeHidden();
+  await page.locator("#newPerson").click();
+  await page.locator("#personName").fill("王小明");
+  await page.locator("#personStudentId").fill("h54136249");
+  await page.locator("#personDepartment").fill("工資117");
+  await page.locator("#personSubmit").click();
+  await expect(page.locator("#personDialog")).toBeHidden();
+  await expect(page.locator("#personCount")).toHaveText("1 人");
+  await expect(page.locator("#personRows")).toContainText("H54136249");
+  await page.evaluate(() => {
+    state.people.push(...["b", "c"].map((id) => ({ id, name: id, studentId: id.toUpperCase(), department: "", email: "" })));
+    saveState();
+  });
+  await page.locator("#personSearch").fill("王");
+  await expect(page.locator("#personCount")).toHaveText("1 / 3");
+  await page.locator("#personSearch").fill("");
+
+  await page.locator("#newActivity").click();
+  await page.locator("#activityName").fill("布朗尼實作課");
+  await page.locator("#activityFee").fill("200");
+  await page.locator("#activitySubmit").click();
+  await expect(page.locator("#activityDialog")).toBeHidden();
+  // A new activity opens on the people not yet attending.
+  await expect(page.locator("#activityRoster")).toBeVisible();
+  await expect(page.locator('[data-roster-filter="not_attending"]')).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#rosterSelectAll").check();
+  await expect(page.locator("#rosterBatchCount")).toHaveText("3");
+  await page.locator("#rosterBatch .action-menu-trigger").click();
+  await page.locator("#rosterBatchAttend").click();
+  await page.locator('[data-roster-filter="attending"]').click();
+  await expect(page.locator('[data-roster-filter="unpaid"]')).toHaveText("未繳 3 人 · $600");
+  await expect(page.locator('[data-roster-filter="unpaid"]')).toHaveClass(/pending/);
+  await page.locator('[data-roster-select="b"]').check();
+  await page.locator('[data-roster-select="c"]').check();
+  await page.locator("#rosterBatch .action-menu-trigger").click();
+  await page.locator("#rosterBatchPaid").click();
+  await expect(page.locator('[data-roster-filter="unpaid"]')).toHaveText("未繳 1 人 · $200");
+  await expect(page.locator("#activityRows")).toContainText("2 / 3 已繳");
+  // Turning attending off hides that person's payment controls.
+  await page.locator('[data-roster-filter="unpaid"]').click();
+  const row = page.locator("#activityPersonRows [data-roster-person-id]").first();
+  // The row leaves the unpaid list once switched off, so a plain click rather than uncheck().
+  await row.locator("[data-toggle-attendance]").click();
+  await expect(page.locator('[data-roster-filter="not_attending"]')).toHaveText("未參加 1");
+  await page.locator('[data-roster-filter="not_attending"]').click();
+  await expect(page.locator("#activityPersonRows [data-toggle-payment]")).toHaveCount(0);
+  await expect(page.locator('[data-roster-filter="unpaid"]')).not.toHaveClass(/pending/);
+
+  await page.locator("#editActivity").click();
+  await expect(page.locator("#activityFee")).toHaveValue("200");
+  await page.locator("#activityDelete").click();
+  await page.locator("#confirmAppAction").click();
+  await expect(page.locator("#activityRoster")).toBeHidden();
+  await expect(page.locator("#activityCount")).toHaveText("0 個");
 });
 
 test("activity suffix aliases migrate, import and survive incomplete spreadsheets", async ({ page }) => {

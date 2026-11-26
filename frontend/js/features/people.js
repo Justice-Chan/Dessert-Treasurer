@@ -1,24 +1,35 @@
+// ---- People ----
+// Adding or editing a person happens in a dialog; the list keeps the page.
+
 function resetPersonForm() {
   $("#personForm").reset();
   $("#personId").value = "";
   $("#personFormTitle").textContent = "新增人員";
-  $("#personSubmit").textContent = "儲存人員";
-  $("#personCancel").hidden = true;
   $("#personDelete").hidden = true;
 }
 
+function openPersonDialog(person = null) {
+  resetPersonForm();
+  if (person) {
+    $("#personId").value = person.id;
+    $("#personFormTitle").textContent = "編輯人員";
+    $("#personDelete").hidden = false;
+    $("#personName").value = person.name;
+    $("#personStudentId").value = person.studentId;
+    $("#personDepartment").value = person.department;
+    $("#personEmail").value = person.email || "";
+  }
+  $("#personDialog").hidden = false;
+  $("#personName").focus();
+}
+
+function closePersonDialog() {
+  $("#personDialog").hidden = true;
+  resetPersonForm();
+}
+
 function selectPerson(person) {
-  if (!person) return;
-  $("#personId").value = person.id;
-  $("#personFormTitle").textContent = "編輯人員";
-  $("#personSubmit").textContent = "更新人員";
-  $("#personCancel").hidden = false;
-  $("#personDelete").hidden = false;
-  $("#personName").value = person.name;
-  $("#personStudentId").value = person.studentId;
-  $("#personDepartment").value = person.department;
-  $("#personEmail").value = person.email || "";
-  renderPeople();
+  if (person) openPersonDialog(person);
 }
 
 function upsertPerson(event) {
@@ -38,7 +49,7 @@ function upsertPerson(event) {
   else state.people.push(person);
   $("#personSearch").value = "";
   if (!saveState()) return;
-  selectPerson(person);
+  closePersonDialog();
   toast("人員資料已儲存。");
 }
 
@@ -53,38 +64,53 @@ function deletePerson(id) {
       activity.attendance = activity.attendance.filter((item) => item.personId !== id);
       activity.rosterOrder = (activity.rosterOrder || []).filter((personId) => personId !== id);
     });
-    if ($("#personId").value === id) resetPersonForm();
+    rosterSelection.delete(id);
+    closePersonDialog();
     if (!saveState()) return;
     toast("人員已刪除。");
   }});
 }
 
+// ---- Activities ----
+// A row opens the activity's roster below the list; adding, editing and deleting the activity
+// itself happen in a dialog.
+
 function resetActivityForm() {
   $("#activityForm").reset();
   $("#activityId").value = "";
-  clearActivityImport();
   $("#activityFormTitle").textContent = "新增活動";
-  $("#activitySubmit").textContent = "儲存活動";
-  $("#activityCancel").hidden = true;
+  $("#activityDelete").hidden = true;
   setDateValue("activityDate", today());
-  $("#activityFee").value = "0";
-  $("#activityPersonSearch").value = "";
-  $("#activityPersonFilter").value = "attending";
+  $("#activityFee").value = "";
+}
+
+function openActivityDialog(activity = null) {
+  resetActivityForm();
+  if (activity) {
+    $("#activityId").value = activity.id;
+    $("#activityFormTitle").textContent = "編輯活動";
+    $("#activityDelete").hidden = false;
+    $("#activityName").value = activity.name;
+    setDateValue("activityDate", activity.date);
+    $("#activityFee").value = activity.fee || "";
+    $("#activityNote").value = activity.note || "";
+  }
+  $("#activityDialog").hidden = false;
+  $("#activityName").focus();
+}
+
+function closeActivityDialog() {
+  $("#activityDialog").hidden = true;
+  resetActivityForm();
 }
 
 function selectActivity(activity, initialFilter = "attending") {
   if (!activity) return;
   clearActivityImport();
-  $("#activityId").value = activity.id;
-  $("#activityFormTitle").textContent = "編輯活動";
-  $("#activitySubmit").textContent = "更新活動";
-  $("#activityCancel").hidden = false;
-  $("#activityName").value = activity.name;
-  setDateValue("activityDate", activity.date);
-  $("#activityFee").value = activity.fee;
-  $("#activityNote").value = activity.note || "";
+  selectedActivityId = activity.id;
+  rosterFilter = initialFilter;
+  rosterSelection = new Set();
   $("#activityPersonSearch").value = "";
-  $("#activityPersonFilter").value = initialFilter;
   renderPeople();
 }
 
@@ -93,8 +119,9 @@ function upsertActivity(event) {
   const id = $("#activityId").value || uid();
   const name = $("#activityName").value.trim();
   const date = $("#activityDate").value;
-  const fee = Number($("#activityFee").value);
-  if (!name || !isValidDateValue(date) || !Number.isFinite(fee) || fee < 0) return toast("請填寫活動名稱、日期與有效應繳金額。");
+  // Left empty, the activity is free.
+  const fee = $("#activityFee").value === "" ? 0 : Number($("#activityFee").value);
+  if (!name || !isValidDateValue(date) || !Number.isInteger(fee) || fee < 0) return toast("請填寫活動名稱、日期與有效應繳金額。");
   const existing = state.activities.find((item) => item.id === id);
   const activity = { id, name, date, fee, note: $("#activityNote").value.trim(), attendance: existing?.attendance || [], rosterOrder: existing?.rosterOrder || [], importLink: existing?.importLink || null };
   const index = state.activities.findIndex((item) => item.id === id);
@@ -102,8 +129,10 @@ function upsertActivity(event) {
   else state.activities.push(activity);
   $("#activitySearch").value = "";
   if (!saveState()) return;
-  selectActivity(activity, existing ? "attending" : "not_attending");
-  toast("活動已儲存，可以開始登記人員狀態。");
+  closeActivityDialog();
+  if (existing) renderPeople();
+  else selectActivity(activity, "not_attending");
+  toast(existing ? "活動已更新。" : "活動已建立，可以開始登記參加人員。");
 }
 
 function deleteActivity(id) {
@@ -111,7 +140,8 @@ function deleteActivity(id) {
   if (!activity) return;
   requestAppActionConfirmation({ title: "刪除活動", message: `確定刪除「${activity.name}」及其中所有參加、繳費紀錄？此動作無法復原。`, confirmLabel: "確認刪除", action: () => {
     state.activities = state.activities.filter((item) => item.id !== id);
-    if ($("#activityId").value === id) resetActivityForm();
+    if (selectedActivityId === id) selectedActivityId = "";
+    closeActivityDialog();
     if (!saveState()) return;
     toast("活動已刪除。");
   }});
@@ -138,10 +168,7 @@ function setActivityPayment(activityId, personId, paid) {
   if (!record || record.status !== "attending") return;
   if (record.paid === paid) return;
   record.paid = paid;
-  const now = new Date();
-  record.paidAt = paid
-    ? normalizePaymentTime(record.paidAt) || `${dateKey(now).slice(5)} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-    : "";
+  record.paidAt = paid ? normalizePaymentTime(record.paidAt) || paymentTimeNow() : "";
   if (!saveState()) return;
   // Unpaid people sort first, so the next person to follow up is back at the top.
   requestAnimationFrame(() => { $("#activityPersonList").scrollTop = 0; });
@@ -153,17 +180,57 @@ function setActivityTransferLastFive(activityId, personId, value) {
   const record = activityRecord(activity, personId);
   if (!record || record.status !== "attending") return;
   const normalized = normalizeTransferLastFive(value);
+  if (normalized && normalized === record.transferLastFive) return;
   if (value && !normalized) {
     renderPeople();
     return toast("匯款後五碼請輸入完整的五位數字。", "error");
   }
   record.transferLastFive = normalized;
+  // Five digits mean the transfer arrived, so the person is marked paid as well.
+  const markedPaid = Boolean(normalized) && !record.paid;
+  if (markedPaid) {
+    record.paid = true;
+    record.paidAt = paymentTimeNow();
+  }
   if (!saveState()) return;
-  toast("匯款後五碼已更新。");
+  toast(markedPaid ? "已記錄後五碼並標為已繳。" : "匯款後五碼已更新。");
+}
+
+function paymentTimeNow() {
+  const now = new Date();
+  return `${dateKey(now).slice(5)} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
+// Marks every ticked person at once: paid, unpaid, or attending (with payment left as it was).
+function batchUpdateRoster(change) {
+  const activity = state.activities.find((item) => item.id === selectedActivityId);
+  if (!activity || !rosterSelection.size) return;
+  let changed = 0;
+  rosterSelection.forEach((personId) => {
+    let record = activityRecord(activity, personId);
+    if (change === "attending") {
+      if (record?.status === "attending") return;
+      if (record) Object.assign(record, { status: "attending" });
+      else activity.attendance.push({ personId, status: "attending", paid: false, paidAt: "", transferLastFive: "" });
+      changed += 1;
+      return;
+    }
+    if (record?.status !== "attending" || record.paid === (change === "paid")) return;
+    record.paid = change === "paid";
+    record.paidAt = record.paid ? normalizePaymentTime(record.paidAt) || paymentTimeNow() : "";
+    changed += 1;
+  });
+  rosterSelection = new Set();
+  if (!changed) {
+    renderPeople();
+    return toast(change === "attending" ? "選取的人都已經是參加。" : "選取的人沒有需要變更的參加者。");
+  }
+  if (!saveState()) return;
+  toast(`已將 ${changed} 人${change === "paid" ? "標為已繳" : change === "unpaid" ? "標為未繳" : "登記為參加"}。`);
 }
 
 function exportActivityUnpaid() {
-  const activity = state.activities.find((item) => item.id === $("#activityId").value);
+  const activity = state.activities.find((item) => item.id === selectedActivityId);
   if (!activity) return toast("請先選擇活動。");
   const unpaid = activityUnpaidPeople(activity);
   if (!unpaid.length) return toast("這個活動目前沒有未繳人員。");

@@ -394,7 +394,11 @@ let nativeSaveQueue = Promise.resolve();
 let nativeSavePending = null;
 let selectedTrashIds = new Set();
 let trashPurgeTimer = null;
-let rosterPointerDrag = null;
+// The activity whose roster is open, its status filter, and the people ticked for a batch change.
+let selectedActivityId = "";
+let rosterFilter = "attending";
+let rosterSelection = new Set();
+let rosterVisibleIds = [];
 let pendingPersonImport = null;
 let pendingActivityImport = null;
 let memberImportSyncing = false;
