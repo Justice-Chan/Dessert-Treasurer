@@ -485,13 +485,15 @@
               <div class="heading-actions">
                 <input id="personImportFile" type="file" accept=".xlsx,.xls,.xlsb,.ods,.csv,.tsv,text/csv,text/tab-separated-values" hidden>
                 <div class="action-menu" data-action-menu>
-                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">匯入試算表 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">＋ 新增人員 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
                   <div class="action-menu-list" role="menu" hidden>
-                    <button type="button" role="menuitem" id="choosePersonImport">選擇檔案</button>
-                    <button type="button" role="menuitem" id="openPersonImportLink">貼上連結</button>
+                    <button type="button" role="menuitem" id="newPerson">手動新增</button>
+                    <button type="button" role="menuitem" id="choosePersonImport">匯入試算表檔案</button>
+                    <button type="button" role="menuitem" id="openPersonImportLink">匯入試算表連結</button>
+                    <button type="button" role="menuitem" id="syncPersonLink" hidden>立即同步</button>
+                    <button type="button" role="menuitem" class="danger" id="disconnectPersonLink" hidden>取消連線</button>
                   </div>
                 </div>
-                <button type="button" id="newPerson">＋ 新增人員</button>
               </div>
             </div>
             <div class="person-import-preview" id="personImportPreview" hidden>
@@ -502,16 +504,7 @@
                   <button type="button" class="primary" id="confirmPersonImport">匯入人員</button>
                 </div>
               </div>
-            <div class="person-link-status" id="personLinkStatus" hidden>
-                <div><strong>名單連線</strong><p class="subtle" id="personLinkStatusText"></p></div>
-                <div class="action-menu" data-action-menu>
-                  <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">連線管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-                  <div class="action-menu-list" role="menu" hidden>
-                    <button type="button" role="menuitem" id="syncPersonLink">立即同步</button>
-                    <button type="button" role="menuitem" class="danger" id="disconnectPersonLink">取消連線</button>
-                  </div>
-                </div>
-              </div>
+            <p class="subtle roster-sync-note" id="personLinkStatusText" hidden></p>
             <div class="people-tools single">
               <input id="personSearch" type="search" placeholder="搜尋姓名、學號、系別或電子郵件">
             </div>
@@ -550,24 +543,15 @@
                     <div class="action-menu-list" role="menu" hidden>
                       <button type="button" role="menuitem" id="chooseActivityImport">匯入試算表檔案</button>
                       <button type="button" role="menuitem" id="openActivityImportLink">匯入試算表連結</button>
+                      <button type="button" role="menuitem" id="syncActivityLink" hidden>立即同步</button>
+                      <button type="button" role="menuitem" class="danger" id="disconnectActivityLink" hidden>取消連線</button>
                       <button type="button" role="menuitem" id="exportActivityUnpaid">下載未繳名單</button>
                     </div>
                   </div>
                   <button type="button" id="editActivity">編輯活動</button>
                 </div>
               </div>
-              <div class="roster-status-row">
-                <div class="status-summary" id="activityStatusSummary" role="group" aria-label="依狀態篩選"></div>
-                <div class="roster-link-status" id="activityLinkStatus" hidden>
-                  <div class="action-menu" data-action-menu>
-                    <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">連線管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-                    <div class="action-menu-list" role="menu" hidden>
-                      <button type="button" role="menuitem" id="syncActivityLink">立即同步</button>
-                      <button type="button" role="menuitem" class="danger" id="disconnectActivityLink">取消連線</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <div class="status-summary" id="activityStatusSummary" role="group" aria-label="依狀態篩選"></div>
               <p class="subtle roster-sync-note" id="activityLinkStatusText" hidden></p>
               <div class="person-import-preview" id="activityImportPreview" hidden>
                 <p class="subtle" id="activityImportSummary"></p>
@@ -582,7 +566,7 @@
               </div>
               <div class="roster-batch" id="rosterBatch" hidden>
                 <span>已選 <strong id="rosterBatchCount">0</strong> 人</span>
-                <button type="button" class="text-link" id="rosterBatchClear">取消選取</button>
+                <button type="button" class="danger" id="rosterBatchClear">取消選取</button>
                 <div class="action-menu" data-action-menu>
                   <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">標記為 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
                   <div class="action-menu-list" role="menu" hidden>

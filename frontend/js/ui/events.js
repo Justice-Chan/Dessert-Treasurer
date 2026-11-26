@@ -26,7 +26,7 @@ function bindActionMenus() {
   $$("[data-action-menu]").forEach((menu) => {
     const trigger = menu.querySelector(".action-menu-trigger");
     const list = menu.querySelector(".action-menu-list");
-    const items = () => [...list.querySelectorAll('[role="menuitem"]:not(:disabled)')];
+    const items = () => [...list.querySelectorAll('[role="menuitem"]:not(:disabled):not([hidden])')];
     trigger.addEventListener("click", () => {
       const open = list.hidden;
       closeActionMenus(menu);

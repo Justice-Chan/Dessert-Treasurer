@@ -421,6 +421,9 @@ test("re-renders leave unchanged tables in place", async ({ page }) => {
 test("people and activities are added in dialogs, and the roster takes batch changes", async ({ page }) => {
   await openSection(page, "人員");
   await expect(page.locator("#personForm")).toBeHidden();
+  // 新增人員 is a menu: add by hand, or import a sheet.
+  await page.locator("#people .heading-actions .action-menu-trigger").click();
+  await expect(page.locator("#syncPersonLink")).toBeHidden();
   await page.locator("#newPerson").click();
   await page.locator("#personName").fill("王小明");
   await page.locator("#personStudentId").fill("h54136249");

@@ -621,9 +621,15 @@ function activityUnpaidPeople(activity) {
     .sort((a, b) => b.stats.unpaid - a.stats.unpaid || personNameCollator.compare(a.person.name, b.person.name));
 }
 
+// A linked sheet turns the menu's two import choices into its sync and disconnect actions, and
+// shows when it last synced under the heading.
 function renderImportLinkStatus(prefix, link, syncing) {
   const capitalized = prefix[0].toUpperCase() + prefix.slice(1);
-  $(`#${prefix}LinkStatus`).hidden = !link;
+  $(`#choose${capitalized}Import`).hidden = Boolean(link);
+  $(`#open${capitalized}ImportLink`).hidden = Boolean(link);
+  $(`#sync${capitalized}Link`).hidden = !link;
+  $(`#disconnect${capitalized}Link`).hidden = !link;
+  $(`#${prefix}LinkStatusText`).hidden = !link;
   if (!link) return;
   const syncedAt = new Date(link.lastSyncedAt).getTime();
   $(`#${prefix}LinkStatusText`).textContent = Number.isFinite(syncedAt)
@@ -640,8 +646,6 @@ function renderMemberImportLink() {
 
 function renderActivityImportLink(activity) {
   renderImportLinkStatus("activity", activity?.importLink, Boolean(activity) && activityImportSyncing.has(activity.id));
-  // The last sync sits under the filters, apart from its menu.
-  $("#activityLinkStatusText").hidden = !activity?.importLink;
 }
 
 const copyIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>`;
