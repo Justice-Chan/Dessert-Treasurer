@@ -4,6 +4,7 @@ const tauriStorageEnabled = typeof tauriInvoke === "function";
 const tauriCommandNames = {
   loadState: "load_state",
   saveState: "save_state",
+  saveStateChanges: "save_state_changes",
   storeReceipts: "store_receipts",
   getReceipt: "get_receipt",
   getAllReceipts: "get_all_receipts",
@@ -392,6 +393,8 @@ let calendarMode = "days";
 let monthlyReportPrintActive = false;
 let nativeSaveQueue = Promise.resolve();
 let nativeSavePending = null;
+// What native storage holds, as stateSnapshot() describes it; null until it is known.
+let persistedState = null;
 let selectedTrashIds = new Set();
 let trashPurgeTimer = null;
 // The activity whose roster is open, its status filter, and the people ticked for a batch change.

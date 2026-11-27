@@ -1,4 +1,5 @@
 use std::{
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     io::Cursor,
     path::{Path, PathBuf},
@@ -27,6 +28,8 @@ const MAX_MEMBER_IMPORT_URL_LENGTH: usize = 2_048;
 const AUTO_BACKUP_PREFIX: &str = "甜點社帳務自動備份_";
 const AUTO_BACKUP_FOLDER: &str = "甜點社總務備份";
 const RESTORE_POINT_PREFIX: &str = "甜點社還原前備份_";
+// A copy of the books as they stood before the move to one row per record, kept beside the database.
+const PRE_RECORDS_COPY: &str = "state-before-records.json";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,6 +69,27 @@ struct ReceiptOutput {
     data_url: String,
 }
 
+// What changed since the last save. Lists whose items all carry a distinct string id are kept one
+// record per row; everything else is one value per key. Payloads arrive as JSON text.
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct StateChanges {
+    records: Vec<RecordChange>,
+    order: HashMap<String, Vec<String>>,
+    values: HashMap<String, String>,
+    removed_values: Vec<String>,
+    dropped: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordChange {
+    collection: String,
+    id: String,
+    // None removes the record.
+    payload: Option<String>,
+}
+
 struct ReceiptRow {
     id: String,
     claim_id: String,
@@ -80,7 +104,7 @@ impl AppStorage {
     fn open(root_dir: PathBuf) -> Result<Self, String> {
         let attachments_dir = root_dir.join("attachments");
         fs::create_dir_all(&attachments_dir).map_err(error_text)?;
-        let connection =
+        let mut connection =
             Connection::open(root_dir.join("treasurer.sqlite3")).map_err(error_text)?;
         connection
             .execute_batch(
@@ -101,9 +125,24 @@ impl AppStorage {
                    created_at TEXT NOT NULL,
                    file_name TEXT NOT NULL UNIQUE
                  );
-                 CREATE INDEX IF NOT EXISTS attachments_claim_id ON attachments (claim_id);",
+                 CREATE INDEX IF NOT EXISTS attachments_claim_id ON attachments (claim_id);
+                 CREATE TABLE IF NOT EXISTS records (
+                   collection TEXT NOT NULL,
+                   id TEXT NOT NULL,
+                   payload TEXT NOT NULL,
+                   PRIMARY KEY (collection, id)
+                 ) WITHOUT ROWID;
+                 CREATE TABLE IF NOT EXISTS record_order (
+                   collection TEXT PRIMARY KEY,
+                   ids TEXT NOT NULL
+                 );
+                 CREATE TABLE IF NOT EXISTS state_values (
+                   key TEXT PRIMARY KEY,
+                   payload TEXT NOT NULL
+                 );",
             )
             .map_err(error_text)?;
+        move_to_records(&mut connection, &root_dir)?;
         Ok(Self {
             connection: Mutex::new(connection),
             attachments_dir,
@@ -113,27 +152,23 @@ impl AppStorage {
 
     fn load_state(&self) -> Result<Value, String> {
         let connection = self.connection.lock().map_err(error_text)?;
-        let payload: String = connection
-            .query_row("SELECT payload FROM app_state WHERE id = 1", [], |row| {
-                row.get(0)
-            })
-            .map_err(error_text)?;
-        serde_json::from_str(&payload).map_err(error_text)
+        read_state(&connection)
     }
 
+    // Replaces everything: used for a first save, a restore and the move from the old layout.
     fn save_state(&self, state: &Value) -> Result<(), String> {
-        if !state.is_object() {
-            return Err("帳本資料格式無效".into());
-        }
-        let payload = serde_json::to_string(state).map_err(error_text)?;
-        let connection = self.connection.lock().map_err(error_text)?;
-        connection
-            .execute(
-                "UPDATE app_state SET payload = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = 1",
-                [payload],
-            )
-            .map_err(error_text)?;
-        Ok(())
+        let mut connection = self.connection.lock().map_err(error_text)?;
+        let transaction = connection.transaction().map_err(error_text)?;
+        write_state(&transaction, state)?;
+        transaction.commit().map_err(error_text)
+    }
+
+    // Writes only the records and values that changed, in one transaction.
+    fn save_state_changes(&self, changes: &StateChanges) -> Result<(), String> {
+        let mut connection = self.connection.lock().map_err(error_text)?;
+        let transaction = connection.transaction().map_err(error_text)?;
+        apply_state_changes(&transaction, changes)?;
+        transaction.commit().map_err(error_text)
     }
 
     fn store_receipts(&self, records: Vec<ReceiptInput>) -> Result<Vec<ReceiptOutput>, String> {
@@ -412,6 +447,215 @@ fn truncate(value: &str, max_chars: usize) -> String {
     value.chars().take(max_chars).collect()
 }
 
+// ---- State, one record per row ----
+
+// A list is kept as records when every item is an object with a distinct, non-empty string id.
+fn record_list(value: &Value) -> Option<Vec<(&str, &Value)>> {
+    let items = value.as_array()?;
+    let mut seen = HashSet::new();
+    items
+        .iter()
+        .map(|item| {
+            let id = item.as_object()?.get("id")?.as_str()?;
+            (!id.is_empty() && seen.insert(id)).then_some((id, item))
+        })
+        .collect()
+}
+
+fn read_state(connection: &Connection) -> Result<Value, String> {
+    let mut object = serde_json::Map::new();
+    let mut values = connection
+        .prepare("SELECT key, payload FROM state_values")
+        .map_err(error_text)?;
+    let rows = values
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(error_text)?;
+    for row in rows {
+        let (key, payload) = row.map_err(error_text)?;
+        object.insert(key, serde_json::from_str(&payload).map_err(error_text)?);
+    }
+
+    let mut grouped: BTreeMap<String, BTreeMap<String, Value>> = BTreeMap::new();
+    let mut records = connection
+        .prepare("SELECT collection, id, payload FROM records")
+        .map_err(error_text)?;
+    let rows = records
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(error_text)?;
+    for row in rows {
+        let (collection, id, payload) = row.map_err(error_text)?;
+        grouped
+            .entry(collection)
+            .or_default()
+            .insert(id, serde_json::from_str(&payload).map_err(error_text)?);
+    }
+
+    let mut order: HashMap<String, Vec<String>> = HashMap::new();
+    let mut orders = connection
+        .prepare("SELECT collection, ids FROM record_order")
+        .map_err(error_text)?;
+    let rows = orders
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(error_text)?;
+    for row in rows {
+        let (collection, ids) = row.map_err(error_text)?;
+        order.insert(collection, serde_json::from_str(&ids).map_err(error_text)?);
+    }
+
+    // Each list in its saved order; a record missing from the order, which should not happen,
+    // still comes back, after the others.
+    let collections: HashSet<String> = grouped.keys().chain(order.keys()).cloned().collect();
+    for collection in collections {
+        let mut by_id = grouped.remove(&collection).unwrap_or_default();
+        let mut list: Vec<Value> = order
+            .get(&collection)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| by_id.remove(id))
+            .collect();
+        list.extend(by_id.into_values());
+        object.insert(collection, Value::Array(list));
+    }
+    Ok(Value::Object(object))
+}
+
+fn write_state(connection: &Connection, state: &Value) -> Result<(), String> {
+    let object = state.as_object().ok_or("帳本資料格式無效")?;
+    connection
+        .execute_batch("DELETE FROM records; DELETE FROM record_order; DELETE FROM state_values;")
+        .map_err(error_text)?;
+    for (key, value) in object {
+        if let Some(items) = record_list(value) {
+            for (id, item) in &items {
+                connection
+                    .execute(
+                        "INSERT INTO records (collection, id, payload) VALUES (?1, ?2, ?3)",
+                        params![key, id, serde_json::to_string(item).map_err(error_text)?],
+                    )
+                    .map_err(error_text)?;
+            }
+            let ids: Vec<&str> = items.iter().map(|(id, _)| *id).collect();
+            connection
+                .execute(
+                    "INSERT INTO record_order (collection, ids) VALUES (?1, ?2)",
+                    params![key, serde_json::to_string(&ids).map_err(error_text)?],
+                )
+                .map_err(error_text)?;
+        } else {
+            connection
+                .execute(
+                    "INSERT INTO state_values (key, payload) VALUES (?1, ?2)",
+                    params![key, serde_json::to_string(value).map_err(error_text)?],
+                )
+                .map_err(error_text)?;
+        }
+    }
+    Ok(())
+}
+
+fn apply_state_changes(connection: &Connection, changes: &StateChanges) -> Result<(), String> {
+    for key in &changes.removed_values {
+        connection
+            .execute("DELETE FROM state_values WHERE key = ?1", [key])
+            .map_err(error_text)?;
+    }
+    for collection in &changes.dropped {
+        connection
+            .execute("DELETE FROM records WHERE collection = ?1", [collection])
+            .map_err(error_text)?;
+        connection
+            .execute(
+                "DELETE FROM record_order WHERE collection = ?1",
+                [collection],
+            )
+            .map_err(error_text)?;
+    }
+    for change in &changes.records {
+        match &change.payload {
+            Some(payload) => {
+                // Only an object carrying the same id may be stored under it.
+                let record: Value = serde_json::from_str(payload).map_err(error_text)?;
+                if record.get("id").and_then(Value::as_str) != Some(change.id.as_str()) {
+                    return Err("帳本資料格式無效".into());
+                }
+                connection
+                    .execute(
+                        "INSERT INTO records (collection, id, payload) VALUES (?1, ?2, ?3)
+                         ON CONFLICT (collection, id) DO UPDATE SET payload = excluded.payload",
+                        params![change.collection, change.id, payload],
+                    )
+                    .map_err(error_text)?;
+            }
+            None => {
+                connection
+                    .execute(
+                        "DELETE FROM records WHERE collection = ?1 AND id = ?2",
+                        params![change.collection, change.id],
+                    )
+                    .map_err(error_text)?;
+            }
+        }
+    }
+    for (collection, ids) in &changes.order {
+        connection
+            .execute(
+                "INSERT INTO record_order (collection, ids) VALUES (?1, ?2)
+                 ON CONFLICT (collection) DO UPDATE SET ids = excluded.ids",
+                params![collection, serde_json::to_string(ids).map_err(error_text)?],
+            )
+            .map_err(error_text)?;
+    }
+    for (key, payload) in &changes.values {
+        serde_json::from_str::<Value>(payload).map_err(error_text)?;
+        connection
+            .execute(
+                "INSERT INTO state_values (key, payload) VALUES (?1, ?2)
+                 ON CONFLICT (key) DO UPDATE SET payload = excluded.payload",
+                params![key, payload],
+            )
+            .map_err(error_text)?;
+    }
+    Ok(())
+}
+
+// Books saved by earlier versions sit in app_state as one JSON text. They move to one row per
+// record once: a copy of the text is written beside the database first, the move is checked to
+// read back exactly the same, and only then is app_state emptied. Anything else leaves it as it was.
+fn move_to_records(connection: &mut Connection, root_dir: &Path) -> Result<(), String> {
+    let legacy: String = connection
+        .query_row("SELECT payload FROM app_state WHERE id = 1", [], |row| {
+            row.get(0)
+        })
+        .map_err(error_text)?;
+    let state: Value = serde_json::from_str(&legacy).map_err(error_text)?;
+    if state.as_object().is_none_or(|object| object.is_empty()) {
+        return Ok(());
+    }
+    let copy = root_dir.join(PRE_RECORDS_COPY);
+    if !copy.exists() {
+        write_atomic(&copy, legacy.as_bytes())?;
+    }
+    let transaction = connection.transaction().map_err(error_text)?;
+    write_state(&transaction, &state)?;
+    if read_state(&transaction)? != state {
+        return Err("帳本搬移後內容不一致，已保留原資料。".into());
+    }
+    transaction
+        .execute("UPDATE app_state SET payload = '{}' WHERE id = 1", [])
+        .map_err(error_text)?;
+    transaction.commit().map_err(error_text)
+}
+
 fn error_text(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
@@ -606,6 +850,11 @@ fn load_state(storage: State<'_, AppStorage>) -> Result<Value, String> {
 #[tauri::command]
 fn save_state(state: Value, storage: State<'_, AppStorage>) -> Result<(), String> {
     storage.save_state(&state)
+}
+
+#[tauri::command]
+fn save_state_changes(changes: StateChanges, storage: State<'_, AppStorage>) -> Result<(), String> {
+    storage.save_state_changes(&changes)
 }
 
 #[tauri::command]
@@ -878,6 +1127,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_state,
             save_state,
+            save_state_changes,
             store_receipts,
             get_receipt,
             get_all_receipts,
@@ -936,6 +1186,102 @@ mod tests {
             AppStorage::open(root.clone()).expect("open test store"),
             root,
         )
+    }
+
+    #[test]
+    fn books_from_the_old_layout_move_to_one_row_per_record() {
+        let root = std::env::temp_dir().join(format!(
+            "dessert-treasurer-move-{}",
+            TEST_STORE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).expect("root");
+        let state = serde_json::json!({
+            "entries": [{ "id": "b", "amount": 2 }, { "id": "a", "amount": 1 }],
+            "people": [],
+            "lockedMonths": ["2026-09"],
+            "reconciliations": [{ "month": "2026-09" }],
+            "webSync": { "url": "" }
+        });
+        {
+            let connection = Connection::open(root.join("treasurer.sqlite3")).expect("old store");
+            connection
+                .execute_batch("CREATE TABLE app_state (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);")
+                .expect("old table");
+            connection
+                .execute(
+                    "INSERT INTO app_state (id, payload) VALUES (1, ?1)",
+                    [state.to_string()],
+                )
+                .expect("old books");
+        }
+        let store = AppStorage::open(root.clone()).expect("open and move");
+        assert_eq!(store.load_state().expect("load"), state);
+        assert!(root.join(PRE_RECORDS_COPY).exists());
+        let connection = store.connection.lock().expect("lock");
+        let rows: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM records WHERE collection = 'entries'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count");
+        assert_eq!(rows, 2);
+        let legacy: String = connection
+            .query_row("SELECT payload FROM app_state WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .expect("legacy");
+        assert_eq!(legacy, "{}");
+        drop(connection);
+        // Opening again finds nothing left to move.
+        drop(store);
+        let reopened = AppStorage::open(root).expect("reopen");
+        assert_eq!(reopened.load_state().expect("load again"), state);
+    }
+
+    #[test]
+    fn a_save_writes_only_the_changed_records_and_keeps_their_order() {
+        let (store, _) = temporary_store();
+        store
+            .save_state(&serde_json::json!({
+                "entries": [{ "id": "a", "amount": 1 }, { "id": "b", "amount": 2 }],
+                "lockedMonths": [],
+                "autoBackup": { "folder": "" }
+            }))
+            .expect("first save");
+        let changes: StateChanges = serde_json::from_value(serde_json::json!({
+            "records": [
+                { "collection": "entries", "id": "b", "payload": "{\"id\":\"b\",\"amount\":5}" },
+                { "collection": "entries", "id": "a", "payload": null },
+                { "collection": "entries", "id": "c", "payload": "{\"id\":\"c\",\"amount\":3}" }
+            ],
+            "order": { "entries": ["c", "b"] },
+            "values": { "lockedMonths": "[\"2026-09\"]" },
+            "removedValues": [],
+            "dropped": ["lockedMonths"]
+        }))
+        .expect("changes");
+        store.save_state_changes(&changes).expect("save changes");
+        assert_eq!(
+            store.load_state().expect("load"),
+            serde_json::json!({
+                "entries": [{ "id": "c", "amount": 3 }, { "id": "b", "amount": 5 }],
+                "lockedMonths": ["2026-09"],
+                "autoBackup": { "folder": "" }
+            })
+        );
+        // A record must carry the id it is stored under.
+        let wrong: StateChanges = serde_json::from_value(serde_json::json!({
+            "records": [{ "collection": "entries", "id": "x", "payload": "{\"id\":\"y\"}" }]
+        }))
+        .expect("wrong change");
+        assert!(store.save_state_changes(&wrong).is_err());
+        assert_eq!(
+            store.load_state().expect("unchanged")["entries"]
+                .as_array()
+                .map(Vec::len),
+            Some(2)
+        );
     }
 
     #[test]

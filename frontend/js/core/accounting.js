@@ -111,14 +111,72 @@ function enqueueNativeSave(value, failureMessage) {
   return nativeSaveQueue;
 }
 
+// The desktop app stores one row per record, so a save sends only what changed since the last one
+// that reached storage. Until something has been stored this session, the whole state goes.
 async function writePendingNativeSave() {
   const { value, failureMessage } = nativeSavePending;
   nativeSavePending = null;
-  const snapshot = typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+  const next = stateSnapshot(value);
+  const changes = persistedState && stateChanges(persistedState, next);
   try {
-    await nativeStorageCall("saveState", { state: snapshot });
+    if (!persistedState) await nativeStorageCall("saveState", { state: JSON.parse(JSON.stringify(value)) });
+    else if (changes) await nativeStorageCall("saveStateChanges", { changes });
+    persistedState = next;
   } catch {
     toast(failureMessage);
   }
+}
+
+// What storage holds, as JSON text: each record of a list whose items all carry a distinct id
+// (with the list's order), and every other value whole.
+function isRecordList(value) {
+  if (!Array.isArray(value)) return false;
+  const ids = new Set();
+  return value.every((item) => item && typeof item === "object" && !Array.isArray(item)
+    && typeof item.id === "string" && item.id && !ids.has(item.id) && ids.add(item.id));
+}
+
+function stateSnapshot(value) {
+  const snapshot = new Map();
+  Object.entries(value).forEach(([key, item]) => {
+    if (item === undefined) return;
+    if (isRecordList(item)) {
+      snapshot.set(key, { records: new Map(item.map((record) => [record.id, JSON.stringify(record)])), order: JSON.stringify(item.map((record) => record.id)) });
+    } else {
+      snapshot.set(key, { value: JSON.stringify(item) });
+    }
+  });
+  return snapshot;
+}
+
+// The records added, changed or removed, lists whose order changed, and values set or removed;
+// null when nothing changed. A key that switches between list and value is cleared first.
+function stateChanges(before, after) {
+  const changes = { records: [], order: {}, values: {}, removedValues: [], dropped: [] };
+  after.forEach((next, key) => {
+    const previous = before.get(key);
+    if (next.records) {
+      if (previous && !previous.records) changes.removedValues.push(key);
+      const stored = previous?.records || new Map();
+      next.records.forEach((payload, id) => {
+        if (stored.get(id) !== payload) changes.records.push({ collection: key, id, payload });
+      });
+      stored.forEach((_, id) => {
+        if (!next.records.has(id)) changes.records.push({ collection: key, id, payload: null });
+      });
+      if (previous?.order !== next.order) changes.order[key] = JSON.parse(next.order);
+    } else {
+      if (previous?.records) changes.dropped.push(key);
+      if (previous?.value !== next.value) changes.values[key] = next.value;
+    }
+  });
+  before.forEach((previous, key) => {
+    if (after.has(key)) return;
+    if (previous.records) changes.dropped.push(key);
+    else changes.removedValues.push(key);
+  });
+  const changed = changes.records.length || Object.keys(changes.order).length || Object.keys(changes.values).length
+    || changes.removedValues.length || changes.dropped.length;
+  return changed ? changes : null;
 }
 

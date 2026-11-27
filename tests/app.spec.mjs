@@ -663,3 +663,27 @@ test("month-end reconciliation fills every account at once and locks only when a
   await page.locator("#accountCancel").click();
   await expect(page.locator("#accountDialog")).toBeHidden();
 });
+
+test("a native save describes only the records and values that changed", async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const before = stateSnapshot({ entries: [{ id: "a", amount: 1 }, { id: "b", amount: 2 }], lockedMonths: [], autoBackup: { folder: "" } });
+    const unchanged = stateChanges(before, stateSnapshot({ entries: [{ id: "a", amount: 1 }, { id: "b", amount: 2 }], lockedMonths: [], autoBackup: { folder: "" } }));
+    const changes = stateChanges(before, stateSnapshot({
+      entries: [{ id: "c", amount: 3 }, { id: "b", amount: 5 }],
+      lockedMonths: ["2026-09"],
+      exportFolder: "/tmp"
+    }));
+    return { unchanged, changes };
+  });
+  expect(result.unchanged).toBeNull();
+  expect(result.changes.records).toEqual([
+    { collection: "entries", id: "c", payload: '{"id":"c","amount":3}' },
+    { collection: "entries", id: "b", payload: '{"id":"b","amount":5}' },
+    { collection: "entries", id: "a", payload: null }
+  ]);
+  expect(result.changes.order).toEqual({ entries: ["c", "b"] });
+  // An empty list counts as records; with plain strings in it, it becomes a value.
+  expect(result.changes.dropped).toEqual(["lockedMonths"]);
+  expect(result.changes.values).toEqual({ lockedMonths: '["2026-09"]', exportFolder: '"/tmp"' });
+  expect(result.changes.removedValues).toEqual(["autoBackup"]);
+});

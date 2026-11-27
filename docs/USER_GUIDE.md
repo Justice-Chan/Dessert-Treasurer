@@ -92,7 +92,7 @@ Each computer keeps a local data store. The books also sync to the cloud ledger,
 
 The app uses identifier `com.justicechan.dessert-treasurer` to resolve its data directory. The Windows path is expected but has not yet been confirmed through real-device acceptance testing.
 
-SQLite stores entries, claims, accounts, reconciliations, people, activities and trash records. The attachments folder stores receipt and account QR images. Cloud receipt links open externally rather than storing the linked image locally.
+SQLite stores entries, claims, accounts, reconciliations, people, activities and trash records one row per record, so a save writes only what changed. Data from versions before this layout moves over the first time the app opens, after a copy is kept as `state-before-records.json` in the same folder; an older build opened afterwards would show empty books. The attachments folder stores receipt and account QR images. Cloud receipt links open externally rather than storing the linked image locally.
 
 Do not edit these files directly while the app is running. Installing a new app bundle is separate from managing the stored data.
 

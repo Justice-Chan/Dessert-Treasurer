@@ -3,6 +3,8 @@ async function initializeApp() {
   if (tauriStorageEnabled) {
     try {
       const savedState = await nativeStorageCall("loadState");
+      // Later saves send only what differs from what storage now holds.
+      persistedState = stateSnapshot(savedState);
       shouldRemoveLegacyGrades = hasLegacyPersonGrades(savedState);
       state = normalizeState(savedState);
     } catch {
@@ -12,6 +14,7 @@ async function initializeApp() {
     if (shouldRemoveLegacyGrades) {
       try {
         await nativeStorageCall("saveState", { state });
+        persistedState = stateSnapshot(state);
       } catch {
         toast("年級欄位已在目前畫面移除，但暫時無法寫回本機資料。請先下載完整備份。", "error");
       }

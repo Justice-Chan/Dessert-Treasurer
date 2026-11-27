@@ -63,7 +63,7 @@ dist/ + src-tauri/           -> macOS .app / .dmg or Windows installer
 
 The source files share one classic-script scope rather than ES module imports. Function declarations and state are shared across source files in the combined output. Independent script tags are not interchangeable with this build: early state initialization relies on declarations in later files being available. `bootstrap.js` is last in the manifest and starts the app once.
 
-Native storage and command registration live in `lib.rs`. Cross-platform URL opening and bounded HTTPS downloads live in `platform/mod.rs`; platform libraries handle operating-system differences. The shared data model and app identifier are independent of platform packaging overrides.
+Native storage and command registration live in `lib.rs`. SQLite keeps each list whose items carry a distinct id (entries, claims, people…) one record per row with the list's order beside it, and any other value as one row; the frontend sends only the records and values that changed since the last save. Cross-platform URL opening and bounded HTTPS downloads live in `platform/mod.rs`; platform libraries handle operating-system differences. The shared data model and app identifier are independent of platform packaging overrides.
 
 ## Finding a change
 
