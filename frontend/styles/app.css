@@ -241,9 +241,6 @@ h3 { font-size: 15px; margin-bottom: 10px; }
 
 #ledger > .grid,
 #reimburse > .grid,
-#accounts > .account-grid {
-  grid-template-columns: minmax(330px, 3fr) minmax(0, 7fr);
-}
 
 #people > .people-grid {
   display: grid;
@@ -520,12 +517,12 @@ tr:last-child td { border-bottom: 0; }
   table-layout: fixed;
 }
 
-.claim-table col:nth-child(1) { width: 12%; }
-.claim-table col:nth-child(2) { width: 10%; }
-.claim-table col:nth-child(3) { width: 17%; }
-.claim-table col:nth-child(4) { width: 22%; }
-.claim-table col:nth-child(5) { width: 11%; }
-.claim-table col:nth-child(6) { width: 28%; }
+.claim-table col:nth-child(1) { width: 10%; }
+.claim-table col:nth-child(2) { width: 14%; }
+.claim-table col:nth-child(3) { width: 34%; }
+.claim-table col:nth-child(4) { width: 12%; }
+.claim-table col:nth-child(5) { width: 18%; }
+.claim-table col:nth-child(6) { width: 12%; }
 .claim-table th,
 .claim-table td { padding-inline: 8px; }
 .claim-table td { overflow-wrap: anywhere; }
@@ -809,27 +806,9 @@ tr:last-child td { border-bottom: 0; }
   font-size: 14px;
 }
 
-.account-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 14px 0;
-}
 
-.account-summary > div {
-  padding: 12px;
-  border: 1px solid var(--soft-line);
-  border-radius: 7px;
-  background: var(--field);
-}
 
-.account-summary span {
-  display: block;
-  color: var(--muted);
-  font-size: 13px;
-}
 
-.account-summary strong { display: block; margin-top: 5px; font-size: 18px; }
 
 .reconciliation-actions {
   display: flex;
@@ -1034,19 +1013,7 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
 
 .attachment-item .inline-actions { flex: 0 0 auto; }
 
-.account-table {
-  min-width: 650px;
-  table-layout: fixed;
-}
 
-.account-table col:nth-child(1) { width: 14%; }
-.account-table col:nth-child(2) { width: 11%; }
-.account-table col:nth-child(3) { width: 20%; }
-.account-table col:nth-child(4) { width: 14%; }
-.account-table col:nth-child(5) { width: 14%; }
-.account-table col:nth-child(6) { width: 18%; }
-.account-table col:nth-child(7) { width: 9%; }
-.account-table td { vertical-align: middle; }
 .account-number-cell {
   display: flex;
   align-items: center;
@@ -1384,6 +1351,7 @@ tr:hover .copy-text svg, .copy-text:focus-visible svg { opacity: 1; }
 
 .toast {
   position: fixed;
+  z-index: 50;
   right: 20px;
   bottom: 20px;
   max-width: min(420px, calc(100vw - 40px));
@@ -1529,3 +1497,71 @@ tr:hover .copy-text svg, .copy-text:focus-visible svg { opacity: 1; }
 .backup-folder-current { display: flex; gap: 10px; margin: 12px 0 0; overflow-wrap: anywhere; }
 .folder-choices { display: grid; gap: 8px; margin: 14px 0 10px; }
 .backup-folder-pending { margin: 0 0 10px; font-weight: 600; overflow-wrap: anywhere; }
+
+/* The trash page's dangerous action, set apart from the restore list. */
+.danger-zone { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
+.danger-zone h2 { margin: 0 0 4px; }
+.danger-zone p { margin: 0; }
+.danger-zone button { flex: none; }
+/* A claim row's less common actions sit in its 操作 menu. */
+.row-menu .action-menu-trigger { min-height: 32px; padding: 0 10px; font-size: 13px; }
+.row-menu .action-menu-list { min-width: 112px; }
+.row-menu .action-menu-list button { font-size: 14px; }
+
+/* ---- 對帳 ---- */
+/* Accounts and payees side by side; each account a card with its current balance large. */
+.accounts-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+@media (max-width: 1040px) { .accounts-top { grid-template-columns: minmax(0, 1fr); } }
+.accounts-top .section-heading h2 { white-space: nowrap; }
+.accounts-top .section-heading button { min-height: 34px; padding: 0 12px; font-size: 14px; }
+.account-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.account-card { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); cursor: pointer; }
+.account-card:hover, .account-card:focus-visible { border-color: var(--accent); }
+.account-card-head { font-weight: 650; }
+.account-card-balance { font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.account-card-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; color: var(--muted); font-size: 13px; }
+.account-number { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; letter-spacing: .02em; }
+/* An account number copies on a click; the dotted underline says so. */
+.copy-number { min-height: 0; padding: 0; border: 0; background: none; color: inherit; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; letter-spacing: .02em; text-decoration: underline dotted; text-underline-offset: 3px; cursor: copy; }
+.copy-number:hover { color: var(--accent); }
+.payee-table .text-link { font-size: 13px; }
+.payee-table { table-layout: fixed; }
+.payee-table td { vertical-align: middle; }
+
+/* Month-end: the month switch beside the title, a ? for the terms, one row per account. */
+#reconciliationForm .section-heading h2 { display: flex; align-items: center; gap: 8px; }
+.help-tip { width: 22px; min-width: 22px; height: 22px; min-height: 22px; padding: 0; border-radius: 50%; color: var(--muted); font-size: 13px; font-weight: 700; line-height: 1; }
+#reconcileHelp { margin: 0 0 12px; }
+#reconcileHelp[hidden] { display: none; }
+.month-switch { display: flex; align-items: center; gap: 6px; }
+.month-switch .icon-button { width: 34px; min-width: 34px; min-height: 34px; font-size: 20px; }
+.month-switch strong { min-width: 7.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.reconcile-table { table-layout: fixed; }
+.reconcile-table col:nth-child(1) { width: 18%; }
+.reconcile-table col:nth-child(2) { width: 16%; }
+.reconcile-table col:nth-child(3) { width: 22%; }
+.reconcile-table col:nth-child(4) { width: 14%; }
+.reconcile-table col:nth-child(5) { width: 30%; }
+.reconcile-table td { vertical-align: middle; }
+.reconcile-table input { width: 100%; }
+.reconciliation-actions p { margin: 0; }
+.history-title { margin: 22px 0 8px; font-size: 15px; }
+.reconcile-history { table-layout: fixed; }
+.reconcile-history col:nth-child(1) { width: 22%; }
+.reconcile-history col:nth-child(2) { width: 44%; }
+.reconcile-history col:nth-child(3) { width: 16%; }
+.reconcile-history col:nth-child(4) { width: 18%; }
+.reconcile-history td { vertical-align: middle; }
+.reconcile-history button { min-height: 30px; padding: 0 10px; font-size: 13px; }
+.saved-badge { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
+
+/* 報銷: the list has the page; the form opens in a wider dialog. */
+.claim-heading #newClaim { margin-left: auto; min-height: 34px; padding: 0 12px; font-size: 14px; }
+.claim-dialog-card { width: min(560px, 100%); }
+.claim-table td { vertical-align: middle; }
+.claim-receipt { font-size: 12px; }
+.claim-status-cell .pill { min-height: 26px; padding-inline: 8px; font-size: 12px; }
+.claim-actions-cell { text-align: right; white-space: nowrap; }
+.claim-actions-cell .claim-row-actions { justify-content: flex-end; }
+.claim-table td.claim-status-cell { text-align: left; }
+.claim-status-cell .claim-payment-meta { margin-left: 0; margin-top: 4px; font-size: 12px; }

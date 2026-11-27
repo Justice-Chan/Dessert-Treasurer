@@ -53,16 +53,6 @@ function currentReconciliationValues(item) {
   };
 }
 
-function incompleteReconciliationAccounts(month) {
-  const endDate = monthEndKey(month);
-  return state.accounts
-    .filter((account) => account.active && !account.deletedAt && accountExistsAt(account, endDate))
-    .filter((account) => {
-      const saved = state.reconciliations.find((item) => item.month === month && item.accountId === account.id);
-      return !saved || currentReconciliationValues(saved).stale;
-    });
-}
-
 function purgeExpiredTrash() {
   const cutoff = Date.now() - retentionDays * dayMs;
   const before = state.trash.length;

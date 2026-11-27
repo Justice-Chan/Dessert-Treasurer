@@ -2,22 +2,39 @@ function resetAccountForm() {
   $("#accountForm").reset();
   $("#accountId").value = "";
   $("#accountFormTitle").textContent = "新增帳戶";
+  $("#accountDelete").hidden = true;
   setDateValue("accountOpeningDate", today());
-  $("#accountOpeningBalance").value = "0";
+  $("#accountOpeningBalance").value = "";
   $("#accountNumber").value = "";
   $("#accountQrFile").value = "";
   $("#accountQrFileName").textContent = "尚未選取圖片";
   $("#accountQrCurrent").innerHTML = "";
-  $("#accountCancel").hidden = true;
   removeAccountQr = false;
   pendingAccountQrDataUrl = "";
   updateAccountBankFields();
 }
 
+// Accounts are added and edited in a dialog; the page shows them as cards.
+function openAccountDialog(account = null) {
+  resetAccountForm();
+  if (account) fillAccountForm(account);
+  $("#accountDialog").hidden = false;
+  $("#accountName").focus();
+}
+
+function closeAccountDialog() {
+  $("#accountDialog").hidden = true;
+  resetAccountForm();
+}
+
 function selectAccount(account) {
-  if (!account) return;
+  if (account) openAccountDialog(account);
+}
+
+function fillAccountForm(account) {
   $("#accountId").value = account.id;
   $("#accountFormTitle").textContent = "編輯帳戶";
+  $("#accountDelete").hidden = false;
   $("#accountName").value = account.name;
   $("#accountType").value = account.type;
   setDateValue("accountOpeningDate", account.openingDate || today());
@@ -25,12 +42,10 @@ function selectAccount(account) {
   $("#accountNumber").value = account.accountNumber || "";
   $("#accountQrFile").value = "";
   $("#accountQrFileName").textContent = "尚未選取圖片";
-  $("#accountCancel").hidden = false;
   removeAccountQr = false;
   pendingAccountQrDataUrl = "";
   updateAccountBankFields();
   renderCurrentAccountQr(account);
-  renderAccounts();
 }
 
 function updateAccountBankFields() {
@@ -63,24 +78,40 @@ function resetPayeeForm() {
   $("#payeeQrFile").value = "";
   $("#payeeQrFileName").textContent = "尚未選取圖片";
   $("#payeeQrCurrent").innerHTML = "";
-  $("#payeeCancel").hidden = true;
+  $("#payeeFormTitle").textContent = "新增收款帳戶";
+  $("#payeeDelete").hidden = true;
   removePayeeQr = false;
   pendingPayeeQrDataUrl = "";
 }
 
+function openPayeeDialog(payee = null) {
+  resetPayeeForm();
+  if (payee) fillPayeeForm(payee);
+  $("#payeeDialog").hidden = false;
+  $("#payeeName").focus();
+}
+
+function closePayeeDialog() {
+  $("#payeeDialog").hidden = true;
+  resetPayeeForm();
+}
+
 function selectPayee(payee) {
-  if (!payee) return;
+  if (payee) openPayeeDialog(payee);
+}
+
+function fillPayeeForm(payee) {
   $("#payeeId").value = payee.id;
+  $("#payeeFormTitle").textContent = "編輯收款帳戶";
+  $("#payeeDelete").hidden = false;
   $("#payeeName").value = payee.name;
   $("#payeeBank").value = payee.bank || "";
   $("#payeeNumber").value = payee.accountNumber;
   $("#payeeQrFile").value = "";
   $("#payeeQrFileName").textContent = "尚未選取圖片";
-  $("#payeeCancel").hidden = false;
   removePayeeQr = false;
   pendingPayeeQrDataUrl = "";
   renderCurrentPayeeQr(payee);
-  renderAccounts();
 }
 
 function renderCurrentPayeeQr(payee) {
@@ -219,7 +250,7 @@ async function upsertPayee(event) {
   if (index >= 0) state.payees[index] = payee;
   else state.payees.push(payee);
   if (!saveState()) return;
-  selectPayee(payee);
+  closePayeeDialog();
   toast("收款帳戶已儲存。");
 }
 
@@ -232,9 +263,8 @@ function deleteSelectedPayee(id = $("#payeeId").value) {
     confirmLabel: "確認刪除",
     action: () => {
       state.payees = state.payees.filter((item) => item.id !== id);
+      closePayeeDialog();
       if (!saveState()) return;
-      if ($("#payeeId").value === id) resetPayeeForm();
-      renderAccounts();
       toast("收款帳戶已刪除。");
     }
   });
@@ -245,7 +275,7 @@ async function upsertAccount(event) {
   const id = $("#accountId").value || uid();
   const name = $("#accountName").value.trim();
   const openingDate = $("#accountOpeningDate").value;
-  const openingBalance = Number($("#accountOpeningBalance").value);
+  const openingBalance = $("#accountOpeningBalance").value === "" ? 0 : Number($("#accountOpeningBalance").value);
   const existing = state.accounts.find((account) => account.id === id);
   if (!name || !isValidDateValue(openingDate) || !Number.isFinite(openingBalance)) return toast("請填寫帳戶名稱、期初日期與有效期初餘額。");
   if (state.accounts.some((account) => !account.deletedAt && account.id !== id && account.name === name)) return toast("已經有相同名稱的帳戶。");
@@ -284,15 +314,15 @@ async function upsertAccount(event) {
   const index = state.accounts.findIndex((item) => item.id === id);
   if (index >= 0) state.accounts[index] = account;
   else state.accounts.push(account);
-  selectAccount(account);
   refreshAccountSelects();
   if (!saveState()) return;
+  closeAccountDialog();
   toast("帳戶已儲存。");
 }
 
 function deleteSelectedAccount(id = $("#accountId").value) {
   const account = state.accounts.find((item) => item.id === id && !item.deletedAt);
-  if (!account) return toast("請先從右側選擇要刪除的帳戶。");
+  if (!account) return toast("找不到這個帳戶。");
   if (state.accounts.filter((item) => !item.deletedAt).length <= 1) return toast("至少需要保留一個帳戶。");
   if (accountBalance(id, today()) !== 0) return toast("帳戶仍有餘額，請先完成轉入、轉出或帳務調整後再刪除。");
   if (state.entries.some((entry) => entry.accountId === id && entry.date > today())) return toast("帳戶仍有未來日期的收支，請先調整後再刪除。");
@@ -304,46 +334,70 @@ function deleteSelectedAccount(id = $("#accountId").value) {
     : "";
   requestAppActionConfirmation({ title: "刪除帳戶", message: `確定刪除「${account.name}」？刪除後不再提供新增記帳或對帳，QR Code 也會一併撤銷。${historyNote}`, confirmLabel: "確認刪除", action: () => {
     account.active = false; account.deletedAt = new Date().toISOString(); account.qrCodeDataUrl = ""; account.qrCodeName = "";
-    if ($("#accountId").value === id) resetAccountForm();
-    $("#entryAccount").value = ""; $("#reconcileAccount").value = "";
+    closeAccountDialog();
+    $("#entryAccount").value = "";
     refreshAccountSelects(); loadReconciliationForm();
     if (!saveState()) return;
     toast("帳戶已刪除，歷史帳務仍完整保留。");
   }});
 }
 
+// Saves the actual balance and note of every account filled in for the month on screen.
 function saveReconciliation(event) {
   event.preventDefault();
   const month = $("#reconcileMonth").value;
-  const accountId = $("#reconcileAccount").value;
-  const actualBalance = Number($("#reconcileActual").value);
-  if (!month || !accountId || !Number.isFinite(actualBalance)) return toast("請選擇月份、帳戶並輸入實際餘額。");
   if (isMonthLocked(month)) return toast("這個月份已鎖定，請先解鎖。");
-  const [year, monthNumber] = month.split("-").map(Number);
-  const calculatedBalance = accountBalance(accountId, dateKey(new Date(year, monthNumber, 0)));
-  const record = {
-    id: `${month}:${accountId}`,
-    month,
-    accountId,
-    calculatedBalance,
-    actualBalance,
-    difference: actualBalance - calculatedBalance,
-    note: $("#reconcileNote").value.trim(),
-    updatedAt: new Date().toISOString()
-  };
-  const index = state.reconciliations.findIndex((item) => item.id === record.id);
-  if (index >= 0) state.reconciliations[index] = record;
-  else state.reconciliations.push(record);
+  const rows = $$("#reconcileRows [data-reconcile-account]");
+  const filled = rows.filter((row) => row.querySelector("[data-reconcile-actual]").value !== "");
+  if (!filled.length) return toast("請先填寫至少一個帳戶的實際餘額。");
+  const endDate = monthEndKey(month);
+  for (const row of filled) {
+    const accountId = row.dataset.reconcileAccount;
+    const actualBalance = Number(row.querySelector("[data-reconcile-actual]").value);
+    if (!Number.isFinite(actualBalance)) return toast("實際餘額需為數字。");
+    const calculatedBalance = accountBalance(accountId, endDate);
+    const record = {
+      id: `${month}:${accountId}`,
+      month,
+      accountId,
+      calculatedBalance,
+      actualBalance,
+      difference: actualBalance - calculatedBalance,
+      note: row.querySelector("[data-reconcile-note]").value.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    const index = state.reconciliations.findIndex((item) => item.id === record.id);
+    if (index >= 0) state.reconciliations[index] = record;
+    else state.reconciliations.push(record);
+  }
   if (!saveState()) return;
-  toast("月結紀錄已儲存。");
+  toast(`已儲存 ${filled.length} 個帳戶的月結。`);
 }
 
+// Kept for the callers that reload the table after the books change.
 function loadReconciliationForm() {
-  const month = $("#reconcileMonth").value;
-  const accountId = $("#reconcileAccount").value;
-  const existing = state.reconciliations.find((item) => item.month === month && item.accountId === accountId);
-  $("#reconcileActual").value = existing ? existing.actualBalance : "";
-  $("#reconcileNote").value = existing?.note || "";
-  renderReconciliationSummary();
+  renderReconciliation();
+}
+
+function setReconcileMonth(month) {
+  $("#reconcileMonth").value = month;
+  renderReconciliation();
+}
+
+function shiftReconcileMonth(delta) {
+  const [year, number] = $("#reconcileMonth").value.split("-").map(Number);
+  setReconcileMonth(dateKey(new Date(year, number - 1 + delta, 1)).slice(0, 7));
+}
+
+// A month may be locked once every account has a saved, current record with no difference.
+function monthReadyToLock(month) {
+  const endDate = monthEndKey(month);
+  const accounts = state.accounts.filter((account) => account.active && !account.deletedAt && accountExistsAt(account, endDate));
+  return accounts.length > 0 && accounts.every((account) => {
+    const record = state.reconciliations.find((item) => item.month === month && item.accountId === account.id);
+    if (!record) return false;
+    const current = currentReconciliationValues(record);
+    return !current.stale && current.difference === 0;
+  });
 }
 

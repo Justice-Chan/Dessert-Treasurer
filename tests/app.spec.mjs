@@ -56,6 +56,7 @@ test("ledger search shows the net total of matching records", async ({ page }) =
 
 test("approved claim payment creates and can revoke its linked expense", async ({ page }) => {
   await openSection(page, "報銷");
+  await page.locator("#newClaim").click();
   await page.locator("#claimDate").fill(date);
   await page.locator("#claimPerson").fill("測試社員");
   await page.locator("#claimParent").selectOption("活動與課程");
@@ -70,7 +71,8 @@ test("approved claim payment creates and can revoke its linked expense", async (
   await page.getByRole("button", { name: "確認付款" }).click();
   await expect(page.locator("#claimRows")).toContainText("已付款");
 
-  await page.getByRole("button", { name: "撤銷" }).click();
+  await page.locator("#claimRows [data-row-menu]").click();
+  await page.getByRole("menuitem", { name: "撤銷" }).click();
   await expect(page.locator("#appActionConfirmDialog")).toBeVisible();
   await page.getByRole("button", { name: "確認撤銷" }).click();
   await expect(page.locator("#claimRows")).toContainText("已核准");
@@ -125,9 +127,13 @@ test("monthly report uses the selected reconciliation month", async ({ page }) =
     window.print = () => { window.__monthlyReportText = document.querySelector("#monthlyReport")?.textContent || ""; };
   });
   await page.reload();
+  // Each month in the history prints its own report.
+  await page.evaluate(() => {
+    state.reconciliations.push({ id: "2026-09:cash", month: "2026-09", accountId: "cash", calculatedBalance: 0, actualBalance: 0, difference: 0, note: "", updatedAt: "" });
+    saveState();
+  });
   await openSection(page, "對帳");
-  await page.locator("#reconcileMonth").fill("2026-09");
-  await page.locator("#printMonthlyReport").click();
+  await page.locator('[data-print-month="2026-09"]').click();
   await expect.poll(() => page.evaluate(() => window.__monthlyReportText || "")).toContain("2026 年 9 月");
   await expect.poll(() => page.evaluate(() => window.__monthlyReportText || "")).toContain("帳戶月末與對帳");
   await expect(page.locator("#monthlyReport .report-table")).toHaveCount(3);
@@ -627,4 +633,33 @@ test("restoring shows what the file holds and saves the current books first", as
   expect((await download).suggestedFilename()).toMatch(/^甜點社總務完整備份-/);
   await expect(page.locator("#toast")).toContainText("還原前的資料已另存一份");
   expect(await page.evaluate(() => state.entries.map((entry) => entry.note))).toEqual(["備份裡的資料"]);
+});
+
+test("month-end reconciliation fills every account at once and locks only when all match", async ({ page }) => {
+  await openSection(page, "對帳");
+  await expect(page.locator(".account-card")).toHaveCount(2);
+  const month = await page.locator("#reconcileMonth").inputValue();
+  const rows = page.locator("#reconcileRows [data-reconcile-account]");
+  await expect(rows).toHaveCount(2);
+  await expect(page.locator("#toggleMonthLock")).toBeDisabled();
+  await rows.nth(0).locator("[data-reconcile-actual]").fill("50");
+  await expect(rows.nth(0).locator("[data-reconcile-difference]")).toContainText("$50");
+  await rows.nth(0).locator("[data-reconcile-actual]").fill("0");
+  await expect(rows.nth(0).locator("[data-reconcile-difference]")).toContainText("✓");
+  await rows.nth(1).locator("[data-reconcile-actual]").fill("0");
+  await page.locator("#saveReconciliation").click();
+  await expect(page.locator("#reconciliationRows")).toContainText("帳戶皆相符 ✓");
+  await expect(page.locator("#reconciliationRows")).toContainText("已儲存");
+  await expect(page.locator("#toggleMonthLock")).toBeEnabled();
+  await page.locator("#toggleMonthLock").click();
+  await page.locator("#confirmAppAction").click();
+  await expect(page.locator("#reconciliationRows")).toContainText("已鎖定");
+  expect(await page.evaluate(() => state.lockedMonths)).toEqual([month]);
+  await expect(rows.nth(0).locator("[data-reconcile-actual]")).toBeDisabled();
+
+  // Accounts are added in a dialog and shown as cards.
+  await page.locator("#newAccount").click();
+  await expect(page.locator("#accountDialog")).toBeVisible();
+  await page.locator("#accountCancel").click();
+  await expect(page.locator("#accountDialog")).toBeHidden();
 });

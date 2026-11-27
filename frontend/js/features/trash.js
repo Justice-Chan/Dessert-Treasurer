@@ -1,16 +1,3 @@
-function seedData() {
-  if (state.entries.length || state.claims.length || state.people.length || state.activities.length) {
-    requestAppActionConfirmation({
-      title: "載入範例",
-      message: "範例資料會加入目前資料中，不會清除既有紀錄。",
-      confirmLabel: "確認載入",
-      action: insertSeedData
-    });
-    return;
-  }
-  insertSeedData();
-}
-
 function insertSeedData() {
   state.entries.push(
     { id: uid(), date: today().slice(0, 8) + "02", type: "income", title: "期初社費", parent: "社費與會費", child: "期初社費", amount: 12000, method: "轉帳", accountId: "club-bank", note: "第一批社員" },

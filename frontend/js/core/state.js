@@ -133,7 +133,7 @@ function cloudLinkUrl(value) {
 function claimReceiptMarkup(receipt) {
   const urls = String(receipt || "").trim().split(/\s+/).map(cloudLinkUrl);
   if (!urls.length || !urls.every(Boolean)) return escapeHtml(receipt || "");
-  return urls.map((url, index) => `<a class="cloud-link" href="${escapeHtml(url)}" data-open-cloud-link="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">雲端連結${urls.length > 1 ? ` ${index + 1}` : ""}</a>`).join(" ");
+  return urls.map((url, index) => `<a class="cloud-link" href="${escapeHtml(url)}" data-open-cloud-link="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">收據${urls.length > 1 ? ` ${index + 1}` : ""}</a>`).join(" ");
 }
 
 const webSyncUrlPattern = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/;

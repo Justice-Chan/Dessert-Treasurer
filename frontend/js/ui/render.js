@@ -123,7 +123,6 @@ function setAccountOptions(select, selected, includeInactive = false) {
 
 function refreshAccountSelects() {
   setAccountOptions($("#entryAccount"), $("#entryAccount").value);
-  setAccountOptions($("#reconcileAccount"), $("#reconcileAccount").value, true);
   setAccountOptions($("#claimPaymentAccount"), $("#claimPaymentAccount").value);
 }
 
@@ -437,11 +436,24 @@ function renderLedger() {
 }
 
 function claimActionButtons(claim) {
-  const buttons = [];
-  if (claim.status === "approved") buttons.push(`<button class="primary" data-pay-claim="${claim.id}">付款</button>`);
-  if (claim.status === "paid" && !affectsLockedBalance(claim.paymentDate)) buttons.push(`<button data-revoke-payment="${claim.id}" aria-label="撤銷付款" title="撤銷付款">撤銷</button>`);
-  if (!isClaimLocked(claim)) buttons.push(`<button class="danger" data-delete-claim="${claim.id}">刪除</button>`);
-  return buttons.length ? `<div class="inline-actions nowrap-actions claim-row-actions">${buttons.join("")}</div>` : "";
+  const pay = claim.status === "approved" ? `<button class="primary" data-pay-claim="${claim.id}">付款</button>` : "";
+  const items = [];
+  if (claim.status === "paid" && !affectsLockedBalance(claim.paymentDate)) items.push(`<button type="button" role="menuitem" data-revoke-payment="${claim.id}">撤銷</button>`);
+  if (!isClaimLocked(claim)) items.push(`<button type="button" role="menuitem" class="danger" data-delete-claim="${claim.id}">刪除</button>`);
+  const menu = items.length ? `<div class="action-menu row-menu" data-action-menu><button type="button" class="action-menu-trigger" data-row-menu aria-haspopup="menu" aria-expanded="false">操作 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="action-menu-list" role="menu" hidden>${items.join("")}</div></div>` : "";
+  return pay || menu ? `<div class="inline-actions nowrap-actions claim-row-actions">${pay}${menu}</div>` : "";
+}
+
+// "11/22" within this year, the full date otherwise.
+function shortDate(date) {
+  if (!isValidDateValue(date)) return date || "";
+  return date.slice(0, 4) === today().slice(0, 4) ? `${Number(date.slice(5, 7))}/${Number(date.slice(8))}` : date;
+}
+
+// A small second line under the category: the receipt links (or note) and attachments.
+function claimReceiptLine(claim) {
+  const parts = [claim.receipt ? claimReceiptMarkup(claim.receipt) : "", claim.attachments?.length ? `${claim.attachments.length} 個附件` : ""].filter(Boolean);
+  return parts.length ? `<br><span class="subtle claim-receipt">${parts.join(" · ")}</span>` : "";
 }
 
 function renderClaims() {
@@ -474,81 +486,104 @@ function renderClaims() {
   }
 
   setRenderedHtml($("#claimRows"), claims.length ? claims.map((claim) => `
-    <tr class="selectable-row" data-select-claim="${claim.id}" tabindex="0" aria-label="選取 ${escapeHtml(claim.person)}的報銷申請" aria-selected="${$("#claimId").value === claim.id}">
-      <td data-label="日期">${escapeHtml(claim.date)}</td>
+    <tr class="selectable-row" data-select-claim="${claim.id}" tabindex="0" aria-label="開啟 ${escapeHtml(claim.person)}的報銷申請">
+      <td data-label="日期" title="${escapeHtml(claim.date)}">${escapeHtml(shortDate(claim.date))}</td>
       <td data-label="申請人">${escapeHtml(claim.person)}</td>
-      <td data-label="用途">${escapeHtml(claim.title)}<br><span class="subtle">${claimReceiptMarkup(claim.receipt)}${claim.attachments?.length ? ` · ${claim.attachments.length} 個附件` : ""}</span></td>
-      <td data-label="分類">${escapeHtml(claim.parent)} / ${escapeHtml(claim.child)}</td>
+      <td data-label="分類">${escapeHtml(claim.parent)} / ${escapeHtml(claim.child)}${claimReceiptLine(claim)}</td>
       <td class="num" data-label="金額">${fmt.format(Number(claim.amount))}</td>
-      <td class="claim-status-cell" data-label="狀態"><div class="claim-status-line"><span class="pill ${claim.status}">${statusText[claim.status]}</span>${claimActionButtons(claim)}</div>${claim.webPaid && claim.status !== "paid" ? `<span class="subtle claim-payment-meta">網頁已標記付款，請記錄付款</span>` : ""}${claim.status === "paid" ? `<span class="subtle claim-payment-meta">${escapeHtml(claim.paymentDate || "")} · ${escapeHtml(accountName(claim.paymentAccountId))}</span>` : ""}</td>
+      <td class="claim-status-cell" data-label="狀態"><span class="pill ${claim.status}">${statusText[claim.status]}</span>${claim.webPaid && claim.status !== "paid" ? `<span class="subtle claim-payment-meta">網頁已標記付款，請記錄付款</span>` : ""}${claim.status === "paid" ? `<span class="subtle claim-payment-meta">${escapeHtml(shortDate(claim.paymentDate || ""))} · ${escapeHtml(accountName(claim.paymentAccountId))}</span>` : ""}</td>
+      <td class="claim-actions-cell">${claimActionButtons(claim)}</td>
     </tr>
   `).join("") : `<tr class="claim-empty-row"><td colspan="6"><div class="empty">${state.claims.length ? "沒有符合條件的報銷申請。" : "尚未新增報銷申請。"}</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("claimList", 8));
 }
 
+// Accounts as cards with the current balance large; payees as a short table. Account numbers show in
+// full in both and copy on a click.
 function renderAccounts() {
-  setRenderedHtml($("#accountRows"), state.accounts.filter((account) => !account.deletedAt).map((account) => `
-    <tr class="selectable-row" data-select-account="${account.id}" tabindex="0" aria-label="選取 ${escapeHtml(account.name)}" aria-selected="${$("#accountId").value === account.id}">
-      <td>${escapeHtml(account.name)}</td>
-      <td>${accountTypeText[account.type] || "其他"}</td>
-      <td>${account.accountNumber ? `<div class="account-number-cell"><span title="${escapeHtml(account.accountNumber)}">${escapeHtml(account.accountNumber)}</span><button type="button" data-copy-account-number="${escapeHtml(account.accountNumber)}">複製</button></div>` : "-"}</td>
-      <td class="num">${fmt.format(Number(account.openingBalance))}</td>
-      <td class="num">${fmt.format(accountBalance(account.id, today()))}</td>
-      <td class="account-qr-column">${account.qrCodeDataUrl ? `<div class="inline-actions nowrap-actions"><button data-view-account-qr="${account.id}">預覽</button><button class="danger" data-revoke-account-qr="${account.id}">撤銷</button></div>` : "-"}</td>
-      <td class="row-delete-cell"><button class="danger" data-delete-account="${account.id}" aria-label="刪除 ${escapeHtml(account.name)}">刪除</button></td>
-    </tr>
-  `).join(""));
+  const accounts = state.accounts.filter((account) => !account.deletedAt);
+  setRenderedHtml($("#accountRows"), accounts.map((account) => `
+    <div class="account-card" data-select-account="${account.id}" tabindex="0" role="button" aria-label="編輯 ${escapeHtml(account.name)}">
+      <span class="account-card-head">${escapeHtml(account.name)}<span class="subtle"> · ${accountTypeText[account.type] || "其他"}</span></span>
+      <strong class="account-card-balance">${fmt.format(accountBalance(account.id, today()))}</strong>
+      <span class="account-card-meta">期初 ${fmt.format(Number(account.openingBalance))}${account.accountNumber ? ` · <button type="button" class="copy-number" data-copy-account-number="${escapeHtml(account.accountNumber)}" title="點一下複製">${escapeHtml(account.accountNumber)}</button>` : ""}</span>
+    </div>
+  `).join("") || `<div class="empty">尚未新增帳戶。</div>`);
 
   setRenderedHtml($("#payeeRows"), state.payees.length ? state.payees.map((payee) => `
-    <tr class="selectable-row" data-select-payee="${payee.id}" tabindex="0" aria-label="選取 ${escapeHtml(payee.name)}" aria-selected="${$("#payeeId").value === payee.id}">
+    <tr class="selectable-row" data-select-payee="${payee.id}" tabindex="0" aria-label="編輯 ${escapeHtml(payee.name)}">
       <td>${escapeHtml(payee.name)}</td>
       <td>${escapeHtml(payee.bank || "-")}</td>
-      <td><div class="account-number-cell"><span title="${escapeHtml(payee.accountNumber)}">${escapeHtml(payee.accountNumber)}</span><button type="button" data-copy-payee-number="${escapeHtml(payee.accountNumber)}">複製</button></div></td>
-      <td class="account-qr-column">${payee.qrCodeDataUrl ? `<div class="inline-actions nowrap-actions"><button data-view-payee-qr="${payee.id}">預覽</button><button class="danger" data-revoke-payee-qr="${payee.id}">撤銷</button></div>` : "-"}</td>
-      <td class="row-delete-cell"><button class="danger" data-delete-payee="${payee.id}" aria-label="刪除 ${escapeHtml(payee.name)}">刪除</button></td>
+      <td><button type="button" class="copy-number" data-copy-payee-number="${escapeHtml(payee.accountNumber)}" title="點一下複製">${escapeHtml(payee.accountNumber)}</button></td>
+      <td class="account-qr-column">${payee.qrCodeDataUrl ? `<button type="button" class="text-link" data-view-payee-qr="${payee.id}">預覽</button>` : `<span class="subtle">-</span>`}</td>
     </tr>
-  `).join("") : `<tr><td colspan="5"><div class="empty">尚未新增收款帳戶。</div></td></tr>`);
+  `).join("") : `<tr><td colspan="4"><div class="empty">尚未新增收款帳戶。</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("payeeList", 5));
 
-  setRenderedHtml($("#reconciliationRows"), state.reconciliations.length ? [...state.reconciliations]
-    .sort((a, b) => b.month.localeCompare(a.month))
-    .map((item) => {
-      const current = currentReconciliationValues(item);
-      return `
-        <tr>
-          <td>${escapeHtml(item.month)}${isMonthLocked(item.month) ? ` <span class="locked-badge">已鎖定</span>` : ""}${current.stale ? ` <span class="stale-badge">需重新核對</span>` : ""}</td>
-          <td>${escapeHtml(accountName(item.accountId))}</td>
-          <td class="num">${fmt.format(current.calculatedBalance)}${current.stale ? `<br><span class="subtle">月結時 ${fmt.format(Number(item.calculatedBalance))}</span>` : ""}</td>
-          <td class="num">${fmt.format(Number(item.actualBalance))}</td>
-          <td class="num ${current.difference === 0 ? "income" : "expense"}">${fmt.format(current.difference)}</td>
-          <td>${escapeHtml(item.note || "")}</td>
-        </tr>
-      `;
-    }).join("") : `<tr><td colspan="6"><div class="empty">尚未建立月結紀錄。</div></td></tr>`);
-
-  renderReconciliationSummary();
+  renderReconciliation();
+  renderReconciliationHistory();
 }
 
-function renderReconciliationSummary() {
+// One row per account for the month: month-end balance − actual = difference, filled in together.
+function renderReconciliation() {
   const month = $("#reconcileMonth").value || selectedMonth;
-  const accountId = $("#reconcileAccount").value;
-  if (!month || !accountId) return;
-  const calculated = accountBalance(accountId, monthEndKey(month));
-  const actualValue = $("#reconcileActual").value;
-  const actual = actualValue === "" ? null : Number(actualValue);
-  $("#reconcileCalculated").textContent = fmt.format(calculated);
-  $("#reconcileDifference").textContent = actual === null ? fmt.format(0) : fmt.format(actual - calculated);
+  const [year, number] = month.split("-").map(Number);
+  const endDate = monthEndKey(month);
   const locked = isMonthLocked(month);
-  const saved = state.reconciliations.find((item) => item.month === month && item.accountId === accountId);
-  const stale = Boolean(saved && calculated !== Number(saved.calculatedBalance));
-  $("#lockMonthLabel").textContent = `${month} ${locked ? "已鎖定" : "尚未鎖定"}`;
-  $("#lockMonthDescription").textContent = stale
-    ? "月結後帳務曾變更，請解鎖並重新儲存月結。"
-    : locked ? "解鎖後才可修改這個月的帳務。" : "鎖定後，該月的記帳與報銷不可修改。";
+  $("#reconcileMonthLabel").textContent = `${year} 年 ${number} 月`;
+  const accounts = state.accounts.filter((account) => account.active && !account.deletedAt && accountExistsAt(account, endDate));
+  setRenderedHtml($("#reconcileRows"), accounts.length ? accounts.map((account) => {
+    const record = state.reconciliations.find((item) => item.month === month && item.accountId === account.id);
+    const expected = accountBalance(account.id, endDate);
+    return `
+      <tr data-reconcile-account="${account.id}" data-expected="${expected}">
+        <td>${escapeHtml(account.name)}</td>
+        <td class="num">${fmt.format(expected)}</td>
+        <td><div class="money-input"><span aria-hidden="true">NT$</span><input type="number" inputmode="numeric" step="1" data-reconcile-actual value="${record ? record.actualBalance : ""}" ${locked ? "disabled" : ""} aria-label="${escapeHtml(account.name)}實際餘額"></div></td>
+        <td class="num" data-reconcile-difference>${differenceMarkup(record ? Number(record.actualBalance) - expected : null)}</td>
+        <td><input data-reconcile-note maxlength="200" value="${escapeHtml(record?.note || "")}" placeholder="例：已核對月結單" ${locked ? "disabled" : ""} aria-label="${escapeHtml(account.name)}備註"></td>
+      </tr>
+    `;
+  }).join("") : `<tr><td colspan="5"><div class="empty">這個月沒有可對帳的帳戶。</div></td></tr>`);
+
+  const ready = monthReadyToLock(month);
+  $("#saveReconciliation").disabled = locked || !accounts.length;
   $("#toggleMonthLock").textContent = locked ? "解鎖月份" : "鎖定月份";
-  $("#toggleMonthLock").classList.toggle("danger", !locked);
-  $("#saveReconciliation").textContent = saved ? "更新月結" : "儲存月結";
-  $("#saveReconciliation").disabled = locked;
+  $("#toggleMonthLock").disabled = !locked && !ready;
+  $("#lockMonthDescription").textContent = locked
+    ? "這個月已鎖定，記帳與報銷不能修改；要修改請先解鎖。"
+    : ready ? "所有帳戶都已相符，可以鎖定這個月。" : "所有帳戶都儲存、差額都是 0 後，才能鎖定這個月。";
+}
+
+// A difference: a green check at zero, the amount in red otherwise, a dash before anything is typed.
+function differenceMarkup(difference) {
+  if (difference === null || !Number.isFinite(difference)) return `<span class="subtle">—</span>`;
+  return difference === 0 ? `<span class="income">✓ ${fmt.format(0)}</span>` : `<span class="expense">${fmt.format(difference)}</span>`;
+}
+
+// One row per month: whether every account matched, whether it is locked, and its report.
+function renderReconciliationHistory() {
+  const months = [...new Set(state.reconciliations.map((item) => item.month))].sort((a, b) => b.localeCompare(a));
+  setRenderedHtml($("#reconciliationRows"), months.length ? months.map((month) => {
+    const records = state.reconciliations.filter((item) => item.month === month);
+    const checks = records.map((item) => ({ item, current: currentReconciliationValues(item) }));
+    const stale = checks.some(({ current }) => current.stale);
+    const off = checks.filter(({ current }) => current.difference !== 0);
+    const result = stale
+      ? `<span class="stale-badge">需重新核對</span>`
+      : off.length
+        ? `<span class="expense">${off.map(({ item, current }) => `${escapeHtml(accountName(item.accountId))}差 ${fmt.format(current.difference)}`).join("、")}</span>`
+        : `<span class="income">帳戶皆相符 ✓</span>`;
+    const [year, number] = month.split("-").map(Number);
+    return `
+      <tr class="selectable-row" data-load-reconcile-month="${month}" tabindex="0" aria-label="載入 ${year} 年 ${number} 月" aria-selected="${$("#reconcileMonth").value === month}">
+        <td>${year} 年 ${number} 月</td>
+        <td>${result}</td>
+        <td>${isMonthLocked(month) ? `<span class="locked-badge">已鎖定</span>` : `<span class="saved-badge">已儲存</span>`}</td>
+        <td class="row-delete-cell"><button type="button" data-print-month="${month}">列印 / PDF</button></td>
+      </tr>
+    `;
+  }).join("") : `<tr><td colspan="4"><div class="empty">尚未建立月結紀錄。</div></td></tr>`);
 }
 
 function activityRecord(activity, personId) {

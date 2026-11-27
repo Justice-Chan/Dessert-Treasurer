@@ -42,13 +42,7 @@
         </div>
         <div class="actions">
           <span class="sync-status" id="ledgerSyncStatus" role="status" hidden></span>
-          <div class="action-menu" data-action-menu>
-            <button type="button" class="action-menu-trigger" aria-haspopup="menu" aria-expanded="false">資料管理 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-            <div class="action-menu-list" role="menu" hidden>
-              <button type="button" role="menuitem" id="seedBtn">載入範例</button>
-              <button type="button" role="menuitem" id="clearBtn" class="danger">清空資料</button>
-            </div>
-          </div>
+          <button type="button" id="syncWebClaims">同步雲端帳本</button>
         </div>
       </header>
 
@@ -201,276 +195,98 @@
       </section>
 
       <section class="section" id="reimburse" aria-labelledby="pageTitle">
-        <div class="grid">
-          <form class="panel" id="claimForm">
-            <h2 id="claimFormTitle">新增報銷</h2>
-            <input type="hidden" id="claimId">
-            <div class="form-grid">
-              <div class="field">
-                <label for="claimDate">申請日期</label>
-                <div class="date-control" data-date-control>
-                  <input id="claimDate" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" required>
-                  <button type="button" class="date-picker-trigger" aria-label="選擇申請日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
-                  <input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true">
-                </div>
-              </div>
-              <div class="field">
-                <label for="claimPerson">申請人</label>
-                <input id="claimPerson" required placeholder="姓名">
-              </div>
-              <div class="field">
-                <label for="claimParent">主項目</label>
-                <select id="claimParent" required></select>
-              </div>
-              <div class="field">
-                <label for="claimChild">副項目</label>
-                <select id="claimChild" required></select>
-              </div>
-              <div class="field full custom-category-field" id="claimParentOtherField" hidden>
-                <label for="claimParentOther">自訂主項目</label>
-                <input id="claimParentOther" aria-label="報銷自訂主項目" placeholder="輸入自訂主項目">
-              </div>
-              <div class="field full custom-category-field" id="claimChildOtherField" hidden>
-                <label for="claimChildOther">自訂副項目</label>
-                <input id="claimChildOther" aria-label="報銷自訂副項目" placeholder="輸入自訂副項目">
-              </div>
-              <div class="field">
-                <label for="claimAmount">金額</label>
-                <input id="claimAmount" type="number" min="0" step="1" required>
-              </div>
-              <div class="field">
-                <label for="claimStatus">狀態</label>
-                <select id="claimStatus">
-                  <option value="pending">待審核</option>
-                  <option value="approved">已核准</option>
-                  <option value="paid" id="claimPaidOption" hidden disabled>已付款</option>
-                  <option value="rejected">退回</option>
-                </select>
-              </div>
-              <div class="field full">
-                <label for="claimReceipt">憑證</label>
-                <input id="claimReceipt" placeholder="收據編號、雲端連結或紙本位置">
-              </div>
-              <div class="field full">
-                <label>收據附件</label>
-                <div class="file-picker">
-                  <label class="file-button" for="claimFiles">選取照片或 PDF</label>
-                  <input id="claimFiles" type="file" accept="image/*,.pdf,application/pdf" multiple>
-                  <span class="file-name" id="claimFilesName">尚未選取附件</span>
-                </div>
-                <div class="attachment-list" id="claimAttachmentList"></div>
-              </div>
-              <div class="field full">
-                <label for="claimNote">備註</label>
-                <textarea id="claimNote" placeholder="誰核准、何時付款、轉帳末五碼等"></textarea>
-              </div>
-            </div>
-            <div class="form-actions">
-              <button type="button" id="claimCancel">重設</button>
-              <button class="primary" type="submit" id="claimSubmit">儲存</button>
-            </div>
-          </form>
-
-          <div class="panel">
-            <div class="claim-heading">
-              <h2>報銷清單</h2>
-              <strong id="claimSearchTotal" class="claim-search-total expense" hidden aria-live="polite"></strong>
-              <button type="button" id="syncWebClaims">同步雲端帳本</button>
-            </div>
-            <div class="filters with-dates">
-              <input id="claimSearch" placeholder="搜尋申請人、用途、憑證">
-              <select id="claimStatusFilter">
-                <option value="all">全部狀態</option>
-                <option value="pending">待審核</option>
-                <option value="approved">已核准</option>
-                <option value="paid">已付款</option>
-                <option value="rejected">退回</option>
-              </select>
-              <select id="claimParentFilter">
-                <option value="all">全部主項目</option>
-              </select>
-              <div class="filter-date-row">
-                <label class="compact-label"><span>起始日期</span><span class="date-control with-clear" data-date-control><input id="claimDateFrom" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇報銷起始日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="claimDateFrom">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
-                <label class="compact-label"><span>結束日期</span><span class="date-control with-clear" data-date-control><input id="claimDateTo" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇報銷結束日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="claimDateTo">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
-              </div>
-            </div>
-            <div class="table-wrap scroll-list" id="claimList">
-              <table class="claim-table">
-                <colgroup><col><col><col><col><col><col></colgroup>
-                <thead><tr><th>日期</th><th>申請人</th><th>用途</th><th>分類</th><th class="num">金額</th><th>狀態</th></tr></thead>
-                <tbody id="claimRows"><tr class="claim-empty-row"><td colspan="6"><div class="empty">尚未新增報銷申請。</div></td></tr></tbody>
-              </table>
-            </div>
-            <p class="notice">報銷核准後，請使用清單中的「付款」記錄付款日期與帳戶。</p>
+        <div class="panel">
+          <div class="claim-heading">
+            <h2>報銷清單</h2>
+            <strong id="claimSearchTotal" class="claim-search-total expense" hidden aria-live="polite"></strong>
+            <button type="button" id="newClaim">＋ 新增報銷</button>
           </div>
+          <div class="filters with-dates">
+            <input id="claimSearch" placeholder="搜尋申請人、用途、憑證">
+            <select id="claimStatusFilter">
+              <option value="all">全部狀態</option>
+              <option value="pending">待審核</option>
+              <option value="approved">已核准</option>
+              <option value="paid">已付款</option>
+              <option value="rejected">退回</option>
+            </select>
+            <select id="claimParentFilter">
+              <option value="all">全部主項目</option>
+            </select>
+            <div class="filter-date-row">
+              <label class="compact-label"><span>起始日期</span><span class="date-control with-clear" data-date-control><input id="claimDateFrom" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇報銷起始日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="claimDateFrom">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
+              <label class="compact-label"><span>結束日期</span><span class="date-control with-clear" data-date-control><input id="claimDateTo" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇報銷結束日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="claimDateTo">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
+            </div>
+          </div>
+          <div class="table-wrap scroll-list" id="claimList">
+            <table class="claim-table">
+              <colgroup><col><col><col><col><col><col></colgroup>
+              <thead><tr><th>日期</th><th>申請人</th><th>分類</th><th class="num">金額</th><th>狀態</th><th><span class="visually-hidden">操作</span></th></tr></thead>
+              <tbody id="claimRows"><tr class="claim-empty-row"><td colspan="6"><div class="empty">尚未新增報銷申請。</div></td></tr></tbody>
+            </table>
+          </div>
+          <p class="notice">報銷核准後，請使用清單中的「付款」記錄付款日期與帳戶。</p>
         </div>
       </section>
 
       <section class="section" id="accounts" aria-labelledby="pageTitle">
-        <div class="grid account-grid">
-          <form class="panel" id="accountForm">
-            <h2 id="accountFormTitle">新增帳戶</h2>
-            <input type="hidden" id="accountId">
-            <div class="form-grid">
-              <div class="field full">
-                <label for="accountName">帳戶名稱</label>
-                <input id="accountName" required placeholder="例：社團銀行帳戶">
-              </div>
-              <div class="field">
-                <label for="accountType">帳戶類型</label>
-                <select id="accountType">
-                  <option value="cash">現金</option>
-                  <option value="bank">銀行帳戶</option>
-                  <option value="other">其他</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="accountOpeningDate">期初日期</label>
-                <div class="date-control" data-date-control>
-                  <input id="accountOpeningDate" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" required>
-                  <button type="button" class="date-picker-trigger" aria-label="選擇期初日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
-                  <input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true">
-                </div>
-              </div>
-              <div class="field full">
-                <label for="accountOpeningBalance">期初餘額</label>
-                <input id="accountOpeningBalance" type="number" step="1" value="0" required>
-              </div>
-              <div class="field full bank-only" id="accountBankFields" hidden>
-                <label for="accountNumber">帳號</label>
-                <input id="accountNumber" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="例：01234567890123">
-              </div>
-              <div class="field full bank-only" id="accountQrFields" hidden>
-                <label>QR Code</label>
-                <div class="file-picker">
-                  <label class="file-button" for="accountQrFile">選取銀行 QR 圖片</label>
-                  <input id="accountQrFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-                  <span class="file-name" id="accountQrFileName">尚未選取圖片</span>
-                </div>
-                <div class="attachment-list" id="accountQrCurrent"></div>
-              </div>
-            </div>
-            <div class="form-actions account-form-actions">
-              <div class="account-edit-actions">
-                <button type="button" id="accountCancel" hidden>取消編輯</button>
-              </div>
-              <button type="submit" class="primary">儲存帳戶</button>
-            </div>
-          </form>
-
+        <div class="accounts-top">
           <div class="panel">
             <div class="section-heading">
-              <h2>目前帳戶</h2>
+              <h2>記帳帳戶</h2>
+              <button type="button" id="newAccount">＋ 新增帳戶</button>
             </div>
-            <div class="table-wrap">
-              <table class="account-table">
-                <colgroup><col><col><col><col><col><col><col></colgroup>
-                <thead><tr><th>帳戶</th><th>類型</th><th>帳號</th><th class="num">期初餘額</th><th class="num">目前帳面</th><th class="account-qr-column">QR Code</th><th class="row-delete-cell">操作</th></tr></thead>
-                <tbody id="accountRows"></tbody>
+            <div class="account-cards" id="accountRows"></div>
+          </div>
+          <div class="panel">
+            <div class="section-heading">
+              <h2>收款帳戶</h2>
+              <button type="button" id="newPayee">＋ 新增收款帳戶</button>
+            </div>
+            <div class="table-wrap scroll-list" id="payeeList">
+              <table class="payee-table">
+                <colgroup><col><col><col><col></colgroup>
+                <thead><tr><th>收款人</th><th>銀行</th><th>帳號</th><th class="account-qr-column">QR Code</th></tr></thead>
+                <tbody id="payeeRows"><tr><td colspan="4"><div class="empty">尚未新增收款帳戶。</div></td></tr></tbody>
               </table>
             </div>
-
-            <section class="payee-section" aria-labelledby="payeeHeading">
-              <div class="section-heading">
-                <h2 id="payeeHeading">收款帳戶</h2>
-              </div>
-              <form class="payee-editor" id="payeeForm">
-                <input type="hidden" id="payeeId">
-                <div class="payee-fields">
-                  <div class="field">
-                    <label for="payeeName">收款人</label>
-                    <input id="payeeName" required placeholder="例：活動長小林">
-                  </div>
-                  <div class="field">
-                    <label for="payeeBank">銀行</label>
-                    <input id="payeeBank" placeholder="例：臺灣銀行 004">
-                  </div>
-                  <div class="field">
-                    <label for="payeeNumber">帳號</label>
-                    <input id="payeeNumber" inputmode="numeric" maxlength="14" autocomplete="off" required placeholder="例：01234567890123">
-                  </div>
-                </div>
-                <div class="payee-qr-row">
-                  <div class="field">
-                    <label>QR Code</label>
-                    <div class="file-picker">
-                      <label class="file-button" for="payeeQrFile">選取收款 QR 圖片</label>
-                      <input id="payeeQrFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-                      <span class="file-name" id="payeeQrFileName">尚未選取圖片</span>
-                    </div>
-                  </div>
-                  <div class="payee-form-actions">
-                    <button type="button" id="payeeCancel" hidden>取消編輯</button>
-                    <button type="submit" class="primary">儲存帳戶</button>
-                  </div>
-                  <div class="attachment-list" id="payeeQrCurrent"></div>
-                </div>
-              </form>
-              <div class="table-wrap scroll-list" id="payeeList">
-                <table class="payee-table">
-                  <colgroup><col><col><col><col><col></colgroup>
-                  <thead><tr><th>收款人</th><th>銀行</th><th>帳號</th><th class="account-qr-column">QR Code</th><th class="row-delete-cell">操作</th></tr></thead>
-                  <tbody id="payeeRows"><tr><td colspan="5"><div class="empty">尚未新增收款帳戶。</div></td></tr></tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-        </div>
-
-        <div class="panel recent-panel">
-          <h2>餘額怎麼使用</h2>
-          <div class="balance-guide">
-            <div><strong>期初餘額</strong><span>期初日期當天，帳戶原本已有的金額。只設定一次，之後不要跟著每月修改。</span></div>
-            <div><strong>目前帳面</strong><span>期初餘額加上截至今天的收入，再扣除已記帳支出。用來快速查看現在理應剩多少。</span></div>
-            <div><strong>系統帳面</strong><span>對帳月份最後一天的理論餘額。拿它和銀行 App 或現金實際餘額比較，差額應為零。</span></div>
           </div>
         </div>
 
         <form class="panel recent-panel" id="reconciliationForm">
           <div class="section-heading">
-            <div>
-              <h2>月結對帳</h2>
-              <p class="subtle">以銀行或現金實際餘額，核對系統計算結果。</p>
+            <h2>月結對帳 <button type="button" class="help-tip" id="reconcileHelpToggle" aria-expanded="false" aria-controls="reconcileHelp" aria-label="名詞說明">?</button></h2>
+            <div class="month-switch">
+              <button type="button" class="icon-button" id="reconcilePrev" aria-label="上個月">‹</button>
+              <strong id="reconcileMonthLabel"></strong>
+              <button type="button" class="icon-button" id="reconcileNext" aria-label="下個月">›</button>
             </div>
           </div>
-          <div class="form-grid">
-            <div class="field">
-              <label for="reconcileMonth">月份</label>
-              <input id="reconcileMonth" type="month" required>
-            </div>
-            <div class="field">
-              <label for="reconcileAccount">帳戶</label>
-              <select id="reconcileAccount" required></select>
-            </div>
-          </div>
-          <div class="account-summary">
-            <div><span>系統帳面</span><strong id="reconcileCalculated">$0</strong></div>
-            <div><span>差額</span><strong id="reconcileDifference">$0</strong></div>
-          </div>
-          <div class="form-grid">
-            <div class="field">
-              <label for="reconcileActual">實際餘額</label>
-              <input id="reconcileActual" type="number" step="1" required placeholder="輸入月末實際餘額">
-            </div>
-            <div class="field">
-              <label for="reconcileNote">對帳備註</label>
-              <input id="reconcileNote" placeholder="例：銀行月結單已核對">
-            </div>
-          </div>
-          <div class="reconciliation-actions">
-            <div>
-              <strong id="lockMonthLabel">本月尚未鎖定</strong>
-              <span id="lockMonthDescription">鎖定後，該月的記帳與報銷不可修改。</span>
-            </div>
-            <div class="reconciliation-buttons">
-              <button type="submit" class="primary" id="saveReconciliation">儲存月結</button>
-              <button type="button" id="toggleMonthLock">鎖定月份</button>
-              <button type="button" id="printMonthlyReport">列印 / 儲存 PDF</button>
-            </div>
+          <input type="hidden" id="reconcileMonth">
+          <div class="balance-guide" id="reconcileHelp" hidden>
+            <div><strong>期初餘額</strong><span>期初日期當天帳戶原本已有的金額，只設定一次。</span></div>
+            <div><strong>目前餘額</strong><span>期初餘額加上到今天為止的收入、扣掉支出，現在理應剩多少。</span></div>
+            <div><strong>月底應有</strong><span>對帳月份最後一天的理論餘額（月底餘額）。和銀行 App 或點算的現金比，差額應為零。</span></div>
           </div>
           <div class="table-wrap">
-            <table>
-              <thead><tr><th>月份</th><th>帳戶</th><th class="num">系統帳面</th><th class="num">實際餘額</th><th class="num">差額</th><th>備註</th></tr></thead>
+            <table class="reconcile-table">
+              <colgroup><col><col><col><col><col></colgroup>
+              <thead><tr><th>帳戶</th><th class="num">月底應有</th><th>實際餘額</th><th class="num">差額</th><th>備註</th></tr></thead>
+              <tbody id="reconcileRows"></tbody>
+            </table>
+          </div>
+          <div class="reconciliation-actions">
+            <p class="subtle" id="lockMonthDescription"></p>
+            <div class="reconciliation-buttons">
+              <button type="button" id="toggleMonthLock">鎖定月份</button>
+              <button type="submit" class="primary" id="saveReconciliation">儲存</button>
+            </div>
+          </div>
+          <h3 class="history-title">對帳紀錄</h3>
+          <div class="table-wrap">
+            <table class="reconcile-history">
+              <colgroup><col><col><col><col></colgroup>
+              <thead><tr><th>月份</th><th>結果</th><th>狀態</th><th><span class="visually-hidden">列印</span></th></tr></thead>
               <tbody id="reconciliationRows"></tbody>
             </table>
           </div>
@@ -625,6 +441,13 @@
             </table>
           </div>
         </div>
+        <div class="panel danger-zone">
+          <div>
+            <h2>清空所有資料</h2>
+            <p class="subtle">刪除這台電腦上全部的帳務、人員與活動資料，無法復原。雲端帳本會在下次同步時跟著變成空的。</p>
+          </div>
+          <button type="button" class="danger" id="clearBtn">清空資料</button>
+        </div>
       </section>
 
       <section class="section" id="backup" aria-labelledby="pageTitle">
@@ -766,6 +589,163 @@
       </div>
     </form>
   </div></div>
+  <div class="app-modal" id="claimDialog" role="dialog" aria-modal="true" aria-labelledby="claimFormTitle" hidden>
+    <form class="app-modal-card claim-dialog-card" id="claimForm">
+      <h2 id="claimFormTitle">新增報銷</h2>
+      <input type="hidden" id="claimId">
+      <div class="form-grid">
+        <div class="field">
+          <label for="claimDate">申請日期</label>
+          <div class="date-control" data-date-control>
+            <input id="claimDate" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" required>
+            <button type="button" class="date-picker-trigger" aria-label="選擇申請日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
+            <input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true">
+          </div>
+        </div>
+        <div class="field">
+          <label for="claimPerson">申請人</label>
+          <input id="claimPerson" required placeholder="姓名">
+        </div>
+        <div class="field">
+          <label for="claimParent">主項目</label>
+          <select id="claimParent" required></select>
+        </div>
+        <div class="field">
+          <label for="claimChild">副項目</label>
+          <select id="claimChild" required></select>
+        </div>
+        <div class="field full custom-category-field" id="claimParentOtherField" hidden>
+          <label for="claimParentOther">自訂主項目</label>
+          <input id="claimParentOther" aria-label="報銷自訂主項目" placeholder="輸入自訂主項目">
+        </div>
+        <div class="field full custom-category-field" id="claimChildOtherField" hidden>
+          <label for="claimChildOther">自訂副項目</label>
+          <input id="claimChildOther" aria-label="報銷自訂副項目" placeholder="輸入自訂副項目">
+        </div>
+        <div class="field">
+          <label for="claimAmount">金額</label>
+          <input id="claimAmount" type="number" min="0" step="1" required>
+        </div>
+        <div class="field">
+          <label for="claimStatus">狀態</label>
+          <select id="claimStatus">
+            <option value="pending">待審核</option>
+            <option value="approved">已核准</option>
+            <option value="paid" id="claimPaidOption" hidden disabled>已付款</option>
+            <option value="rejected">退回</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="claimReceipt">憑證</label>
+          <input id="claimReceipt" placeholder="收據編號、雲端連結或紙本位置">
+        </div>
+        <div class="field full">
+          <label>收據附件</label>
+          <div class="file-picker">
+            <label class="file-button" for="claimFiles">選取照片或 PDF</label>
+            <input id="claimFiles" type="file" accept="image/*,.pdf,application/pdf" multiple>
+            <span class="file-name" id="claimFilesName">尚未選取附件</span>
+          </div>
+          <div class="attachment-list" id="claimAttachmentList"></div>
+        </div>
+        <div class="field full">
+          <label for="claimNote">備註</label>
+          <textarea id="claimNote" placeholder="誰核准、何時付款、轉帳末五碼等"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="claimCancel">取消</button>
+        <button class="primary" type="submit" id="claimSubmit">儲存</button>
+      </div>
+    </form>
+  </div>
+  <div class="app-modal" id="accountDialog" role="dialog" aria-modal="true" aria-labelledby="accountFormTitle" hidden>
+    <form class="app-modal-card" id="accountForm">
+      <h2 id="accountFormTitle">新增帳戶</h2>
+      <input type="hidden" id="accountId">
+      <div class="dialog-form-grid">
+        <div class="field">
+          <label for="accountName">帳戶名稱</label>
+          <input id="accountName" required placeholder="例：社團銀行帳戶">
+        </div>
+        <div class="field">
+          <label for="accountType">帳戶類型</label>
+          <select id="accountType">
+            <option value="cash">現金</option>
+            <option value="bank">銀行帳戶</option>
+            <option value="other">其他</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="accountOpeningDate">期初日期</label>
+          <div class="date-control inset" data-date-control>
+            <input id="accountOpeningDate" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" required>
+            <button type="button" class="date-picker-trigger" aria-label="選擇期初日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
+            <input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true">
+          </div>
+        </div>
+        <div class="field">
+          <label for="accountOpeningBalance">期初餘額</label>
+          <div class="money-input">
+            <span aria-hidden="true">NT$</span>
+            <input id="accountOpeningBalance" type="number" inputmode="numeric" step="1" placeholder="0">
+          </div>
+        </div>
+        <div class="field bank-only" id="accountBankFields" hidden>
+          <label for="accountNumber">帳號</label>
+          <input id="accountNumber" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="例：01234567890123">
+        </div>
+        <div class="field bank-only" id="accountQrFields" hidden>
+          <label>QR Code</label>
+          <div class="file-picker">
+            <label class="file-button" for="accountQrFile">選取銀行 QR 圖片</label>
+            <input id="accountQrFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+            <span class="file-name" id="accountQrFileName">尚未選取圖片</span>
+          </div>
+          <div class="attachment-list" id="accountQrCurrent"></div>
+        </div>
+      </div>
+      <div class="form-actions dialog-actions">
+        <button type="button" class="danger dialog-delete" id="accountDelete" hidden>刪除帳戶</button>
+        <button type="button" id="accountCancel">取消</button>
+        <button type="submit" class="primary">儲存</button>
+      </div>
+    </form>
+  </div>
+  <div class="app-modal" id="payeeDialog" role="dialog" aria-modal="true" aria-labelledby="payeeFormTitle" hidden>
+    <form class="app-modal-card" id="payeeForm">
+      <h2 id="payeeFormTitle">新增收款帳戶</h2>
+      <input type="hidden" id="payeeId">
+      <div class="dialog-form-grid">
+        <div class="field">
+          <label for="payeeName">收款人</label>
+          <input id="payeeName" required placeholder="例：活動長小林">
+        </div>
+        <div class="field">
+          <label for="payeeBank">銀行</label>
+          <input id="payeeBank" placeholder="例：臺灣銀行 004">
+        </div>
+        <div class="field">
+          <label for="payeeNumber">帳號</label>
+          <input id="payeeNumber" inputmode="numeric" maxlength="14" autocomplete="off" required placeholder="例：01234567890123">
+        </div>
+        <div class="field">
+          <label>QR Code</label>
+          <div class="file-picker">
+            <label class="file-button" for="payeeQrFile">選取收款 QR 圖片</label>
+            <input id="payeeQrFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+            <span class="file-name" id="payeeQrFileName">尚未選取圖片</span>
+          </div>
+          <div class="attachment-list" id="payeeQrCurrent"></div>
+        </div>
+      </div>
+      <div class="form-actions dialog-actions">
+        <button type="button" class="danger dialog-delete" id="payeeDelete" hidden>刪除</button>
+        <button type="button" id="payeeCancel">取消</button>
+        <button type="submit" class="primary">儲存</button>
+      </div>
+    </form>
+  </div>
   <div class="app-modal" id="personDialog" role="dialog" aria-modal="true" aria-labelledby="personFormTitle" hidden>
     <form class="app-modal-card" id="personForm">
       <h2 id="personFormTitle">新增人員</h2>

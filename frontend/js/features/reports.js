@@ -110,8 +110,7 @@ function paginateMonthlyReport() {
   }
 }
 
-async function printMonthlyReport() {
-  const month = $("#reconcileMonth").value;
+async function printMonthlyReport(month = $("#reconcileMonth").value) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || "")) return toast("請先選擇要列印的月份。");
   renderMonthlyReport(month);
   document.body.classList.add("print-monthly-report");

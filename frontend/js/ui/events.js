@@ -51,7 +51,19 @@ function bindActionMenus() {
     });
   });
   document.addEventListener("click", (event) => {
-    if (!event.target.closest("[data-action-menu]")) closeActionMenus();
+    const rowMenu = event.target.closest("[data-row-menu]");
+    if (rowMenu) {
+      const list = rowMenu.nextElementSibling;
+      const open = list.hidden;
+      closeActionMenus();
+      // Fixed to the window, so a scrolling table cannot clip it.
+      const bounds = rowMenu.getBoundingClientRect();
+      Object.assign(list.style, { position: "fixed", top: `${bounds.bottom + 6}px`, right: `${window.innerWidth - bounds.right}px`, left: "auto" });
+      list.hidden = !open;
+      rowMenu.setAttribute("aria-expanded", String(open));
+      return;
+    }
+    if (!event.target.closest("[data-action-menu]") || event.target.closest(".row-menu [role=\"menuitem\"]")) closeActionMenus();
   });
 }
 
@@ -181,23 +193,19 @@ function bindEvents() {
     resetEntryForm();
     renderLedger();
   });
-  $("#claimCancel").addEventListener("click", () => {
-    resetClaimForm();
-    renderClaims();
-  });
-  $("#accountCancel").addEventListener("click", () => {
-    const wasEditing = Boolean($("#accountId").value);
-    resetAccountForm();
-    renderAccounts();
-    $("#accountName").focus();
-    toast(wasEditing ? "已取消編輯。" : "帳戶表單已重設。");
-  });
-  $("#payeeCancel").addEventListener("click", () => {
-    const wasEditing = Boolean($("#payeeId").value);
-    resetPayeeForm();
-    renderAccounts();
-    $("#payeeName").focus();
-    toast(wasEditing ? "已取消編輯。" : "收款帳戶表單已重設。");
+  $("#newClaim").addEventListener("click", openClaimDialog);
+  $("#claimCancel").addEventListener("click", closeClaimDialog);
+  $("#claimDialog").addEventListener("click", (event) => { if (event.target === $("#claimDialog")) closeClaimDialog(); });
+  $("#claimDialog").addEventListener("keydown", (event) => { if (event.key === "Escape") closeClaimDialog(); });
+  $("#newAccount").addEventListener("click", () => openAccountDialog());
+  $("#accountCancel").addEventListener("click", closeAccountDialog);
+  $("#accountDelete").addEventListener("click", () => deleteSelectedAccount($("#accountId").value));
+  $("#newPayee").addEventListener("click", () => openPayeeDialog());
+  $("#payeeCancel").addEventListener("click", closePayeeDialog);
+  $("#payeeDelete").addEventListener("click", () => deleteSelectedPayee($("#payeeId").value));
+  [["#accountDialog", closeAccountDialog], ["#payeeDialog", closePayeeDialog]].forEach(([dialog, close]) => {
+    $(dialog).addEventListener("click", (event) => { if (event.target === $(dialog)) close(); });
+    $(dialog).addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
   });
   $("#newPerson").addEventListener("click", () => openPersonDialog());
   $("#personCancel").addEventListener("click", closePersonDialog);
@@ -306,26 +314,40 @@ function bindEvents() {
     const claim = state.claims.find((item) => item.id === $("#claimId").value);
     renderClaimAttachmentList(claim, files);
   });
-  $("#reconcileMonth").addEventListener("change", loadReconciliationForm);
-  $("#reconcileAccount").addEventListener("change", loadReconciliationForm);
-  $("#printMonthlyReport").addEventListener("click", printMonthlyReport);
+  $("#reconcilePrev").addEventListener("click", () => shiftReconcileMonth(-1));
+  $("#reconcileNext").addEventListener("click", () => shiftReconcileMonth(1));
+  $("#reconcileHelpToggle").addEventListener("click", () => {
+    const open = $("#reconcileHelp").hidden;
+    $("#reconcileHelp").hidden = !open;
+    $("#reconcileHelpToggle").setAttribute("aria-expanded", String(open));
+  });
+  // The difference follows each actual balance as it is typed.
+  $("#reconcileRows").addEventListener("input", (event) => {
+    const input = event.target.closest("[data-reconcile-actual]");
+    if (!input) return;
+    const row = input.closest("[data-reconcile-account]");
+    const difference = input.value === "" ? null : Number(input.value) - Number(row.dataset.expected);
+    row.querySelector("[data-reconcile-difference]").innerHTML = differenceMarkup(difference);
+  });
+  // A history row loads its month into the table above; its button prints that month.
+  $("#reconciliationRows").addEventListener("click", (event) => {
+    const print = event.target.closest("[data-print-month]");
+    if (print) return printMonthlyReport(print.dataset.printMonth);
+    const row = event.target.closest("[data-load-reconcile-month]");
+    if (!row) return;
+    setReconcileMonth(row.dataset.loadReconcileMonth);
+    renderReconciliationHistory();
+    $("#reconciliationForm").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   window.addEventListener("afterprint", finishMonthlyReportPrint);
   window.addEventListener("focus", () => {
     if (monthlyReportPrintActive) setTimeout(finishMonthlyReportPrint, 100);
   });
-  $("#reconcileActual").addEventListener("input", renderReconciliationSummary);
   $("#toggleMonthLock").addEventListener("click", () => {
     const month = $("#reconcileMonth").value;
     if (!month) return toast("請先選擇月份。");
     const locked = isMonthLocked(month);
-    if (!locked) {
-      const incomplete = incompleteReconciliationAccounts(month);
-      if (incomplete.length) {
-        const names = incomplete.slice(0, 3).map((account) => account.name).join("、");
-        const more = incomplete.length > 3 ? `等 ${incomplete.length} 個帳戶` : "";
-        return toast(`請先完成${names}${more}的月結對帳，再鎖定月份。`);
-      }
-    }
+    if (!locked && !monthReadyToLock(month)) return toast("所有帳戶都儲存、差額都是 0 後，才能鎖定這個月。");
     const message = locked
       ? `確定解鎖 ${month}？解鎖後可修改該月帳務。`
       : `確定鎖定 ${month}？鎖定後該月帳務不可修改。`;
@@ -436,15 +458,11 @@ function bindEvents() {
     const selectClaimRow = event.target.closest("[data-select-claim]");
     const selectPersonRow = event.target.closest("[data-select-person]");
     const selectActivityRow = event.target.closest("[data-select-activity]");
-    const deleteAccountRow = event.target.closest("[data-delete-account]");
-    const deletePayeeRow = event.target.closest("[data-delete-payee]");
     const copyAccount = event.target.closest("[data-copy-account-number]");
     const copyPayee = event.target.closest("[data-copy-payee-number]");
     const copyPersonEmailButton = event.target.closest("[data-copy-person-email]");
     const viewAccountQr = event.target.closest("[data-view-account-qr]");
-    const revokeAccountQr = event.target.closest("[data-revoke-account-qr]");
     const viewPayeeQr = event.target.closest("[data-view-payee-qr]");
-    const revokePayeeQr = event.target.closest("[data-revoke-payee-qr]");
     const downloadAttachment = event.target.closest("[data-download-attachment]");
     const previewAttachment = event.target.closest("[data-preview-attachment]");
     const previewPendingClaim = event.target.closest("[data-preview-pending-claim]");
@@ -526,8 +544,6 @@ function bindEvents() {
       selectActivity(state.activities.find((item) => item.id === selectActivityRow.dataset.selectActivity));
     }
 
-    if (deleteAccountRow) deleteSelectedAccount(deleteAccountRow.dataset.deleteAccount);
-    if (deletePayeeRow) deleteSelectedPayee(deletePayeeRow.dataset.deletePayee);
 
     if (copyAccount) await copyAccountNumber(copyAccount.dataset.copyAccountNumber);
     if (copyPayee) await copyAccountNumber(copyPayee.dataset.copyPayeeNumber);
@@ -539,50 +555,10 @@ function bindEvents() {
       openAccountQrPreview(account.qrCodeDataUrl, account.name, account.accountNumber ? `帳號：${account.accountNumber}` : "掃描前請再次核對收款帳戶。");
     }
 
-    if (revokeAccountQr) {
-      const account = state.accounts.find((item) => item.id === revokeAccountQr.dataset.revokeAccountQr);
-      if (!account?.qrCodeDataUrl) return;
-      requestAppActionConfirmation({
-        title: "撤銷 QR Code",
-        message: `撤銷「${account.name}」的 QR Code 圖片？帳戶與帳務資料會保留。`,
-        confirmLabel: "確認撤銷",
-        action: () => {
-          account.qrCodeDataUrl = "";
-          account.qrCodeName = "";
-          if ($("#accountId").value === account.id) {
-            removeAccountQr = false;
-            renderCurrentAccountQr(account);
-          }
-          if (!saveState()) return;
-          toast("QR Code 已撤銷。");
-        }
-      });
-    }
-
     if (viewPayeeQr) {
       const payee = state.payees.find((item) => item.id === viewPayeeQr.dataset.viewPayeeQr);
       if (!payee?.qrCodeDataUrl) return toast("這筆收款資料尚未設定 QR Code。");
       openAccountQrPreview(payee.qrCodeDataUrl, payee.name, `${payee.bank ? `${payee.bank} · ` : ""}帳號：${payee.accountNumber}`);
-    }
-
-    if (revokePayeeQr) {
-      const payee = state.payees.find((item) => item.id === revokePayeeQr.dataset.revokePayeeQr);
-      if (!payee?.qrCodeDataUrl) return;
-      requestAppActionConfirmation({
-        title: "撤銷收款 QR Code",
-        message: `撤銷「${payee.name}」的 QR Code 圖片？收款人與帳號會保留。`,
-        confirmLabel: "確認撤銷",
-        action: () => {
-          payee.qrCodeDataUrl = "";
-          payee.qrCodeName = "";
-          if ($("#payeeId").value === payee.id) {
-            removePayeeQr = false;
-            renderCurrentPayeeQr(payee);
-          }
-          if (!saveState()) return;
-          toast("收款 QR Code 已撤銷。");
-        }
-      });
     }
 
     if (previewAttachment) await openAttachmentPreview(previewAttachment.dataset.previewAttachment, previewAttachment.dataset.attachmentName);
@@ -647,11 +623,10 @@ function bindEvents() {
     else if (button.hasAttribute("data-calendar-year-next") || button.hasAttribute("data-calendar-years-next")) { calendarMonth.setFullYear(calendarMonth.getFullYear() + (button.hasAttribute("data-calendar-years-next") ? 12 : 1)); renderCalendar(); }
   });
 
-  $("#seedBtn").addEventListener("click", seedData);
   $("#clearBtn").addEventListener("click", () => requestAppActionConfirmation({
     title: "清空資料",
     message: "確定清空全部帳務、人員與活動資料？此動作無法復原。",
-    confirmLabel: "確認清空",
+    confirmLabel: "確認",
     action: clearAllData
   }));
 

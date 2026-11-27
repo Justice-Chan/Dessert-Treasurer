@@ -43,7 +43,7 @@ function resetClaimForm() {
   $("#claimFormTitle").textContent = "新增報銷";
   $("#claimSubmit").textContent = "儲存";
   $("#claimSubmit").hidden = false;
-  $("#claimCancel").textContent = "重設";
+  $("#claimCancel").textContent = "取消";
   $$("#claimForm input, #claimForm select, #claimForm textarea, #claimForm .date-picker-trigger").forEach((control) => { control.disabled = false; });
   $("#claimPaidOption").hidden = true;
   setDateValue("claimDate", today());
@@ -53,15 +53,28 @@ function resetClaimForm() {
   $("#claimAttachmentList").innerHTML = "";
 }
 
+// A claim is added or edited in a dialog; the list keeps the page.
+function openClaimDialog() {
+  resetClaimForm();
+  $("#claimDialog").hidden = false;
+  $("#claimDate").focus();
+}
+
+function closeClaimDialog() {
+  $("#claimDialog").hidden = true;
+  resetClaimForm();
+}
+
 function selectClaim(claim) {
   if (!claim) return;
+  resetClaimForm();
   const readOnly = isClaimLocked(claim);
   $$("#claimForm input, #claimForm select, #claimForm textarea, #claimForm .date-picker-trigger").forEach((control) => { control.disabled = false; });
   $("#claimId").value = claim.id;
   $("#claimFormTitle").textContent = readOnly ? "查看報銷" : "編輯報銷";
-  $("#claimSubmit").textContent = "更新";
+  $("#claimSubmit").textContent = "儲存";
   $("#claimSubmit").hidden = readOnly;
-  $("#claimCancel").textContent = readOnly ? "關閉" : "取消編輯";
+  $("#claimCancel").textContent = readOnly ? "關閉" : "取消";
   setDateValue("claimDate", claim.date);
   $("#claimPerson").value = claim.person;
   setCategoryEditor("claim", "expense", claim.parent, claim.child);
@@ -75,8 +88,7 @@ function selectClaim(claim) {
   if (readOnly) {
     $$("#claimForm input:not([type=hidden]), #claimForm select, #claimForm textarea, #claimForm .date-picker-trigger").forEach((control) => { control.disabled = true; });
   }
-  renderClaims();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  $("#claimDialog").hidden = false;
 }
 
 function renderClaimAttachmentList(claim, pendingFiles = []) {
@@ -186,7 +198,7 @@ async function upsertClaim(event) {
     await deleteReceipts(newAttachments.map((attachment) => attachment.id)).catch(() => {});
     return;
   }
-  resetClaimForm();
+  closeClaimDialog();
   toast("報銷資料已儲存。");
 }
 
