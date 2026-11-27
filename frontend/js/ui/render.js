@@ -199,192 +199,84 @@ function scheduleMemberImportSync() {
   else requestAnimationFrame(synchronize);
 }
 
-// The overview figures for one month; the web sync sends the same numbers to 財務彙總.
-function monthTotals(month) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const monthEndKey = dateKey(new Date(year, monthNumber, 0));
-  const balance = state.accounts
-    .filter((account) => accountExistsAt(account, monthEndKey))
-    .reduce((sum, account) => sum + accountBalance(account.id, monthEndKey), 0);
-  const monthEntries = state.entries.filter((entry) => isActiveEntry(entry) && entry.date && entry.date.startsWith(month));
-  const monthClaims = state.claims.filter((claim) => claim.date && claim.date.startsWith(month));
-  const activeMonthClaims = monthClaims.filter((claim) => claim.status !== "rejected");
-  const income = monthEntries.filter((entry) => entry.type === "income").reduce((sum, entry) => sum + Number(entry.amount), 0);
-  const claimsTotal = activeMonthClaims.reduce((sum, claim) => sum + Number(claim.amount), 0);
-  const otherExpenseGroups = groupOtherExpenses(monthEntries);
-  const otherExpense = otherExpenseGroups.reduce((sum, item) => sum + item.value, 0);
-  const pending = monthClaims.filter((claim) => claim.status === "pending" || claim.status === "approved").reduce((sum, claim) => sum + Number(claim.amount), 0);
-  const byParent = {};
-  activeMonthClaims.forEach((claim) => { byParent[claim.parent || "未分類"] = (byParent[claim.parent || "未分類"] || 0) + Number(claim.amount); });
-  otherExpenseGroups.forEach((item) => { byParent[item.label] = (byParent[item.label] || 0) + item.value; });
-  const expenseByParent = Object.entries(byParent).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
-  return { balance, income, expense: claimsTotal + otherExpense, claimsTotal, otherExpense, otherExpenseGroups, pending, expenseByParent };
-}
-
+// 總覽: what each account holds now, what is waiting for the treasurer, the month's income and
+// expense (counted as 記帳 counts them), and the latest records.
 function renderOverview() {
-  renderMonthSelector();
-  const [year, monthNumber] = selectedMonth.split("-").map(Number);
-  const monthEnd = new Date(year, monthNumber, 0);
-  const monthEndKey = dateKey(monthEnd);
-  const { balance, income, expense, claimsTotal, otherExpense, otherExpenseGroups, pending } = monthTotals(selectedMonth);
-  $("#balance").textContent = fmt.format(balance);
-  $("#monthIncome").textContent = fmt.format(income);
-  $("#monthExpense").textContent = fmt.format(expense);
-  $("#pendingClaims").textContent = fmt.format(pending);
-  $("#balanceLabel").textContent = `${monthNumber} 月底帳面餘額`;
-  $("#claimsLabel").textContent = `${monthNumber} 月待處理報銷`;
-  $("#incomeLabel").textContent = `${monthNumber} 月收入`;
-  $("#expenseLabel").textContent = `${monthNumber} 月支出`;
+  const accounts = state.accounts.filter((account) => !account.deletedAt);
+  const balances = accounts.map((account) => ({ account, balance: accountBalance(account.id, today()) }));
+  const tile = (label, amount, extra = "") => `<div class="balance-tile${extra}"><span>${label}</span><strong>${fmt.format(amount)}</strong></div>`;
+  setRenderedHtml($("#overviewBalances"), accounts.length
+    ? tile("合計", balances.reduce((sum, item) => sum + item.balance, 0), " total") + balances.map(({ account, balance }) => tile(escapeHtml(account.name), balance)).join("")
+    : `<div class="empty">尚未新增帳戶。</div>`);
 
-  renderFinancialDistribution(income, expense, claimsTotal, otherExpense);
-  renderExpenseDistribution(claimsTotal, otherExpenseGroups);
+  setRenderedHtml($("#overviewTodos"), overviewTodos().map((todo) => `
+    <button type="button" class="figure-row waiting" ${todo.target}>
+      <span>${todo.label}<small>${todo.detail}</small></span><strong>${todo.amount === undefined ? "" : fmt.format(todo.amount)} ›</strong>
+    </button>`).join("") || `<p class="subtle">目前沒有待辦事項。</p>`);
 
-  const recentStart = new Date(monthEnd);
-  recentStart.setDate(recentStart.getDate() - 29);
-  const recentStartKey = dateKey(recentStart);
-  $("#recentRange").textContent = `${dateFmt.format(recentStart)} - ${dateFmt.format(monthEnd)}`;
-  const recent = state.entries
-    .filter((entry) => isActiveEntry(entry) && entry.date && entry.date >= recentStartKey && entry.date <= monthEndKey)
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 6);
+  const [year, number] = selectedMonth.split("-").map(Number);
+  $("#overviewMonthLabel").textContent = `${year} 年 ${number} 月`;
+  const entries = state.entries.filter((entry) => isActiveEntry(entry) && entry.date.startsWith(selectedMonth));
+  const sum = (items) => items.reduce((total, entry) => total + Number(entry.amount), 0);
+  const income = sum(entries.filter((entry) => entry.type === "income"));
+  const expenses = entries.filter((entry) => entry.type === "expense");
+  const expense = sum(expenses);
+  const net = income - expense;
+  setRenderedHtml($("#overviewFigures"), `
+    <span>收入<strong class="income">${fmt.format(income)}</strong></span>
+    <span>支出<strong class="expense">${fmt.format(expense)}</strong></span>
+    <span>淨額<strong class="${net > 0 ? "income" : net < 0 ? "expense" : ""}">${net > 0 ? "+" : net < 0 ? "-" : ""}${fmt.format(Math.abs(net))}</strong></span>`);
+  const byParent = new Map();
+  expenses.forEach((entry) => byParent.set(entry.parent || "未分類", (byParent.get(entry.parent || "未分類") || 0) + Number(entry.amount)));
+  const parents = [...byParent].sort((a, b) => b[1] - a[1]);
+  setRenderedHtml($("#overviewCategories"), parents.length ? parents.map(([label, value]) => `
+    <div class="category-bar">
+      <span><span>${escapeHtml(label)}</span><span>${fmt.format(value)} · ${Math.round(value / expense * 100)}%</span></span>
+      <span class="bar-track"><i style="width: ${(value / parents[0][1] * 100).toFixed(1)}%"></i></span>
+    </div>`).join("") : `<p class="subtle">這個月沒有支出。</p>`);
+
+  const claimPeople = new Map(state.claims.map((claim) => [claim.id, claim.person]));
+  const recent = state.entries.filter(isActiveEntry).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
   setRenderedHtml($("#recentRows"), recent.length ? recent.map((entry) => `
-    <tr>
-      <td>${escapeHtml(entry.date)}</td>
-      <td>${escapeHtml(entry.title || entry.child || "未命名紀錄")}</td>
-      <td>${escapeHtml(entry.parent)} / ${escapeHtml(entry.child)}</td>
+    <tr class="selectable-row" data-select-entry="${entry.id}" tabindex="0" aria-label="開啟 ${escapeHtml(entry.title || entry.child || "未命名紀錄")}">
+      <td title="${escapeHtml(entry.date)}">${dateCell(entry.date)}</td>
+      <td>${escapeHtml(entry.parent)} / ${escapeHtml(entry.child)}${entryDetail(entry, claimPeople)}</td>
       <td class="num ${amountClass(entry.type)}">${entry.type === "income" ? "+" : "-"}${fmt.format(Number(entry.amount))}</td>
-    </tr>
-  `).join("") : `<tr><td colspan="4"><div class="empty">這 30 天沒有收支紀錄。</div></td></tr>`);
+    </tr>`).join("") : `<tr><td colspan="3"><div class="empty">尚未新增收支紀錄。</div></td></tr>`);
 }
 
-function renderMonthSelector() {
-  $("#monthYearLabel").textContent = `${displayedYear} 年`;
-  setRenderedHtml($("#monthList"), Array.from({ length: 12 }, (_, index) => {
-    const month = String(index + 1).padStart(2, "0");
-    const value = `${displayedYear}-${month}`;
-    return `<button type="button" class="month-button" data-month="${value}" aria-pressed="${value === selectedMonth}">${index + 1}月</button>`;
-  }).join(""));
-}
-
-function piePath(startRatio, endRatio) {
-  const center = 60;
-  const radius = 50;
-  const startAngle = startRatio * Math.PI * 2 - Math.PI / 2;
-  const endAngle = endRatio * Math.PI * 2 - Math.PI / 2;
-  const startX = center + radius * Math.cos(startAngle);
-  const startY = center + radius * Math.sin(startAngle);
-  const endX = center + radius * Math.cos(endAngle);
-  const endY = center + radius * Math.sin(endAngle);
-  const largeArc = endRatio - startRatio > 0.5 ? 1 : 0;
-  return `M ${center} ${center} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArc} 1 ${endX} ${endY} Z`;
-}
-
-function percentage(value, total) {
-  return total > 0 ? `${(value / total * 100).toFixed(1)}%` : "0.0%";
-}
-
-function groupOtherExpenses(monthEntries) {
-  const grouped = {};
-  const activeClaimIds = new Set(state.claims.map((claim) => claim.id));
-  monthEntries
-    .filter((entry) => entry.type === "expense" && (!entry.claimId || !activeClaimIds.has(entry.claimId)))
-    .forEach((entry) => {
-      const label = entry.parent || "未分類";
-      grouped[label] = (grouped[label] || 0) + Number(entry.amount);
-    });
-
-  return Object.entries(grouped)
-    .sort((a, b) => b[1] - a[1])
-    .map(([label, value]) => ({ label, value }));
-}
-
-function renderFinancialDistribution(income, expense, claims, otherExpense) {
-  const values = [
-    { label: "收入", detail: "已記帳收入", value: income, color: "#2f6e4f", className: "" },
-    { label: "支出", detail: "報銷與其他支出合計", value: expense, color: "#c7644b", className: "" }
-  ];
-  const total = values.reduce((sum, item) => sum + item.value, 0);
-  let cursor = 0;
-  const slices = total ? values.filter((item) => item.value > 0).map((item) => {
-    const start = cursor;
-    cursor += item.value / total;
-    if (item.value === total) return `<circle cx="60" cy="60" r="50" fill="${item.color}"></circle>`;
-    return `<path d="${piePath(start, cursor)}" fill="${item.color}"></path>`;
-  }).join("") : `<circle cx="60" cy="60" r="50" fill="#f6f4ee" stroke="#dedbd2"></circle>`;
-  const legend = values.map((item) => `
-    <div class="legend-row ${item.className}">
-      <span class="legend-swatch" style="background:${item.color}"></span>
-      <span>${item.label}<small>${item.detail} · ${percentage(item.value, total)}</small></span>
-      <strong>${fmt.format(item.value)}</strong>
-    </div>
-  `).join("") + `
-    <div class="legend-row claim-flow">
-      <span class="legend-swatch" style="background:#b78736"></span>
-      <span>報銷<small>不含退回 · 占支出 ${percentage(claims, expense)}</small></span>
-      <strong>${fmt.format(claims)}</strong>
-    </div>
-    <div class="legend-row claim-flow">
-      <span class="legend-swatch" style="background:#58796a"></span>
-      <span>其他<small>非報銷支出 · 占支出 ${percentage(otherExpense, expense)}</small></span>
-      <strong>${fmt.format(otherExpense)}</strong>
-    </div>
-  `;
-  setRenderedHtml($("#financialDistribution"), `
-    <div class="donut-wrap" role="img" aria-label="收入 ${fmt.format(income)}，支出 ${fmt.format(expense)}；支出包含未退回報銷 ${fmt.format(claims)}與其他 ${fmt.format(otherExpense)}">
-      <svg viewBox="0 0 120 120" aria-hidden="true">${slices}</svg>
-    </div>
-    <div class="legend">${legend}</div>
-  `);
-}
-
-function renderExpenseDistribution(claims, otherExpenseGroups) {
-  const palette = ["#58796a", "#5d6e8a", "#8a665d", "#7c7152", "#4f7f86"];
-  const otherValues = otherExpenseGroups.map((item, index) => ({
-    ...item,
-    color: palette[index % palette.length]
+// Each to-do opens the page that settles it: claims to review or pay, activity fees still owed
+// (the three largest), and last month when it is not yet locked.
+function overviewTodos() {
+  const todos = [];
+  [["pending", "待審核報銷", "筆"], ["approved", "待付款報銷", "筆已核准"]].forEach(([status, label, unit]) => {
+    const claims = state.claims.filter((claim) => claim.status === status);
+    if (claims.length) todos.push({ target: `data-todo-claims="${status}"`, label, detail: `${claims.length} ${unit}`, amount: claims.reduce((sum, claim) => sum + Number(claim.amount), 0) });
+  });
+  const owed = state.activities
+    .filter((activity) => Number(activity.fee) > 0)
+    .map((activity) => ({ activity, count: activityStats(activity).unpaid }))
+    .filter((item) => item.count > 0)
+    .sort((a, b) => b.count * b.activity.fee - a.count * a.activity.fee);
+  owed.slice(0, 3).forEach(({ activity, count }) => todos.push({
+    target: `data-todo-activity="${activity.id}"`, label: `${escapeHtml(activity.name)}未繳`, detail: `${count} 人`, amount: count * Number(activity.fee)
   }));
-  const otherExpense = otherValues.reduce((sum, item) => sum + item.value, 0);
-  const values = [
-    { label: "報銷", detail: "不含退回", value: claims, color: "#b78736" },
-    ...otherValues
-  ];
-  const total = values.reduce((sum, item) => sum + item.value, 0);
-  let cursor = 0;
-  const slices = total ? values.filter((item) => item.value > 0).map((item) => {
-    const start = cursor;
-    cursor += item.value / total;
-    if (item.value === total) return `<circle cx="60" cy="60" r="50" fill="${item.color}"></circle>`;
-    return `<path d="${piePath(start, cursor)}" fill="${item.color}"></path>`;
-  }).join("") : `<circle cx="60" cy="60" r="50" fill="#f6f4ee" stroke="#dedbd2"></circle>`;
-  const reimbursementRow = `
-    <div class="legend-row">
-      <span class="legend-swatch" style="background:#b78736"></span>
-      <span>報銷<small>不含退回 · ${percentage(claims, total)}</small></span>
-      <strong>${fmt.format(claims)}</strong>
-    </div>
-  `;
-  const otherSummaryRow = `
-    <div class="legend-row other-summary">
-      <span class="legend-swatch"></span>
-      <span>其他<small>依支出主項目細分 · ${percentage(otherExpense, total)}</small></span>
-      <strong>${fmt.format(otherExpense)}</strong>
-    </div>
-  `;
-  const otherRows = otherValues.map((item) => `
-    <div class="legend-row expense-branch">
-      <span class="legend-swatch" style="background:${item.color}"></span>
-      <span>${escapeHtml(item.label)}<small>占支出 ${percentage(item.value, total)}</small></span>
-      <strong>${fmt.format(item.value)}</strong>
-    </div>
-  `).join("");
-  const legend = total ? reimbursementRow + otherSummaryRow + otherRows : `<div class="empty">本月還沒有支出紀錄。</div>`;
-  const categoryLabel = otherValues.map((item) => `${item.label} ${percentage(item.value, total)}`).join("，");
-  setRenderedHtml($("#expenseDistribution"), `
-    <div class="donut-wrap" role="img" aria-label="${escapeHtml(`本月支出中，報銷 ${percentage(claims, total)}，其他 ${percentage(otherExpense, total)}${categoryLabel ? `；其他包含 ${categoryLabel}` : ""}`)}">
-      <svg viewBox="0 0 120 120" aria-hidden="true">${slices}</svg>
-    </div>
-    <div class="legend">${legend}</div>
-  `);
+  if (owed.length > 3) todos.push({ target: `data-go-section="people"`, label: `另有 ${owed.length - 3} 個活動未繳`, detail: "到人員查看" });
+  const [year, number] = today().split("-").map(Number);
+  const lastMonth = dateKey(new Date(year, number - 2, 1)).slice(0, 7);
+  const open = state.accounts.some((account) => account.active && !account.deletedAt && accountExistsAt(account, monthEndKey(lastMonth)));
+  if (open && !isMonthLocked(lastMonth)) todos.push({ target: `data-todo-month="${lastMonth}"`, label: `${Number(lastMonth.slice(5))} 月尚未月結`, detail: "對帳後鎖定" });
+  return todos;
+}
+
+// The small line under a record's category: a claim payment's claimant, or the record's own
+// name (when it differs from the subcategory) and note.
+function entryDetail(entry, claimPeople) {
+  const parts = entry.claimId
+    ? ["報銷付款", claimPeople.get(entry.claimId)]
+    : [entry.title && entry.title !== entry.child ? entry.title : "", entry.note];
+  const line = parts.filter(Boolean).map(escapeHtml).join(" · ");
+  return line ? `<br><span class="subtle ledger-detail">${line}</span>` : "";
 }
 
 // The period's income, expense and net beside the list. The period is the date range when one is
@@ -447,17 +339,13 @@ function renderLedger() {
   }
 
   const claimPeople = new Map(state.claims.map((claim) => [claim.id, claim.person]));
-  const detail = (entry) => (entry.claimId
-    ? ["報銷付款", claimPeople.get(entry.claimId)]
-    : [entry.title && entry.title !== entry.child ? entry.title : "", entry.note]
-  ).filter(Boolean).map(escapeHtml).join(" · ");
   const empty = !state.entries.length ? "尚未新增收支紀錄。"
     : !query && !monthEntries.length ? (ranged ? "這段期間沒有收支紀錄。" : `${year} 年 ${number} 月沒有收支紀錄。`)
     : "沒有符合條件的收支紀錄。";
   setRenderedHtml($("#ledgerRows"), entries.length ? entries.map((entry) => `
     <tr class="selectable-row" data-select-entry="${entry.id}" tabindex="0" aria-label="開啟 ${escapeHtml(entry.title || entry.child || "未命名紀錄")}">
       <td title="${escapeHtml(entry.date)}">${dateCell(entry.date)}</td>
-      <td>${escapeHtml(entry.parent)} / ${escapeHtml(entry.child)}${detail(entry) ? `<br><span class="subtle ledger-detail">${detail(entry)}</span>` : ""}</td>
+      <td>${escapeHtml(entry.parent)} / ${escapeHtml(entry.child)}${entryDetail(entry, claimPeople)}</td>
       <td>${escapeHtml(accountName(entry.accountId))}<br><span class="subtle ledger-detail">${escapeHtml(entry.method || "")}</span></td>
       <td class="num ${amountClass(entry.type)}">${entry.type === "income" ? "+" : "-"}${fmt.format(Number(entry.amount))}</td>
       <td class="ledger-actions-cell">${entry.claimId ? "" : `<button type="button" class="danger" data-delete-entry="${entry.id}">刪除</button>`}</td>
@@ -604,7 +492,7 @@ function renderReconciliation() {
 // A difference: a green check at zero, the amount in red otherwise, a dash before anything is typed.
 function differenceMarkup(difference) {
   if (difference === null || !Number.isFinite(difference)) return `<span class="subtle">—</span>`;
-  return difference === 0 ? `<span class="income">✓ ${fmt.format(0)}</span>` : `<span class="expense">${fmt.format(difference)}</span>`;
+  return difference === 0 ? `<span class="income">✓ ${fmt.format(0)}</span>` : `<span class="mismatch">${fmt.format(difference)}</span>`;
 }
 
 // One row per month: whether every account matched, whether it is locked, and its report.
@@ -618,7 +506,7 @@ function renderReconciliationHistory() {
     const result = stale
       ? `<span class="stale-badge">需重新核對</span>`
       : off.length
-        ? `<span class="expense">${off.map(({ item, current }) => `${escapeHtml(accountName(item.accountId))}差 ${fmt.format(current.difference)}`).join("、")}</span>`
+        ? `<span class="mismatch">${off.map(({ item, current }) => `${escapeHtml(accountName(item.accountId))}差 ${fmt.format(current.difference)}`).join("、")}</span>`
         : `<span class="income">帳戶皆相符 ✓</span>`;
     const [year, number] = month.split("-").map(Number);
     return `

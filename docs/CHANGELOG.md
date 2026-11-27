@@ -2,13 +2,16 @@
 
 All notable user-facing changes are recorded here.
 
-## Unreleased
+## 0.3.0 - 2026-11-28
 
+- 總覽 shows each account's balance; the latest records beside the month's 收入 / 支出 / 淨額 (counted as in 記帳) with 支出分類 bars in place of the two pie charts, at one height; and a 待辦 row (claims to review or pay, activity fees owed, last month not yet locked) whose items open the page that settles them.
+- Lists sit in their card without a frame of their own, with one line under the header.
+- Colours carry one meaning each: expenses show in ink with their minus sign, so red is left for deleting, errors and reconciliation differences; income is a lighter teal-green apart from the deep green of links and selection; things waiting (待審核, 待辦, 未繳) are amber.
 - If the saved data cannot be read at launch, the app opens read-only with a red notice: nothing is saved or synced, so an empty book cannot overwrite the real one or the cloud ledger.
 - The categories page moved into 設定 as 收支分類.
 - The app stores its data one record per row and saves only what changed, instead of rewriting everything on each change. Existing data moves over on first launch, after a copy is kept as state-before-records.json.
 - Account cards keep the opening balance and account number on one line, stacking when narrow. Unused sample-data code and styles are gone, and the architecture, user and handover guides describe the cloud ledger and the current pages.
-- 記帳 and 報銷 share one layout: figures and filters in a narrow column beside the list, with records added and edited in dialogs (＋ 新增收支 / ＋ 新增報銷). 記帳 shows one month at a time (‹ ›), or a date range when one is set, with its 收入 / 支出 / 淨額, which also filter by type; without a range a search covers every month, and a saved record moves the list to its month. 報銷 counts claims by status, which also filters the list. Rows show the date as 11/22 (the year underneath for other years); 記帳 rows show amounts with + / −, a claim payment's claimant, and a 刪除 button; 報銷 rows put the receipt under the category and the payment date and account under the status.
+- 記帳 and 報銷 share one layout: figures and filters in a column (280–340 px, about 30% of the width) beside the list, with records added and edited in dialogs (＋ 新增收支 / ＋ 新增報銷). 記帳 shows one month at a time (‹ ›), or a date range when one is set, with its 收入 / 支出 / 淨額, which also filter by type; without a range a search covers every month, and a saved record moves the list to its month. 報銷 counts claims by status, which also filters the list. Rows show the date as 11/22 (the year underneath for other years); 記帳 rows show amounts with + / −, a claim payment's claimant, and a 刪除 button; 報銷 rows put the receipt under the category and the payment date and account under the status.
 - 對帳 shows accounts (記帳帳戶) as cards with the current balance large and payees (收款帳戶) as a short table, both edited in dialogs, with account numbers in full. 月結對帳 fills every account of a month in one row each (月底應有 − 實際餘額 = 差額, ✓ at zero), switches months with ‹ ›, explains its terms behind ?, saves with one main button and allows 鎖定月份 only once every account is saved and matches. Its history has one row per month with the result (帳戶皆相符 or what is off), 已鎖定 / 已儲存 and a print button, and a row loads that month.
 - 清空資料 moved to the trash page; 載入範例 is gone; the top-right 資料管理 menu became a single 同步雲端帳本 button; a claim's 撤銷 and 刪除 sit in an 操作 menu. Account numbers copy on a click, and messages show above sticky table headers.
 - 人員 has one ＋ 新增人員 menu (by hand, sheet file or sheet link), and a linked sheet's 立即同步 / 取消連線 replace the import choices in that menu and in 名單操作, with the last sync shown under the heading. 取消選取 is a red outlined button beside 標記為.

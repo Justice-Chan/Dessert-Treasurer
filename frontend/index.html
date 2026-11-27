@@ -38,7 +38,7 @@
       <header class="topbar">
         <div>
           <h1 id="pageTitle">總覽</h1>
-          <p class="subtle" id="pageSubtitle">依月份查看收支、報銷流程與最近 30 天紀錄。</p>
+          <p class="subtle" id="pageSubtitle">帳戶餘額、待辦事項與每月收支。</p>
         </div>
         <div class="actions">
           <span class="sync-status" id="ledgerSyncStatus" role="status" hidden></span>
@@ -47,55 +47,40 @@
       </header>
 
       <section class="section active" id="overview" aria-labelledby="pageTitle">
-        <div class="panel month-panel">
-          <div class="month-heading">
-            <strong id="monthYearLabel">2026 年</strong>
-            <div class="year-controls">
-              <button type="button" id="previousYear" aria-label="上一年" title="上一年">&#8249;</button>
-              <button type="button" id="nextYear" aria-label="下一年" title="下一年">&#8250;</button>
-            </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>帳戶餘額</h2>
+            <button type="button" class="text-link" data-go-section="accounts">對帳 ›</button>
           </div>
-          <div class="month-list" id="monthList" aria-label="選擇月份"></div>
+          <div class="balance-grid" id="overviewBalances"></div>
         </div>
-        <div class="metrics">
-          <div class="metric metric-balance"><span id="balanceLabel">月底帳面餘額</span><strong id="balance">$0</strong></div>
-          <div class="metric metric-claims"><span id="claimsLabel">待處理報銷</span><strong id="pendingClaims">$0</strong></div>
-          <div class="metric metric-expense"><span id="expenseLabel">本月支出</span><strong id="monthExpense">$0</strong></div>
-          <div class="metric metric-income"><span id="incomeLabel">本月收入</span><strong id="monthIncome">$0</strong></div>
-        </div>
-        <div class="split">
-          <div class="panel">
-            <div class="section-heading">
-              <div>
-                <h2>本月財務分布</h2>
-                <p class="subtle">支出包含未退回的報銷，已同步記帳的報銷不重複計算。</p>
-              </div>
-            </div>
-            <div id="financialDistribution" class="distribution"></div>
-          </div>
-          <div class="panel">
-            <div class="section-heading">
-              <div>
-                <h2>本月支出佔比</h2>
-                <p class="subtle">報銷與其他支出合計為本月支出。</p>
-              </div>
-            </div>
-            <div id="expenseDistribution" class="distribution"></div>
-          </div>
-        </div>
-        <div class="panel recent-panel">
-            <div class="section-heading">
-              <div>
-                <h2>最近 30 天紀錄</h2>
-                <p class="subtle" id="recentRange"></p>
-              </div>
+        <div class="overview-grid">
+          <div class="panel overview-recent">
+            <div class="panel-head">
+              <h2>最近紀錄</h2>
+              <button type="button" class="text-link" data-go-section="ledger">記帳 ›</button>
             </div>
             <div class="table-wrap">
-              <table>
-                <thead><tr><th>日期</th><th>項目</th><th>分類</th><th class="num">金額</th></tr></thead>
+              <table class="recent-table">
+                <colgroup><col><col><col></colgroup>
                 <tbody id="recentRows"></tbody>
               </table>
             </div>
+          </div>
+          <div class="panel">
+            <div class="month-switch overview-month">
+              <button type="button" class="icon-button" id="overviewPrev" aria-label="上個月">‹</button>
+              <strong id="overviewMonthLabel"></strong>
+              <button type="button" class="icon-button" id="overviewNext" aria-label="下個月">›</button>
+            </div>
+            <button type="button" class="overview-figures" id="overviewFigures" title="到記帳查看這個月"></button>
+            <h3 class="overview-subhead">支出分類</h3>
+            <div class="category-bars" id="overviewCategories"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>待辦</h2></div>
+          <div class="todo-grid" id="overviewTodos"></div>
         </div>
       </section>
 

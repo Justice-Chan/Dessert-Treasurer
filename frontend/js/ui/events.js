@@ -445,19 +445,38 @@ function bindEvents() {
       action: () => permanentlyDeleteTrashItems([...selectedTrashIds])
     });
   });
-  $("#previousYear").addEventListener("click", () => {
-    displayedYear -= 1;
-    selectedMonth = `${displayedYear}-${selectedMonth.slice(5)}`;
+  const shiftOverviewMonth = (delta) => {
+    const [year, number] = selectedMonth.split("-").map(Number);
+    selectedMonth = dateKey(new Date(year, number - 1 + delta, 1)).slice(0, 7);
     renderOverview();
+  };
+  $("#overviewPrev").addEventListener("click", () => shiftOverviewMonth(-1));
+  $("#overviewNext").addEventListener("click", () => shiftOverviewMonth(1));
+  // The month's figures open 記帳 on that month, with no range or search hiding it.
+  $("#overviewFigures").addEventListener("click", () => {
+    ledgerMonth = selectedMonth;
+    ["ledgerSearch", "ledgerDateFrom", "ledgerDateTo"].forEach((id) => { $("#" + id).value = ""; });
+    document.querySelector('[data-section="ledger"]').click();
   });
-  $("#nextYear").addEventListener("click", () => {
-    displayedYear += 1;
-    selectedMonth = `${displayedYear}-${selectedMonth.slice(5)}`;
-    renderOverview();
+  $("#overviewTodos").addEventListener("click", (event) => {
+    const todo = event.target.closest("button");
+    if (!todo || todo.dataset.goSection) return;
+    if (todo.dataset.todoClaims) {
+      $("#claimStatusFilter").value = todo.dataset.todoClaims;
+      ["claimSearch", "claimDateFrom", "claimDateTo"].forEach((id) => { $("#" + id).value = ""; });
+      $("#claimParentFilter").value = "all";
+      document.querySelector('[data-section="reimburse"]').click();
+    } else if (todo.dataset.todoActivity) {
+      document.querySelector('[data-section="people"]').click();
+      selectActivity(state.activities.find((activity) => activity.id === todo.dataset.todoActivity), "unpaid");
+    } else if (todo.dataset.todoMonth) {
+      $("#reconcileMonth").value = todo.dataset.todoMonth;
+      document.querySelector('[data-section="accounts"]').click();
+    }
   });
 
   document.addEventListener("click", async (event) => {
-    const monthButton = event.target.closest("[data-month]");
+    const goSection = event.target.closest("[data-go-section]");
     const selectEntryRow = event.target.closest("[data-select-entry]");
     const deleteEntry = event.target.closest("[data-delete-entry]");
     const deleteClaim = event.target.closest("[data-delete-claim]");
@@ -487,11 +506,7 @@ function bindEvents() {
       return;
     }
 
-    if (monthButton) {
-      selectedMonth = monthButton.dataset.month;
-      displayedYear = Number(selectedMonth.slice(0, 4));
-      renderOverview();
-    }
+    if (goSection) document.querySelector(`[data-section="${goSection.dataset.goSection}"]`).click();
 
     if (selectEntryRow && !event.target.closest("button")) {
       selectEntry(state.entries.find((item) => item.id === selectEntryRow.dataset.selectEntry));

@@ -57,7 +57,7 @@ const statusText = {
 };
 
 const sectionMeta = {
-  overview: ["總覽", "依月份查看收支、報銷流程與最近 30 天紀錄。"],
+  overview: ["總覽", "帳戶餘額、待辦事項與每月收支。"],
   ledger: ["記帳", "按月份或日期區間查看收入支出，點一筆即可編輯。"],
   reimburse: ["報銷", "追蹤代墊申請、憑證與付款狀態。"],
   accounts: ["對帳", "管理現金與銀行帳戶，完成每月餘額核對。"],
@@ -386,7 +386,6 @@ function matchesSearch(values, query) {
 
 let state = loadState();
 let selectedMonth = today().slice(0, 7);
-let displayedYear = Number(selectedMonth.slice(0, 4));
 // The month the 記帳 list shows.
 let ledgerMonth = selectedMonth;
 let removeAccountQr = false;

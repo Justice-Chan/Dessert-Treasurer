@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 const date = "2099-09-20";
 
 async function openSection(page, name) {
-  await page.getByRole("button", { name: new RegExp(name) }).click();
+  await page.locator(".nav-button").filter({ hasText: name }).click();
 }
 
 async function addEntry(page, { type = "income", parent, child, amount, note = "" }) {
@@ -23,6 +23,22 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await expect(page.locator("#entryDate")).toHaveValue(/\d{4}-\d{2}-\d{2}/);
+});
+
+test("the overview lists what is waiting and opens it", async ({ page }) => {
+  await page.evaluate(() => {
+    const day = today();
+    state.claims = [{ id: "todo-claim", date: day, person: "甲", title: "材料費", parent: "活動與課程", child: "材料費", amount: 300, status: "pending", paymentDate: "", paymentAccountId: "", receipt: "", attachments: [], note: "" }];
+    state.entries = [{ id: "todo-entry", date: day, type: "expense", title: "材料費", parent: "活動與課程", child: "材料費", amount: 120, method: "現金", accountId: state.accounts[0].id, note: "" }];
+    render();
+  });
+  await expect(page.locator("#overviewTodos")).toContainText("待審核報銷");
+  await expect(page.locator("#overviewCategories")).toContainText("活動與課程");
+  await expect(page.locator("#recentRows")).toContainText("-$120");
+
+  await page.locator("[data-todo-claims=pending]").click();
+  await expect(page.locator("#pageTitle")).toHaveText("報銷");
+  await expect(page.locator('[data-claim-status="pending"]')).toHaveAttribute("aria-pressed", "true");
 });
 
 test("can create and select a ledger record", async ({ page }) => {
