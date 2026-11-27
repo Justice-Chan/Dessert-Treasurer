@@ -70,6 +70,10 @@ function noteLedgerChange() {
 // Started when the app opens, after each change, when the window comes back into focus and from
 // the 同步雲端帳本 button. On start-up (quiet) it stays silent unless something needs attention.
 async function syncLedger({ quiet = false } = {}) {
+  if (storageReadOnly) {
+    if (!quiet) toast(readOnlyMessage, "error");
+    return;
+  }
   if (!webSyncReady()) {
     if (!quiet) toast("請先到「設定」填寫雲端同步網址與金鑰。");
     return;

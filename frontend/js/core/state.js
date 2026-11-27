@@ -21,10 +21,17 @@ const tauriCommandNames = {
   defaultExportFolder: "default_export_folder",
   writeExportFile: "write_export_file"
 };
+// Commands that change the data on this computer; refused while the app is read-only.
+const nativeWriteActions = new Set(["saveState", "saveStateChanges", "storeReceipts", "deleteReceipts", "clearReceipts", "importReceipts", "saveRestorePoint"]);
 const nativeStorageCall = (action, payload = {}) => {
   if (!tauriStorageEnabled) return Promise.reject(new Error("native storage unavailable"));
+  if (storageReadOnly && nativeWriteActions.has(action)) return Promise.reject(new Error(readOnlyMessage));
   return tauriInvoke(tauriCommandNames[action] || action, payload);
 };
+// When the saved data cannot be read, the app opens empty and read-only: saving that empty book
+// would overwrite the real one, and syncing it would empty the cloud ledger.
+let storageReadOnly = false;
+const readOnlyMessage = "無法讀取這台電腦上的資料，app 目前為唯讀模式，變更不會儲存也不會同步。請關閉後重新開啟。";
 const categories = {
   income: {
     "社費與會費": ["期初社費", "單次活動費", "補繳"],
@@ -55,10 +62,9 @@ const sectionMeta = {
   reimburse: ["報銷", "追蹤代墊申請、憑證與付款狀態。"],
   accounts: ["對帳", "管理現金與銀行帳戶，完成每月餘額核對。"],
   people: ["人員", "管理社員名單、活動參加與繳費狀態。"],
-  categories: ["分類", "依甜點社常見情境整理主項目與副項目。"],
   trash: ["垃圾桶", "刪除項目保留 30 天，可在到期前還原。"],
   backup: ["資料管理", "自動備份、匯出報表，或從備份檔還原。"],
-  settings: ["設定", "設定雲端帳本同步，以及匯入試算表時可辨識的欄位同義詞。"]
+  settings: ["設定", "雲端帳本同步、收支分類，以及匯入試算表時可辨識的欄位同義詞。"]
 };
 
 // Built-in spreadsheet header aliases. Settings store only the aliases added to or removed from these lists,

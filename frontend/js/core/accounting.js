@@ -63,7 +63,7 @@ function purgeExpiredTrash() {
     if (!keep && item.kind === "claim" && item.record?.id) expiredClaimIds.push(item.record.id);
     return keep;
   });
-  if (state.trash.length === before) return;
+  if (state.trash.length === before || storageReadOnly) return;
   noteLedgerChange();
   if (tauriStorageEnabled) {
     enqueueNativeSave(state, "自動清理後無法寫入本機資料檔。");
@@ -79,6 +79,11 @@ function purgeExpiredTrash() {
 }
 
 function saveState() {
+  if (storageReadOnly) {
+    toast(readOnlyMessage, "error");
+    render();
+    return false;
+  }
   noteLedgerChange();
   if (tauriStorageEnabled) {
     enqueueNativeSave(state, "儲存失敗，無法寫入本機資料夾。請先下載完整備份。");
@@ -101,6 +106,7 @@ function saveState() {
 
 // Saves made while a write is in flight collapse into one follow-up write of the latest state.
 function enqueueNativeSave(value, failureMessage) {
+  if (storageReadOnly) return Promise.reject(new Error(readOnlyMessage));
   const writeScheduled = Boolean(nativeSavePending);
   nativeSavePending = { value, failureMessage };
   if (!writeScheduled) {

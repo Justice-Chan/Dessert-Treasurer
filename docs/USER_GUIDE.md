@@ -94,6 +94,8 @@ The app uses identifier `com.justicechan.dessert-treasurer` to resolve its data 
 
 SQLite stores entries, claims, accounts, reconciliations, people, activities and trash records one row per record, so a save writes only what changed. Data from versions before this layout moves over the first time the app opens, after a copy is kept as `state-before-records.json` in the same folder; an older build opened afterwards would show empty books. The attachments folder stores receipt and account QR images. Cloud receipt links open externally rather than storing the linked image locally.
 
+If the app cannot read this data when it opens, it shows a red read-only notice and neither saves nor syncs, so an empty book never overwrites the real one; close and reopen it.
+
 Do not edit these files directly while the app is running. Installing a new app bundle is separate from managing the stored data.
 
 ## Backups and moving computers

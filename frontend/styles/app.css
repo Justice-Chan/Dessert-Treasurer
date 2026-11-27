@@ -1399,3 +1399,7 @@ tr:hover .copy-text svg, .copy-text:focus-visible svg { opacity: 1; }
 .claim-actions-cell .claim-row-actions { justify-content: flex-end; }
 .claim-table td.claim-status-cell { text-align: left; }
 .claim-status-cell .claim-payment-meta { margin-left: 0; margin-top: 4px; font-size: 12px; }
+
+/* Shown when the saved data could not be read: nothing is saved or synced until the app reopens. */
+.readonly-banner { margin: 0 0 14px; padding: 10px 14px; border: 1px solid #e6c7c2; border-radius: var(--radius); background: #fff8f6; color: var(--bad); font-weight: 600; }
+.readonly-banner[hidden] { display: none; }

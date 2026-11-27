@@ -687,3 +687,21 @@ test("a native save describes only the records and values that changed", async (
   expect(result.changes.values).toEqual({ lockedMonths: '["2026-09"]', exportFolder: '"/tmp"' });
   expect(result.changes.removedValues).toEqual(["autoBackup"]);
 });
+
+test("when the saved data cannot be read, nothing is saved or synced", async ({ page }) => {
+  await page.evaluate(() => enterReadOnlyMode());
+  await expect(page.locator("#readOnlyBanner")).toBeVisible();
+  await expect(page.locator("#syncWebClaims")).toBeDisabled();
+  const before = await page.evaluate(() => localStorage.getItem("dessertTreasurer.v1"));
+  await openSection(page, "記帳");
+  await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 80 });
+  await expect(page.locator("#toast")).toContainText("唯讀模式");
+  expect(await page.evaluate(() => localStorage.getItem("dessertTreasurer.v1"))).toBe(before);
+});
+
+test("categories are shown in Settings", async ({ page }) => {
+  await expect(page.locator('[data-section="categories"]')).toHaveCount(0);
+  await openSection(page, "設定");
+  await expect(page.locator("#expenseCategories")).toContainText("食材與耗材");
+  await expect(page.locator("#incomeCategories")).toContainText("社費與會費");
+});

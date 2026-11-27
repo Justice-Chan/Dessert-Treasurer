@@ -24,7 +24,6 @@
         <button class="nav-button" data-section="reimburse"><span>報銷</span><span>Claims</span></button>
         <button class="nav-button" data-section="accounts"><span>對帳</span><span>Books</span></button>
         <button class="nav-button" data-section="people"><span>人員</span><span>Members</span></button>
-        <button class="nav-button" data-section="categories"><span>分類</span><span>Tags</span></button>
         <button class="nav-button" data-section="trash"><span>垃圾桶</span><span>Trash</span></button>
         <button class="nav-button" data-section="backup"><span>備份</span><span>Export</span></button>
         <button class="nav-button" data-section="settings"><span>設定</span><span>Settings</span></button>
@@ -35,6 +34,7 @@
     </aside>
 
     <main>
+      <p class="readonly-banner" id="readOnlyBanner" role="alert" hidden>無法讀取這台電腦上的資料，app 目前為唯讀模式：畫面上的變更不會儲存，也不會同步。請關閉後重新開啟；仍然失敗請先不要操作，聯絡管理者。</p>
       <header class="topbar">
         <div>
           <h1 id="pageTitle">總覽</h1>
@@ -404,23 +404,6 @@
         </div>
       </section>
 
-      <section class="section" id="categories" aria-labelledby="pageTitle">
-        <div class="panel">
-          <h2>預設分類</h2>
-          <p class="subtle">主項目用來抓大方向，副項目用來讓日後查帳更準。</p>
-          <div class="split" style="margin-top: 16px;">
-            <div>
-              <h3>收入</h3>
-              <div class="category-list" id="incomeCategories"></div>
-            </div>
-            <div>
-              <h3>支出</h3>
-              <div class="category-list" id="expenseCategories"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section class="section" id="trash" aria-labelledby="pageTitle">
         <div class="panel">
           <div class="section-heading">
@@ -517,6 +500,21 @@
             </div>
           </form>
         </div>
+        <div class="panel">
+          <h2>收支分類</h2>
+          <p class="subtle">支出分類由報帳網站後端統一管理，同步時自動更新；收入分類為內建。記帳時選「其他」可以自訂。</p>
+          <div class="split" style="margin-top: 16px;">
+            <div>
+              <h3>收入</h3>
+              <div class="category-list" id="incomeCategories"></div>
+            </div>
+            <div>
+              <h3>支出</h3>
+              <div class="category-list" id="expenseCategories"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="panel">
           <h2>匯入欄位同義詞</h2>
           <p class="subtle">可直接編輯所有可辨識的欄位名稱，多個名稱以頓號、逗號或換行分隔。姓名與學號各至少保留一個名稱。</p>

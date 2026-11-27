@@ -176,12 +176,12 @@ function renderCurrentSection(section = currentSection()) {
   else if (section === "reimburse") renderClaims();
   else if (section === "accounts") renderAccounts();
   else if (section === "people") renderPeople();
-  else if (section === "categories") renderCategories();
   else if (section === "trash") renderTrash();
   else if (section === "backup") renderBackupPage();
   else if (section === "settings") {
     renderImportSynonymSettings();
     renderWebSyncSettings();
+    renderCategories();
   }
 }
 

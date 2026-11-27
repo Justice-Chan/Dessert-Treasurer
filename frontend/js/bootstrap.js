@@ -1,3 +1,10 @@
+function enterReadOnlyMode() {
+  storageReadOnly = true;
+  $("#readOnlyBanner").hidden = false;
+  $("#syncWebClaims").disabled = true;
+  toast(readOnlyMessage, "error");
+}
+
 async function initializeApp() {
   let shouldRemoveLegacyGrades = false;
   if (tauriStorageEnabled) {
@@ -9,7 +16,7 @@ async function initializeApp() {
       state = normalizeState(savedState);
     } catch {
       state = normalizeState();
-      toast("無法讀取本機資料，已暫時開啟空白帳本。");
+      enterReadOnlyMode();
     }
     if (shouldRemoveLegacyGrades) {
       try {

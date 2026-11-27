@@ -4,6 +4,8 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- If the saved data cannot be read at launch, the app opens read-only with a red notice: nothing is saved or synced, so an empty book cannot overwrite the real one or the cloud ledger.
+- The categories page moved into 設定 as 收支分類.
 - The app stores its data one record per row and saves only what changed, instead of rewriting everything on each change. Existing data moves over on first launch, after a copy is kept as state-before-records.json.
 - Account cards keep the opening balance and account number on one line, stacking when narrow. Unused sample-data code and styles are gone, and the architecture, user and handover guides describe the cloud ledger and the current pages.
 - 報銷's list takes the whole page: claims are added and edited in a dialog from ＋ 新增報銷. Rows show the date as 11/22, drop the 用途 column (it repeated the subcategory), put the receipt (收據) under the category and the payment date and account under the status, and keep 付款 / 操作 in a column of their own.
