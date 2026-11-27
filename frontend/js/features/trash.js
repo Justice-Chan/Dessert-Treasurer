@@ -1,36 +1,3 @@
-function insertSeedData() {
-  state.entries.push(
-    { id: uid(), date: today().slice(0, 8) + "02", type: "income", title: "期初社費", parent: "社費與會費", child: "期初社費", amount: 12000, method: "轉帳", accountId: "club-bank", note: "第一批社員" },
-    { id: uid(), date: today().slice(0, 8) + "06", type: "expense", title: "布朗尼試做材料", parent: "食材與耗材", child: "糖與巧克力", amount: 1380, method: "代墊待報銷", accountId: "club-bank", note: "迎新菜單測試" },
-    { id: uid(), date: today().slice(0, 8) + "09", type: "expense", title: "六吋蛋糕盒", parent: "食材與耗材", child: "包材", amount: 720, method: "現金", accountId: "cash", note: "市集備品" }
-  );
-  state.claims.push(
-    { id: uid(), date: today(), person: "小林", title: "迎新試做材料代墊", parent: "食材與耗材", child: "乳品", amount: 640, status: "pending", receipt: "紙本收據 A-03", attachments: [], note: "待社長確認" }
-  );
-  if (!state.people.length) {
-    const demoPeople = [
-      { id: uid(), name: "小林", studentId: "B12345671", department: "食品科學系", email: "" },
-      { id: uid(), name: "陳小美", studentId: "B12345672", department: "企業管理系", email: "" },
-      { id: uid(), name: "王大安", studentId: "B12345673", department: "資訊工程系", email: "" },
-      { id: uid(), name: "李佳穎", studentId: "B12345674", department: "外國語文系", email: "" }
-    ];
-    state.people.push(...demoPeople);
-    state.activities.push(
-      { id: uid(), name: "迎新甜點實作", date: today(), fee: 200, note: "含材料費", attendance: [
-        { personId: demoPeople[0].id, status: "attending", paid: false },
-        { personId: demoPeople[1].id, status: "attending", paid: true },
-        { personId: demoPeople[2].id, status: "not_attending", paid: false }
-      ] },
-      { id: uid(), name: "布朗尼試作", date: today().slice(0, 8) + "06", fee: 120, note: "幹部試作", attendance: [
-        { personId: demoPeople[0].id, status: "attending", paid: false },
-        { personId: demoPeople[2].id, status: "attending", paid: true }
-      ] }
-    );
-  }
-  if (!saveState()) return;
-  toast("範例資料已載入。");
-}
-
 function moveToTrash(kind, id) {
   const collection = kind === "entry" ? state.entries : state.claims;
   const record = collection.find((item) => item.id === id);

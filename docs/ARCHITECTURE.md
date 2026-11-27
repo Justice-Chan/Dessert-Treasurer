@@ -1,6 +1,6 @@
 # Architecture
 
-Dessert Treasurer is a local-first Tauri desktop application with macOS packaging and a Windows x64 preview. The frontend manages the interface and accounting workflows; the Rust backend provides SQLite storage, attachments, spreadsheet parsing, external links and native printing.
+Dessert Treasurer is a Tauri desktop application with macOS packaging and a Windows x64 preview. The books (entries, claims, accounts, reconciliations, locked months, trash) are shared with the web dashboard through a cloud ledger behind the Apps Script backend, described in [Web dashboard](WEB_DASHBOARD.md); people, activities and settings stay on the computer. The frontend manages the interface and accounting workflows; the Rust backend provides SQLite storage, attachments, automatic backups, exports, spreadsheet parsing, external links and native printing.
 
 ## Repository layout
 
@@ -18,16 +18,19 @@ frontend/
     features/
       imports.js         People/activity spreadsheets, links, synonyms, sync
       people.js          People and activity editing, attendance, payments
-      ledger.js          Ledger entries, claims, claim payments and revocation
-      accounts.js        Accounts, payees, QR images and reconciliation
+      ledger.js          Ledger entries, claims (in a dialog), payments and revocation
+      accounts.js        Accounts and payees (in dialogs), QR images, month-end reconciliation
       reports.js         Monthly report markup, A4 pagination and printing
-      backups.js         JSON/CSV exports, parsing and backup validation
-      trash.js           Sample data, soft deletion, restoration and purging
+      backups.js         Backup page, exports to a chosen folder, restore with a pre-restore copy
+      sync.js            Cloud ledger sync: record-by-record uploads, cloud copy on conflict
+      trash.js           Soft deletion, restoration and purging
     ui/
       calendar.js        Date/time formatting and date controls
       render.js          Shared form helpers and section rendering
       dialogs.js         Confirmation dialogs
       events.js          Form submissions and delegated UI event handlers
+web/                     Web dashboard, see WEB_DASHBOARD.md
+backend/                 Apps Script backend: claims, cloud ledger, reports, backups
 src-tauri/
   src/main.rs            Desktop executable entry point
   src/lib.rs             Native commands, storage and native tests
@@ -72,15 +75,17 @@ Native storage and command registration live in `lib.rs`. Cross-platform URL ope
 | Person, activity or payment editing | `frontend/js/features/people.js` |
 | Report pagination or PDF content | `frontend/js/features/reports.js` |
 | Backup formats and validation | `frontend/js/features/backups.js` |
-| SQLite, file attachments, native commands | `src-tauri/src/lib.rs` |
-| Workflow regression coverage | `tests/app.spec.mjs` |
+| SQLite, attachments, automatic backup, exports, native commands | `src-tauri/src/lib.rs` |
+| Cloud ledger sync | `frontend/js/features/sync.js`, `backend/Ledger.js` |
+| Web dashboard pages | `web/` |
+| Workflow regression coverage | `tests/app.spec.mjs`, `tests/web.spec.mjs`, `tests/backend.mjs` |
 | Packaging and local installation | `scripts/`, `docs/DEVELOPMENT.md` |
 
 Section rendering lives in `ui/render.js`, event wiring in `ui/events.js`, and backup-restore application in the event handler. Feature files are organizational boundaries within a shared scope, not independently loaded modules.
 
 ## Verification
 
-Build tests verify the source manifest, script syntax and generated asset integrity. Playwright builds and serves `dist/`, the same frontend packaged in the app, using synthetic browser-only records. Rust tests use temporary stores. Neither test suite accesses production app data. Commands and platform acceptance checks are documented in [Development](DEVELOPMENT.md#verify).
+Build tests verify the source manifest, script syntax and generated asset integrity. Playwright builds and serves `dist/`, the same frontend packaged in the app, and `web/` at `/dashboard/` with a stand-in backend, using synthetic records. Backend tests run `backend/*.js` in Node with stand-ins for Google services. Rust tests use temporary stores. No test suite accesses production data. Commands and platform acceptance checks are documented in [Development](DEVELOPMENT.md#verify).
 
 ## Source, generated output and personal data
 

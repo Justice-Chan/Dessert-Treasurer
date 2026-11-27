@@ -4,6 +4,7 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- Account cards keep the opening balance and account number on one line, stacking when narrow. Unused sample-data code and styles are gone, and the architecture, user and handover guides describe the cloud ledger and the current pages.
 - 報銷's list takes the whole page: claims are added and edited in a dialog from ＋ 新增報銷. Rows show the date as 11/22, drop the 用途 column (it repeated the subcategory), put the receipt (收據) under the category and the payment date and account under the status, and keep 付款 / 操作 in a column of their own.
 - 對帳 shows accounts (記帳帳戶) as cards with the current balance large and payees (收款帳戶) as a short table, both edited in dialogs, with account numbers in full. 月結對帳 fills every account of a month in one row each (月底應有 − 實際餘額 = 差額, ✓ at zero), switches months with ‹ ›, explains its terms behind ?, saves with one main button and allows 鎖定月份 only once every account is saved and matches. Its history has one row per month with the result (帳戶皆相符 or what is off), 已鎖定 / 已儲存 and a print button, and a row loads that month.
 - 清空資料 moved to the trash page; 載入範例 is gone; the top-right 資料管理 menu became a single 同步雲端帳本 button; a claim's 撤銷 and 刪除 sit in an 操作 menu. Account numbers copy on a click, and messages show above sticky table headers.

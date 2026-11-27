@@ -49,19 +49,20 @@ Before updating, export a full JSON backup and close the app. Use the new instal
 
 ## First-time setup
 
-1. Add cash and bank accounts with opening balances in **Reconciliation**.
-2. Record income and expenses in **Ledger**.
-3. Use **Claims** for reimbursements and mark approved claims as paid.
-4. Register members in **People**, then create activities to track attendance and fees.
-5. Reconcile balances, save the monthly report and export a full backup at month-end.
+1. In **Settings**, enter the cloud ledger URL and sync key from the backend administrator. The first sync uploads the books on this computer, or brings down the existing cloud ledger.
+2. In **Reconciliation**, add cash and bank accounts with **＋ 新增帳戶**; each shows as a card with its current balance.
+3. Record income and expenses in **Ledger**, here or on the web dashboard; both edit the same books.
+4. Claims arrive from the web dashboard in **Claims**. Pay approved ones with **付款**; **＋ 新增報銷** adds one by hand.
+5. Register members in **People** with **＋ 新增人員** (by hand or from a spreadsheet), then create activities to track attendance and fees.
+6. At month-end, fill every account's actual balance in **月結對帳**, save, and lock the month once all match. Each month in the history prints its report; the backend also saves it as a PDF on the 1st.
 
 ## Activity payments and spreadsheet imports
 
 Activity rosters show a per-activity **Transfer account last five digits** field instead of a payment-time input. Values are stored as text so leading zeros are preserved. The field is available before a participant is marked paid and is included in full JSON backups.
 
-Unpaid participants are listed first in the order set by dragging rows; paid participants follow in payment-time order. Marking a participant paid by hand records the current local time for ordering only, not the actual transfer time. Payment times are stored but not shown. After a payment change the roster returns to the top.
+Unpaid participants are listed first in import order; paid participants follow in payment-time order. Typing all five transfer digits marks a participant paid. Marking someone paid records the current local time for ordering only, not the actual transfer time. Payment times are stored but not shown.
 
-Roster actions are in two menus: **名單操作** (import a spreadsheet, download the unpaid list) and **連線管理** (synchronize or disconnect a connected spreadsheet). **資料管理** at the top of the window loads sample data or clears all data.
+**名單操作** imports a spreadsheet file or link, or, once a sheet is linked, synchronizes or disconnects it, and downloads the unpaid list. Tick people to mark them 已繳, 未繳 or 參加 together from **標記為**. **清空資料** is on the Trash page.
 
 Imports match people by student ID, then by name. A name cell may carry a department and grade label, such as `外文119 黃小明`; the label fills an empty department. A name shared by several registered people is matched only when the department singles one out. The preview lists every skipped row and the reason.
 
@@ -71,7 +72,7 @@ Public spreadsheet connections are read-only. Updating payment status in the app
 
 ## Local data and attachments
 
-Each computer has its own local data store. There is no automatic synchronization between Macs and Windows computers or automatic cloud backup. Public spreadsheet connections import roster information; they do not synchronize the entire database.
+Each computer keeps a local data store. The books also sync to the cloud ledger, which the web dashboard shares; people, activities and settings stay on the computer. Public spreadsheet connections import roster information only.
 
 ### macOS location
 
@@ -97,10 +98,10 @@ Do not edit these files directly while the app is running. Installing a new app 
 
 ## Backups and moving computers
 
-1. Export a **full JSON backup** after each monthly close, before major edits and before changing computers. Use a full backup to preserve records and local attachments, not a CSV export.
-2. Keep another copy in trusted cloud storage or on an external drive. Backups contain private financial and member information; never attach them to public GitHub issues.
-3. To move data, export on the source computer and restore through the app on the destination computer. Do not copy a live SQLite database between platforms.
-4. Export the destination's current data first: restoring replaces its existing contents.
+1. On quit, the app writes a full backup to the folder set on the Backup page, keeping only the latest; the backend also copies the cloud ledger monthly.
+2. **匯出** writes a full JSON backup or CSV reports to a chosen folder (Downloads by default). Export a full backup before major edits and before changing computers; CSV exports cannot restore people or attachments.
+3. Backups contain private financial and member information; never attach them to public GitHub issues.
+4. To move data, export on the source computer and restore through **還原** on the destination. Restoring shows what the file holds first and saves the current data as 甜點社還原前備份_date.json. Do not copy a live SQLite database between platforms.
 
 Cross-platform restore is not yet verified on a Windows device. Evaluate the preview with sample records and keep production data in the existing installation until validation is complete.
 
