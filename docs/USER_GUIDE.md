@@ -51,7 +51,7 @@ Before updating, export a full JSON backup and close the app. Use the new instal
 
 1. In **Settings**, enter the cloud ledger URL and sync key from the backend administrator. The first sync uploads the books on this computer, or brings down the existing cloud ledger.
 2. In **Reconciliation**, add cash and bank accounts with **＋ 新增帳戶**; each shows as a card with its current balance.
-3. Record income and expenses in **Ledger**, here or on the web dashboard; both edit the same books.
+3. Record income and expenses in **Ledger** with **＋ 新增收支**, here or on the web dashboard; both edit the same books. The list shows one month (‹ ›), or the date range when one is set; its 收入 / 支出 / 淨額 figures filter by type, and without a range a search covers every month.
 4. Claims arrive from the web dashboard in **Claims**. Pay approved ones with **付款**; **＋ 新增報銷** adds one by hand.
 5. Register members in **People** with **＋ 新增人員** (by hand or from a spreadsheet), then create activities to track attendance and fees.
 6. At month-end, fill every account's actual balance in **月結對帳**, save, and lock the month once all match. Each month in the history prints its report; the backend also saves it as a PDF on the 1st.

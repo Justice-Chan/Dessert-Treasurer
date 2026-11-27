@@ -387,25 +387,51 @@ function renderExpenseDistribution(claims, otherExpenseGroups) {
   `);
 }
 
+// The period's income, expense and net beside the list. The period is the date range when one is
+// set, otherwise the month; without a range a search looks through every month.
 function renderLedger() {
   const query = $("#ledgerSearch").value.trim().toLowerCase();
   const type = $("#ledgerType").value;
   const parent = $("#ledgerParent").value;
   const dateFrom = isValidDateValue($("#ledgerDateFrom").value) ? $("#ledgerDateFrom").value : "";
   const dateTo = isValidDateValue($("#ledgerDateTo").value) ? $("#ledgerDateTo").value : "";
+  const ranged = Boolean(dateFrom || dateTo);
+  const [year, number] = ledgerMonth.split("-").map(Number);
+  $("#ledgerMonthLabel").textContent = `${year} 年 ${number} 月`;
+  $("#ledgerMonthSwitch").hidden = ranged;
+  $("#ledgerRangeLabel").hidden = !ranged;
+  $("#ledgerRangeLabel").textContent = dateFrom && dateTo ? `${dateFrom} – ${dateTo}` : dateFrom ? `${dateFrom} 起` : `至 ${dateTo}`;
   if (dateFrom && dateTo && dateFrom > dateTo) {
-    setRenderedHtml($("#ledgerRows"), `<tr><td colspan="6"><div class="empty">起始日期不能晚於結束日期。</div></td></tr>`);
+    setRenderedHtml($("#ledgerFigures"), "");
+    $("#ledgerSearchTotal").hidden = true;
+    setRenderedHtml($("#ledgerRows"), `<tr><td colspan="5"><div class="empty">起始日期不能晚於結束日期。</div></td></tr>`);
     requestAnimationFrame(() => syncScrollableList("ledgerList", 8));
     return;
   }
-  const entries = state.entries
-    .filter(isActiveEntry)
+  const active = state.entries.filter(isActiveEntry);
+  const monthEntries = active.filter(ranged
+    ? (entry) => (!dateFrom || entry.date >= dateFrom) && (!dateTo || entry.date <= dateTo)
+    : (entry) => entry.date.startsWith(ledgerMonth));
+  const sum = (items) => items.reduce((total, entry) => total + Number(entry.amount), 0);
+  const income = monthEntries.filter((entry) => entry.type === "income");
+  const expense = monthEntries.filter((entry) => entry.type === "expense");
+  const net = sum(income) - sum(expense);
+  const signed = (value) => `${value > 0 ? "+" : value < 0 ? "-" : ""}${fmt.format(Math.abs(value))}`;
+  const figure = (value, label, items, amount, tone) => `
+    <button type="button" class="figure-row" data-ledger-type="${value}" aria-pressed="${type === value}">
+      <span>${label}<small>${items.length} 筆</small></span><strong class="${tone}">${amount}</strong>
+    </button>`;
+  setRenderedHtml($("#ledgerFigures"), [
+    figure("income", "收入", income, fmt.format(sum(income)), "income"),
+    figure("expense", "支出", expense, fmt.format(sum(expense)), "expense"),
+    figure("all", "淨額", monthEntries, signed(net), net > 0 ? "income" : net < 0 ? "expense" : "")
+  ].join(""));
+
+  const entries = (query && !ranged ? active : monthEntries)
     .filter((entry) => type === "all" || entry.type === type)
     .filter((entry) => parent === "all" || (type === "all"
       ? matchesParentFilter(entry, entry.type, parent)
       : matchesParentFilter(entry, type, parent)))
-    .filter((entry) => !dateFrom || entry.date >= dateFrom)
-    .filter((entry) => !dateTo || entry.date <= dateTo)
     .filter((entry) => !query || [entry.title, entry.note, entry.parent, entry.child, entry.method, accountName(entry.accountId)].join(" ").toLowerCase().includes(query))
     .sort((a, b) => b.date.localeCompare(a.date));
 
@@ -414,24 +440,29 @@ function renderLedger() {
     const total = entries.reduce((sum, entry) => sum + signedAmount(entry), 0);
     searchTotal.hidden = false;
     searchTotal.className = `ledger-search-total ${total > 0 ? "income" : total < 0 ? "expense" : ""}`;
-    searchTotal.textContent = `${total > 0 ? "+" : total < 0 ? "-" : ""}${fmt.format(Math.abs(total))}`;
+    searchTotal.textContent = signed(total);
   } else {
     searchTotal.hidden = true;
     searchTotal.textContent = "";
   }
 
+  const claimPeople = new Map(state.claims.map((claim) => [claim.id, claim.person]));
+  const detail = (entry) => (entry.claimId
+    ? ["報銷付款", claimPeople.get(entry.claimId)]
+    : [entry.title && entry.title !== entry.child ? entry.title : "", entry.note]
+  ).filter(Boolean).map(escapeHtml).join(" · ");
+  const empty = !state.entries.length ? "尚未新增收支紀錄。"
+    : !query && !monthEntries.length ? (ranged ? "這段期間沒有收支紀錄。" : `${year} 年 ${number} 月沒有收支紀錄。`)
+    : "沒有符合條件的收支紀錄。";
   setRenderedHtml($("#ledgerRows"), entries.length ? entries.map((entry) => `
-    <tr class="selectable-row" data-select-entry="${entry.id}" tabindex="0" aria-label="選取 ${escapeHtml(entry.title || entry.child || "未命名紀錄")}" aria-selected="${$("#entryId").value === entry.id}">
-      <td>${escapeHtml(entry.date)}</td>
-      <td>${entry.type === "income" ? "收入" : "支出"}</td>
-      <td>${escapeHtml(entry.title || entry.child || "未命名紀錄")}<br><span class="subtle">${escapeHtml(accountName(entry.accountId))} · ${escapeHtml(entry.method || "")}</span></td>
-      <td>${escapeHtml(entry.parent)} / ${escapeHtml(entry.child)}</td>
-      <td class="num ${amountClass(entry.type)}">${fmt.format(Number(entry.amount))}</td>
-      <td>${entry.claimId
-        ? `<span class="managed-entry-note">請至報銷頁管理</span>`
-        : `<div class="inline-actions"><button class="danger" data-delete-entry="${entry.id}">刪除</button></div>`}
+    <tr class="selectable-row" data-select-entry="${entry.id}" tabindex="0" aria-label="開啟 ${escapeHtml(entry.title || entry.child || "未命名紀錄")}">
+      <td title="${escapeHtml(entry.date)}">${dateCell(entry.date)}</td>
+      <td>${escapeHtml(entry.parent)} / ${escapeHtml(entry.child)}${detail(entry) ? `<br><span class="subtle ledger-detail">${detail(entry)}</span>` : ""}</td>
+      <td>${escapeHtml(accountName(entry.accountId))}<br><span class="subtle ledger-detail">${escapeHtml(entry.method || "")}</span></td>
+      <td class="num ${amountClass(entry.type)}">${entry.type === "income" ? "+" : "-"}${fmt.format(Number(entry.amount))}</td>
+      <td class="ledger-actions-cell">${entry.claimId ? "" : `<button type="button" class="danger" data-delete-entry="${entry.id}">刪除</button>`}</td>
     </tr>
-  `).join("") : `<tr><td colspan="6"><div class="empty">${state.entries.length ? "沒有符合條件的收支紀錄。" : "尚未新增收支紀錄。"}</div></td></tr>`);
+  `).join("") : `<tr><td colspan="5"><div class="empty">${empty}</div></td></tr>`);
   requestAnimationFrame(() => syncScrollableList("ledgerList", 8));
 }
 
@@ -450,18 +481,33 @@ function shortDate(date) {
   return date.slice(0, 4) === today().slice(0, 4) ? `${Number(date.slice(5, 7))}/${Number(date.slice(8))}` : date;
 }
 
+// The date column: "11/22", with the year underneath when it is not this year.
+function dateCell(date) {
+  if (!isValidDateValue(date) || date.slice(0, 4) === today().slice(0, 4)) return escapeHtml(shortDate(date));
+  return `${Number(date.slice(5, 7))}/${Number(date.slice(8))}<br><span class="subtle date-year">${date.slice(0, 4)}</span>`;
+}
+
 // A small second line under the category: the receipt links (or note) and attachments.
 function claimReceiptLine(claim) {
   const parts = [claim.receipt ? claimReceiptMarkup(claim.receipt) : "", claim.attachments?.length ? `${claim.attachments.length} 個附件` : ""].filter(Boolean);
   return parts.length ? `<br><span class="subtle claim-receipt">${parts.join(" · ")}</span>` : "";
 }
 
+// Every claim counted by status beside the list; the counts double as the status filter.
 function renderClaims() {
   const query = $("#claimSearch").value.trim().toLowerCase();
   const status = $("#claimStatusFilter").value;
   const parent = $("#claimParentFilter").value;
   const dateFrom = isValidDateValue($("#claimDateFrom").value) ? $("#claimDateFrom").value : "";
   const dateTo = isValidDateValue($("#claimDateTo").value) ? $("#claimDateTo").value : "";
+  setRenderedHtml($("#claimFigures"), ["all", "pending", "approved", "paid", "rejected"].map((value) => {
+    const items = value === "all" ? state.claims : state.claims.filter((claim) => claim.status === value);
+    const waiting = (value === "pending" || value === "approved") && items.length > 0;
+    return `
+    <button type="button" class="figure-row${waiting ? " waiting" : ""}" data-claim-status="${value}" aria-pressed="${status === value}">
+      <span>${value === "all" ? "全部" : statusText[value]}<small>${items.length} 筆</small></span><strong>${fmt.format(items.reduce((total, claim) => total + Number(claim.amount), 0))}</strong>
+    </button>`;
+  }).join(""));
   if (dateFrom && dateTo && dateFrom > dateTo) {
     setRenderedHtml($("#claimRows"), `<tr class="claim-empty-row"><td colspan="6"><div class="empty">起始日期不能晚於結束日期。</div></td></tr>`);
     requestAnimationFrame(() => syncScrollableList("claimList", 8));
@@ -487,7 +533,7 @@ function renderClaims() {
 
   setRenderedHtml($("#claimRows"), claims.length ? claims.map((claim) => `
     <tr class="selectable-row" data-select-claim="${claim.id}" tabindex="0" aria-label="開啟 ${escapeHtml(claim.person)}的報銷申請">
-      <td data-label="日期" title="${escapeHtml(claim.date)}">${escapeHtml(shortDate(claim.date))}</td>
+      <td data-label="日期" title="${escapeHtml(claim.date)}">${dateCell(claim.date)}</td>
       <td data-label="申請人">${escapeHtml(claim.person)}</td>
       <td data-label="分類">${escapeHtml(claim.parent)} / ${escapeHtml(claim.child)}${claimReceiptLine(claim)}</td>
       <td class="num" data-label="金額">${fmt.format(Number(claim.amount))}</td>

@@ -2,12 +2,28 @@ function resetEntryForm() {
   $("#entryForm").reset();
   $("#entryId").value = "";
   $("#entryFormTitle").textContent = "新增收支";
-  $("#entrySubmit").textContent = "儲存";
-  $("#entryCancel").textContent = "重設";
   setDateValue("entryDate", today());
   $("#entryType").value = "income";
   setCategoryEditor("entry", "income", "", "");
   setAccountOptions($("#entryAccount"), state.accounts.find((account) => account.active)?.id);
+}
+
+// A record is added or edited in a dialog; the list keeps the page.
+function openEntryDialog() {
+  resetEntryForm();
+  $("#entryDialog").hidden = false;
+  $("#entryDate").focus();
+}
+
+function closeEntryDialog() {
+  $("#entryDialog").hidden = true;
+  resetEntryForm();
+}
+
+function shiftLedgerMonth(delta) {
+  const [year, number] = ledgerMonth.split("-").map(Number);
+  ledgerMonth = dateKey(new Date(year, number - 1 + delta, 1)).slice(0, 7);
+  renderLedger();
 }
 
 function selectEntry(entry) {
@@ -21,10 +37,11 @@ function selectEntry(entry) {
     return;
   }
   if (affectsLockedBalance(entry.date)) return toast("這筆資料會影響已鎖定月份的帳面，請先到「對帳」解鎖。");
+  ledgerMonth = entry.date.slice(0, 7);
+  document.querySelector('[data-section="ledger"]').click();
+  resetEntryForm();
   $("#entryId").value = entry.id;
   $("#entryFormTitle").textContent = "編輯收支";
-  $("#entrySubmit").textContent = "更新";
-  $("#entryCancel").textContent = "取消編輯";
   setDateValue("entryDate", entry.date);
   $("#entryType").value = entry.type;
   setCategoryEditor("entry", entry.type, entry.parent, entry.child);
@@ -32,9 +49,7 @@ function selectEntry(entry) {
   $("#entryMethod").value = entry.method || "現金";
   setAccountOptions($("#entryAccount"), entry.accountId, true);
   $("#entryNote").value = entry.note || "";
-  document.querySelector('[data-section="ledger"]').click();
-  renderLedger();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  $("#entryDialog").hidden = false;
 }
 
 function resetClaimForm() {
@@ -139,8 +154,10 @@ function upsertEntry(event) {
   const index = state.entries.findIndex((entry) => entry.id === id);
   if (index >= 0) state.entries[index] = record;
   else state.entries.push(record);
+  // The list moves to the record's month, so it shows where it went.
+  ledgerMonth = record.date.slice(0, 7);
   if (!saveState()) return;
-  resetEntryForm();
+  closeEntryDialog();
   toast("收支紀錄已儲存。");
 }
 

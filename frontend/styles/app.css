@@ -239,9 +239,6 @@ h3 { font-size: 15px; margin-bottom: 10px; }
   align-items: start;
 }
 
-#ledger > .grid,
-#reimburse > .grid,
-
 #people > .people-grid {
   display: grid;
   grid-template-columns: minmax(400px, 45fr) minmax(0, 55fr);
@@ -491,14 +488,15 @@ tr:last-child td { border-bottom: 0; }
   table-layout: fixed;
 }
 
-.ledger-table col:nth-child(1) { width: 13%; }
-.ledger-table col:nth-child(2) { width: 8%; }
+.ledger-table col:nth-child(1) { width: 12%; }
+.ledger-table col:nth-child(2) { width: 42%; }
 .ledger-table col:nth-child(3) { width: 18%; }
-.ledger-table col:nth-child(4) { width: 22%; }
+.ledger-table col:nth-child(4) { width: 14%; }
 .ledger-table col:nth-child(5) { width: 14%; }
-.ledger-table col:nth-child(6) { width: 25%; }
 .ledger-table th,
-.ledger-table td { padding-inline: 8px; }
+.ledger-table td { padding-inline: 8px; vertical-align: middle; overflow-wrap: anywhere; }
+.ledger-detail { font-size: 12px; }
+.date-year { font-size: 12px; }
 .ledger-table td:first-child { white-space: nowrap; }
 .ledger-table th:last-child,
 .ledger-table td:last-child:not([colspan]) { text-align: right; }
@@ -511,10 +509,10 @@ tr:last-child td { border-bottom: 0; }
 
 .claim-table col:nth-child(1) { width: 10%; }
 .claim-table col:nth-child(2) { width: 14%; }
-.claim-table col:nth-child(3) { width: 34%; }
+.claim-table col:nth-child(3) { width: 30%; }
 .claim-table col:nth-child(4) { width: 12%; }
-.claim-table col:nth-child(5) { width: 18%; }
-.claim-table col:nth-child(6) { width: 12%; }
+.claim-table col:nth-child(5) { width: 14%; }
+.claim-table col:nth-child(6) { width: 20%; }
 .claim-table th,
 .claim-table td { padding-inline: 8px; }
 .claim-table td { overflow-wrap: anywhere; }
@@ -864,13 +862,6 @@ dialog::backdrop { background: rgba(32, 33, 31, .42); }
 .dialog-actions { margin-top: 20px; }
 .confirmation-message { margin: 14px 0 0; color: var(--muted); white-space: pre-line; }
 
-.managed-entry-note {
-  display: inline-block;
-  max-width: 120px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.35;
-}
 
 .icon-button {
   width: 40px;
@@ -1228,8 +1219,6 @@ tr:hover .copy-text svg, .copy-text:focus-visible svg { opacity: 1; }
   .nav-button span:last-child { display: none; }
   .sidebar-note { display: none; }
   .grid { grid-template-columns: 1fr; }
-  #ledger > .grid,
-  #reimburse > .grid,
   #people > .people-grid { grid-template-columns: 1fr; }
   .month-list { grid-template-columns: repeat(6, minmax(42px, 1fr)); }
 }
@@ -1283,7 +1272,7 @@ tr:hover .copy-text svg, .copy-text:focus-visible svg { opacity: 1; }
   .claim-table .claim-status-cell { grid-column: 1 / -1; }
   .claim-table .claim-empty-row { display: block; }
   .claim-table .claim-empty-row td::before { display: none; }
-  .ledger-table { min-width: 720px; }
+  .ledger-table { min-width: 560px; }
   .people-table { min-width: 500px; }
   .balance-guide { grid-template-columns: 1fr; }
   .balance-guide div { padding: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--soft-line); }
@@ -1389,9 +1378,35 @@ tr:hover .copy-text svg, .copy-text:focus-visible svg { opacity: 1; }
 .reconcile-history button { min-height: 30px; padding: 0 10px; font-size: 13px; }
 .saved-badge { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
 
-/* 報銷: the list has the page; the form opens in a wider dialog. */
+/* 記帳 and 報銷: figures and filters in a narrow column beside the list; the forms open in dialogs.
+   The figures are buttons that filter the list. */
+.list-layout { display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: 14px; align-items: start; }
+.list-side { display: grid; gap: 14px; }
+.side-panel { padding: 14px; }
+.side-panel h2 { font-size: 15px; margin-bottom: 10px; }
+.side-panel .month-switch { justify-content: space-between; margin-bottom: 10px; }
+.month-switch[hidden] { display: none; }
+#ledgerRangeLabel { font-variant-numeric: tabular-nums; }
+.figure-list { display: grid; gap: 4px; }
+.figure-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 46px; padding: 0 10px; border-color: transparent; background: transparent; text-align: left; }
+.figure-row:hover { border-color: var(--line); }
+.figure-row[aria-pressed="true"] { border-color: var(--ink); background: var(--field); }
+.figure-row > span { display: grid; gap: 1px; font-size: 14px; }
+.figure-row small { color: var(--muted); font-size: 12px; }
+.figure-row strong { font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.figure-row.waiting > span { color: var(--warn); font-weight: 650; }
+.side-filters { display: grid; gap: 10px; }
+.ledger-heading #newEntry,
 .claim-heading #newClaim { margin-left: auto; min-height: 34px; padding: 0 12px; font-size: 14px; }
+.ledger-actions-cell { text-align: right; white-space: nowrap; }
+.ledger-actions-cell button { min-height: 32px; padding: 0 10px; font-size: 13px; }
+.entry-dialog-card,
 .claim-dialog-card { width: min(560px, 100%); }
+@media (max-width: 1180px) {
+  .list-layout { grid-template-columns: minmax(0, 1fr); }
+  .list-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) { .list-side { grid-template-columns: minmax(0, 1fr); } }
 .claim-table td { vertical-align: middle; }
 .claim-receipt { font-size: 12px; }
 .claim-status-cell .pill { min-height: 26px; padding-inline: 8px; font-size: 12px; }

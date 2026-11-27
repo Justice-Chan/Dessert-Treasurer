@@ -8,6 +8,7 @@ async function openSection(page, name) {
 }
 
 async function addEntry(page, { type = "income", parent, child, amount, note = "" }) {
+  await page.locator("#newEntry").click();
   await page.locator("#entryDate").fill(date);
   await page.locator("#entryType").selectOption(type);
   await page.locator("#entryParent").selectOption(parent);
@@ -28,9 +29,13 @@ test("can create and select a ledger record", async ({ page }) => {
   await openSection(page, "記帳");
   await addEntry(page, { parent: "社費與會費", child: "單次活動費", amount: 500, note: "測試收款" });
   await expect(page.locator("#ledgerRows")).toContainText("單次活動費");
-  await expect(page.locator("#ledgerRows")).toContainText("$500");
+  await expect(page.locator("#ledgerRows")).toContainText("+$500");
+  // The list moved to the record's month.
+  await expect(page.locator("#ledgerMonthLabel")).toHaveText("2099 年 9 月");
+  await expect(page.locator("#entryDialog")).toBeHidden();
 
   await page.locator("[data-select-entry]").click();
+  await expect(page.locator("#entryDialog")).toBeVisible();
   await expect(page.locator("#entryFormTitle")).toHaveText("編輯收支");
   await expect(page.locator("#entryAmount")).toHaveValue("500");
 });
@@ -38,8 +43,8 @@ test("can create and select a ledger record", async ({ page }) => {
 test("ledger search shows the net total of matching records", async ({ page }) => {
   await openSection(page, "記帳");
   await addEntry(page, { parent: "社費與會費", child: "單次活動費", amount: 300, note: "杜拜巧克力餅收入" });
-  await page.locator("#entryCancel").click();
   await addEntry(page, { type: "expense", parent: "食材與耗材", child: "糖與巧克力", amount: 100, note: "杜拜巧克力餅材料" });
+  await expect(page.locator('[data-ledger-type="all"]')).toContainText("+$200");
 
   const total = page.locator("#ledgerSearchTotal");
   await expect(total).toBeHidden();
@@ -47,11 +52,22 @@ test("ledger search shows the net total of matching records", async ({ page }) =
   await expect(total).toHaveText("+$200");
   await expect(total).toHaveClass(/income/);
 
-  await page.locator("#ledgerType").selectOption("expense");
+  await page.locator('[data-ledger-type="expense"]').click();
   await expect(total).toHaveText("-$100");
   await expect(total).toHaveClass(/expense/);
   await page.locator("#ledgerSearch").fill("");
   await expect(total).toBeHidden();
+
+  // A date range replaces the month, in the list and in the figures.
+  await page.locator('[data-ledger-type="all"]').click();
+  await page.locator("#ledgerDateFrom").fill("2099-09-01");
+  await page.locator("#ledgerDateTo").fill("2099-09-30");
+  await expect(page.locator("#ledgerMonthSwitch")).toBeHidden();
+  await expect(page.locator("#ledgerRangeLabel")).toHaveText("2099-09-01 – 2099-09-30");
+  await expect(page.locator("[data-select-entry]")).toHaveCount(2);
+  await page.locator("#ledgerDateTo").fill("2099-09-19");
+  await expect(page.locator("#ledgerRows")).toContainText("這段期間沒有收支紀錄");
+  await expect(page.locator('[data-ledger-type="all"]')).toContainText("$0");
 });
 
 test("approved claim payment creates and can revoke its linked expense", async ({ page }) => {
@@ -65,12 +81,16 @@ test("approved claim payment creates and can revoke its linked expense", async (
   await page.locator("#claimStatus").selectOption("approved");
   await page.locator("#claimSubmit").click();
 
-  await page.getByRole("button", { name: "付款" }).click();
+  await page.getByRole("button", { name: "付款", exact: true }).click();
   await expect(page.locator("#claimPaymentDialog")).toBeVisible();
   await page.locator("#claimPaymentDate").fill(date);
   await page.getByRole("button", { name: "確認付款" }).click();
   await expect(page.locator("#claimRows")).toContainText("已付款");
+  await openSection(page, "記帳");
+  await page.locator("#ledgerSearch").fill("測試社員");
+  await expect(page.locator("#ledgerRows")).toContainText("報銷付款 · 測試社員");
 
+  await openSection(page, "報銷");
   await page.locator("#claimRows [data-row-menu]").click();
   await page.getByRole("menuitem", { name: "撤銷" }).click();
   await expect(page.locator("#appActionConfirmDialog")).toBeVisible();
@@ -78,7 +98,7 @@ test("approved claim payment creates and can revoke its linked expense", async (
   await expect(page.locator("#claimRows")).toContainText("已核准");
 
   await openSection(page, "記帳");
-  await expect(page.locator("#ledgerRows")).not.toContainText("報銷：場地費");
+  await expect(page.locator("#ledgerRows")).not.toContainText("報銷付款");
 });
 
 test("claim search shows the total of matching reimbursements", async ({ page }) => {
@@ -98,7 +118,8 @@ test("claim search shows the total of matching reimbursements", async ({ page })
   await expect(total).toHaveText("-$500");
   await expect(total).toHaveClass(/expense/);
 
-  await page.locator("#claimStatusFilter").selectOption("approved");
+  await expect(page.locator('[data-claim-status="pending"]')).toContainText("2 筆");
+  await page.locator('[data-claim-status="approved"]').click();
   await expect(total).toHaveText("-$200");
   await page.locator("#claimSearch").fill("");
   await expect(total).toBeHidden();
@@ -107,7 +128,7 @@ test("claim search shows the total of matching reimbursements", async ({ page })
 test("trash restores selected records only after confirmation", async ({ page }) => {
   await openSection(page, "記帳");
   await addEntry(page, { parent: "社費與會費", child: "補繳", amount: 300 });
-  await page.getByRole("button", { name: "刪除" }).click();
+  await page.locator("#ledgerRows").getByRole("button", { name: "刪除" }).click();
   await page.getByRole("button", { name: "確認刪除" }).click();
 
   await openSection(page, "垃圾桶");

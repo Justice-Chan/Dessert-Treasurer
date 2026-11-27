@@ -100,94 +100,41 @@
       </section>
 
       <section class="section" id="ledger" aria-labelledby="pageTitle">
-        <div class="grid">
-          <form class="panel" id="entryForm">
-            <h2 id="entryFormTitle">新增收支</h2>
-            <input type="hidden" id="entryId">
-            <div class="form-grid">
-              <div class="field">
-                <label for="entryDate">日期</label>
-                <div class="date-control" data-date-control>
-                  <input id="entryDate" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" required>
-                  <button type="button" class="date-picker-trigger" aria-label="選擇日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
-                  <input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true">
-                </div>
+        <div class="list-layout">
+          <div class="list-side">
+            <div class="panel side-panel">
+              <div class="month-switch" id="ledgerMonthSwitch">
+                <button type="button" class="icon-button" id="ledgerPrev" aria-label="上個月">‹</button>
+                <strong id="ledgerMonthLabel"></strong>
+                <button type="button" class="icon-button" id="ledgerNext" aria-label="下個月">›</button>
               </div>
-              <div class="field">
-                <label for="entryType">類型</label>
-                <select id="entryType" required>
-                  <option value="income">收入</option>
-                  <option value="expense">支出</option>
+              <h2 id="ledgerRangeLabel" hidden></h2>
+              <input type="hidden" id="ledgerType" value="all">
+              <div class="figure-list" id="ledgerFigures"></div>
+            </div>
+            <div class="panel side-panel">
+              <h2>篩選</h2>
+              <div class="side-filters">
+                <select id="ledgerParent" aria-label="主項目">
+                  <option value="all">全部主項目</option>
                 </select>
-              </div>
-              <div class="field">
-                <label for="entryParent">主項目</label>
-                <select id="entryParent" required></select>
-              </div>
-              <div class="field">
-                <label for="entryChild">副項目</label>
-                <select id="entryChild" required></select>
-              </div>
-              <div class="field full custom-category-field" id="entryParentOtherField" hidden>
-                <label for="entryParentOther">自訂主項目</label>
-                <input id="entryParentOther" aria-label="記帳自訂主項目" placeholder="輸入自訂主項目">
-              </div>
-              <div class="field full custom-category-field" id="entryChildOtherField" hidden>
-                <label for="entryChildOther">自訂副項目</label>
-                <input id="entryChildOther" aria-label="記帳自訂副項目" placeholder="輸入自訂副項目">
-              </div>
-              <div class="field">
-                <label for="entryAmount">金額</label>
-                <input id="entryAmount" type="number" min="0" step="1" required placeholder="0">
-              </div>
-              <div class="field">
-                <label for="entryMethod">付款方式</label>
-                <select id="entryMethod">
-                  <option>現金</option>
-                  <option>轉帳</option>
-                  <option value="代墊待報銷" disabled>代墊待報銷（請使用報銷頁）</option>
-                </select>
-              </div>
-              <div class="field full">
-                <label for="entryAccount">帳戶</label>
-                <select id="entryAccount" required></select>
-              </div>
-              <div class="field full">
-                <label for="entryNote">備註</label>
-                <textarea id="entryNote" placeholder="收據號碼、活動名稱、採買人等"></textarea>
+                <input id="ledgerSearch" placeholder="搜尋項目、備註（不限月份）" aria-label="搜尋收支紀錄">
+                <label class="compact-label"><span>起始日期</span><span class="date-control with-clear" data-date-control><input id="ledgerDateFrom" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇記帳起始日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="ledgerDateFrom">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
+                <label class="compact-label"><span>結束日期</span><span class="date-control with-clear" data-date-control><input id="ledgerDateTo" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇記帳結束日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="ledgerDateTo">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
               </div>
             </div>
-            <div class="form-actions">
-              <button type="button" id="entryCancel">重設</button>
-              <button class="primary" type="submit" id="entrySubmit">儲存</button>
-            </div>
-          </form>
-
+          </div>
           <div class="panel">
             <div class="ledger-heading">
               <h2>收支紀錄</h2>
               <strong id="ledgerSearchTotal" class="ledger-search-total" hidden aria-live="polite"></strong>
-            </div>
-            <div class="filters with-dates">
-              <input id="ledgerSearch" placeholder="搜尋項目、備註、分類">
-              <select id="ledgerType">
-                <option value="all">全部類型</option>
-                <option value="income">收入</option>
-                <option value="expense">支出</option>
-              </select>
-              <select id="ledgerParent">
-                <option value="all">全部主項目</option>
-              </select>
-              <div class="filter-date-row">
-                <label class="compact-label"><span>起始日期</span><span class="date-control with-clear" data-date-control><input id="ledgerDateFrom" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇起始日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="ledgerDateFrom">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
-                <label class="compact-label"><span>結束日期</span><span class="date-control with-clear" data-date-control><input id="ledgerDateTo" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇結束日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="ledgerDateTo">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
-              </div>
+              <button type="button" id="newEntry">＋ 新增收支</button>
             </div>
             <div class="table-wrap scroll-list" id="ledgerList">
               <table class="ledger-table">
-                <colgroup><col><col><col><col><col><col></colgroup>
-                <thead><tr><th>日期</th><th>類型</th><th>項目</th><th>分類</th><th class="num">金額</th><th>操作</th></tr></thead>
-                <tbody id="ledgerRows"><tr><td colspan="6"><div class="empty">尚未新增收支紀錄。</div></td></tr></tbody>
+                <colgroup><col><col><col><col><col></colgroup>
+                <thead><tr><th>日期</th><th>分類</th><th>帳戶</th><th class="num">金額</th><th><span class="visually-hidden">操作</span></th></tr></thead>
+                <tbody id="ledgerRows"><tr><td colspan="5"><div class="empty">尚未新增收支紀錄。</div></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -195,37 +142,40 @@
       </section>
 
       <section class="section" id="reimburse" aria-labelledby="pageTitle">
-        <div class="panel">
-          <div class="claim-heading">
-            <h2>報銷清單</h2>
-            <strong id="claimSearchTotal" class="claim-search-total expense" hidden aria-live="polite"></strong>
-            <button type="button" id="newClaim">＋ 新增報銷</button>
-          </div>
-          <div class="filters with-dates">
-            <input id="claimSearch" placeholder="搜尋申請人、用途、憑證">
-            <select id="claimStatusFilter">
-              <option value="all">全部狀態</option>
-              <option value="pending">待審核</option>
-              <option value="approved">已核准</option>
-              <option value="paid">已付款</option>
-              <option value="rejected">退回</option>
-            </select>
-            <select id="claimParentFilter">
-              <option value="all">全部主項目</option>
-            </select>
-            <div class="filter-date-row">
-              <label class="compact-label"><span>起始日期</span><span class="date-control with-clear" data-date-control><input id="claimDateFrom" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇報銷起始日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="claimDateFrom">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
-              <label class="compact-label"><span>結束日期</span><span class="date-control with-clear" data-date-control><input id="claimDateTo" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇報銷結束日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="claimDateTo">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
+        <div class="list-layout">
+          <div class="list-side">
+            <div class="panel side-panel">
+              <h2>狀態</h2>
+              <input type="hidden" id="claimStatusFilter" value="all">
+              <div class="figure-list" id="claimFigures"></div>
+            </div>
+            <div class="panel side-panel">
+              <h2>篩選</h2>
+              <div class="side-filters">
+                <select id="claimParentFilter" aria-label="主項目">
+                  <option value="all">全部主項目</option>
+                </select>
+                <input id="claimSearch" placeholder="搜尋申請人、用途、憑證" aria-label="搜尋報銷申請">
+                <label class="compact-label"><span>起始日期</span><span class="date-control with-clear" data-date-control><input id="claimDateFrom" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇報銷起始日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="claimDateFrom">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
+                <label class="compact-label"><span>結束日期</span><span class="date-control with-clear" data-date-control><input id="claimDateTo" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off"><button type="button" class="date-picker-trigger" aria-label="選擇報銷結束日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button><button type="button" class="clear-date" data-clear-date="claimDateTo">清空</button><input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true"></span></label>
+              </div>
             </div>
           </div>
-          <div class="table-wrap scroll-list" id="claimList">
-            <table class="claim-table">
-              <colgroup><col><col><col><col><col><col></colgroup>
-              <thead><tr><th>日期</th><th>申請人</th><th>分類</th><th class="num">金額</th><th>狀態</th><th><span class="visually-hidden">操作</span></th></tr></thead>
-              <tbody id="claimRows"><tr class="claim-empty-row"><td colspan="6"><div class="empty">尚未新增報銷申請。</div></td></tr></tbody>
-            </table>
+          <div class="panel">
+            <div class="claim-heading">
+              <h2>報銷清單</h2>
+              <strong id="claimSearchTotal" class="claim-search-total expense" hidden aria-live="polite"></strong>
+              <button type="button" id="newClaim">＋ 新增報銷</button>
+            </div>
+            <div class="table-wrap scroll-list" id="claimList">
+              <table class="claim-table">
+                <colgroup><col><col><col><col><col><col></colgroup>
+                <thead><tr><th>日期</th><th>申請人</th><th>分類</th><th class="num">金額</th><th>狀態</th><th><span class="visually-hidden">操作</span></th></tr></thead>
+                <tbody id="claimRows"><tr class="claim-empty-row"><td colspan="6"><div class="empty">尚未新增報銷申請。</div></td></tr></tbody>
+              </table>
+            </div>
+            <p class="notice">報銷核准後，請使用清單中的「付款」記錄付款日期與帳戶。</p>
           </div>
-          <p class="notice">報銷核准後，請使用清單中的「付款」記錄付款日期與帳戶。</p>
         </div>
       </section>
 
@@ -587,6 +537,69 @@
       </div>
     </form>
   </div></div>
+  <div class="app-modal" id="entryDialog" role="dialog" aria-modal="true" aria-labelledby="entryFormTitle" hidden>
+    <form class="app-modal-card entry-dialog-card" id="entryForm">
+      <h2 id="entryFormTitle">新增收支</h2>
+      <input type="hidden" id="entryId">
+      <div class="form-grid">
+        <div class="field">
+          <label for="entryDate">日期</label>
+          <div class="date-control" data-date-control>
+            <input id="entryDate" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" required>
+            <button type="button" class="date-picker-trigger" aria-label="選擇日期" title="選擇日期"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
+            <input class="native-date-picker" type="date" tabindex="-1" aria-hidden="true">
+          </div>
+        </div>
+        <div class="field">
+          <label for="entryType">類型</label>
+          <select id="entryType" required>
+            <option value="income">收入</option>
+            <option value="expense">支出</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="entryParent">主項目</label>
+          <select id="entryParent" required></select>
+        </div>
+        <div class="field">
+          <label for="entryChild">副項目</label>
+          <select id="entryChild" required></select>
+        </div>
+        <div class="field full custom-category-field" id="entryParentOtherField" hidden>
+          <label for="entryParentOther">自訂主項目</label>
+          <input id="entryParentOther" aria-label="記帳自訂主項目" placeholder="輸入自訂主項目">
+        </div>
+        <div class="field full custom-category-field" id="entryChildOtherField" hidden>
+          <label for="entryChildOther">自訂副項目</label>
+          <input id="entryChildOther" aria-label="記帳自訂副項目" placeholder="輸入自訂副項目">
+        </div>
+        <div class="field">
+          <label for="entryAmount">金額</label>
+          <input id="entryAmount" type="number" min="0" step="1" required placeholder="0">
+        </div>
+        <div class="field">
+          <label for="entryMethod">付款方式</label>
+          <select id="entryMethod">
+            <option>現金</option>
+            <option>轉帳</option>
+            <option value="代墊待報銷" disabled>代墊待報銷（請使用報銷頁）</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="entryAccount">帳戶</label>
+          <select id="entryAccount" required></select>
+        </div>
+        <div class="field full">
+          <label for="entryNote">備註</label>
+          <textarea id="entryNote" placeholder="收據號碼、活動名稱、採買人等"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="entryCancel">取消</button>
+        <button class="primary" type="submit" id="entrySubmit">儲存</button>
+      </div>
+    </form>
+  </div>
   <div class="app-modal" id="claimDialog" role="dialog" aria-modal="true" aria-labelledby="claimFormTitle" hidden>
     <form class="app-modal-card claim-dialog-card" id="claimForm">
       <h2 id="claimFormTitle">新增報銷</h2>

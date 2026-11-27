@@ -189,10 +189,10 @@ function bindEvents() {
     });
   });
   $("#reconciliationForm").addEventListener("submit", saveReconciliation);
-  $("#entryCancel").addEventListener("click", () => {
-    resetEntryForm();
-    renderLedger();
-  });
+  $("#newEntry").addEventListener("click", openEntryDialog);
+  $("#entryCancel").addEventListener("click", closeEntryDialog);
+  $("#entryDialog").addEventListener("click", (event) => { if (event.target === $("#entryDialog")) closeEntryDialog(); });
+  $("#entryDialog").addEventListener("keydown", (event) => { if (event.key === "Escape") closeEntryDialog(); });
   $("#newClaim").addEventListener("click", openClaimDialog);
   $("#claimCancel").addEventListener("click", closeClaimDialog);
   $("#claimDialog").addEventListener("click", (event) => { if (event.target === $("#claimDialog")) closeClaimDialog(); });
@@ -357,11 +357,23 @@ function bindEvents() {
       toast(locked ? "月份已解鎖。" : "月份已鎖定。");
     }});
   });
-  $("#ledgerType").addEventListener("change", () => {
+  $("#ledgerPrev").addEventListener("click", () => shiftLedgerMonth(-1));
+  $("#ledgerNext").addEventListener("click", () => shiftLedgerMonth(1));
+  // The month's figures double as the type filter, and the status counts as the status filter.
+  $("#ledgerFigures").addEventListener("click", (event) => {
+    const row = event.target.closest("[data-ledger-type]");
+    if (!row) return;
+    $("#ledgerType").value = row.dataset.ledgerType;
     updateLedgerParentFilter();
     renderLedger();
   });
-  ["ledgerSearch", "ledgerParent", "ledgerDateFrom", "ledgerDateTo", "claimSearch", "claimStatusFilter", "claimParentFilter", "claimDateFrom", "claimDateTo"].forEach((id) => $("#" + id).addEventListener("input", render));
+  $("#claimFigures").addEventListener("click", (event) => {
+    const row = event.target.closest("[data-claim-status]");
+    if (!row) return;
+    $("#claimStatusFilter").value = row.dataset.claimStatus;
+    renderClaims();
+  });
+  ["ledgerSearch", "ledgerParent", "ledgerDateFrom", "ledgerDateTo", "claimSearch", "claimParentFilter", "claimDateFrom", "claimDateTo"].forEach((id) => $("#" + id).addEventListener("input", render));
   ["personSearch", "activitySearch", "activityPersonSearch"].forEach((id) => $("#" + id).addEventListener("input", renderPeople));
   // Five digits typed in full count at once (and mark the person paid); fewer wait for the field to be left.
   $("#activityPersonRows").addEventListener("input", (event) => {
